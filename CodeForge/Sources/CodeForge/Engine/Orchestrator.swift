@@ -197,10 +197,43 @@ final class Orchestrator {
         }
     }
 
+    /// Extract JSON from text that might contain markdown code blocks or extra text
+    private func extractJSON(from text: String) -> Data? {
+        // Try direct parse first
+        if let data = text.data(using: .utf8),
+           (try? JSONSerialization.jsonObject(with: data)) != nil {
+            return data
+        }
+        // Try extracting from ```json ... ``` block
+        if let start = text.range(of: "```json"),
+           let end = text.range(of: "```", range: start.upperBound..<text.endIndex) {
+            let json = String(text[start.upperBound..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return json.data(using: .utf8)
+        }
+        // Try extracting from ``` ... ``` block
+        if let start = text.range(of: "```"),
+           let end = text.range(of: "```", range: start.upperBound..<text.endIndex) {
+            let json = String(text[start.upperBound..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return json.data(using: .utf8)
+        }
+        // Try finding first { to last }
+        if let firstBrace = text.firstIndex(of: "{"),
+           let lastBrace = text.lastIndex(of: "}") {
+            let json = String(text[firstBrace...lastBrace])
+            return json.data(using: .utf8)
+        }
+        return nil
+    }
+
     /// Parse analyzer JSON output and create features + tasks in DB
     private func handleAnalyzerCompletion(task: AgentTask, result: AgentResult) async {
-        guard let output = result.output, let data = output.data(using: .utf8) else {
+        guard let output = result.output else {
             try? await logError(taskId: task.id, agent: .analyzer, message: "Analyzer returned no output")
+            return
+        }
+
+        guard let data = extractJSON(from: output) else {
+            try? await logError(taskId: task.id, agent: .analyzer, message: "Could not extract JSON from analyzer output: \(output.prefix(200))")
             return
         }
 

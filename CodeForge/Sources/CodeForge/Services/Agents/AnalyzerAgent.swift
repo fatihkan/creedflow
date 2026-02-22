@@ -21,57 +21,24 @@ struct AnalyzerAgent: AgentProtocol {
         followed by business logic, then UI, then tests.
         """
 
-    let allowedTools: [String]? = ["Read", "Glob", "Grep"]
-    let maxBudgetUSD: Double = 2.0
-    let timeoutSeconds = 300 // 5 minutes
-    let streamOutput = false
-
-    var jsonSchema: String? {
-        """
-        {
-          "type": "object",
-          "properties": {
-            "projectName": { "type": "string" },
-            "techStack": { "type": "string" },
-            "features": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "name": { "type": "string" },
-                  "description": { "type": "string" },
-                  "priority": { "type": "integer" },
-                  "tasks": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "title": { "type": "string" },
-                        "description": { "type": "string" },
-                        "agentType": { "type": "string", "enum": ["coder", "devops", "tester"] },
-                        "priority": { "type": "integer" },
-                        "dependsOn": { "type": "array", "items": { "type": "string" } }
-                      },
-                      "required": ["title", "description", "agentType", "priority"]
-                    }
-                  }
-                },
-                "required": ["name", "description", "priority", "tasks"]
-              }
-            }
-          },
-          "required": ["projectName", "techStack", "features"]
-        }
-        """
-    }
+    let allowedTools: [String]? = [] // No tools needed — pure text analysis
+    let maxBudgetUSD: Double = 1.0
+    let timeoutSeconds = 120 // 2 minutes is enough
+    let streamOutput = true  // Show live progress in UI
 
     func buildPrompt(for task: AgentTask) -> String {
         """
-        Analyze the following project description and create a detailed feature/task breakdown:
+        Analyze the following project description and create a feature/task breakdown.
+        Respond with ONLY a JSON object (no markdown, no explanation) in this exact format:
 
+        {"projectName":"...","techStack":"...","features":[{"name":"...","description":"...","priority":1-10,"tasks":[{"title":"...","description":"...","agentType":"coder|devops|tester","priority":1-10,"dependsOn":["other task title"]}]}]}
+
+        Keep it concise: max 5 features, max 4 tasks per feature.
+        Priority 10 = highest. No circular dependencies.
+        Order: database/models first, then logic, then UI, then tests.
+
+        Project description:
         \(task.description)
-
-        Read any existing files in the project directory for additional context.
         """
     }
 }
