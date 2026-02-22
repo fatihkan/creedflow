@@ -152,7 +152,7 @@ struct ClaudeInvocation: Sendable {
             args += ["-p", prompt]
         }
 
-        args += ["--output-format", outputFormat.rawValue]
+        args += ["--output-format", outputFormat.rawValue, "--verbose"]
 
         if let systemPrompt {
             args += ["--system-prompt", systemPrompt]
