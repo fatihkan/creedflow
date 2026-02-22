@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "properties": {
+    "projectName": { "type": "string" },
+    "techStack": { "type": "string" },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": { "type": "string" },
+                "description": { "type": "string" },
+                "agentType": { "type": "string", "enum": ["coder", "devops", "tester"] },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "dependsOn": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["title", "description", "agentType", "priority"]
+            }
+          }
+        },
+        "required": ["name", "description", "priority", "tasks"]
+      }
+    }
+  },
+  "required": ["projectName", "techStack", "features"]
+}

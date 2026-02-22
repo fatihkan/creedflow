@@ -1,0 +1,70 @@
+import Foundation
+
+/// Wrapper around `git` CLI for repository operations.
+actor GitService {
+    private let gitPath: String
+
+    init(gitPath: String = "/usr/bin/git") {
+        self.gitPath = gitPath
+    }
+
+    /// Initialize a new git repository
+    func initRepo(at path: String) async throws {
+        try await run(["init"], in: path)
+    }
+
+    /// Create and checkout a new branch
+    func createBranch(_ name: String, in path: String) async throws {
+        try await run(["checkout", "-b", name], in: path)
+    }
+
+    /// Checkout an existing branch
+    func checkout(_ branch: String, in path: String) async throws {
+        try await run(["checkout", branch], in: path)
+    }
+
+    /// Stage all changes
+    func addAll(in path: String) async throws {
+        try await run(["add", "-A"], in: path)
+    }
+
+    /// Commit staged changes
+    func commit(message: String, in path: String) async throws {
+        try await run(["commit", "-m", message], in: path)
+    }
+
+    /// Get current branch name
+    func currentBranch(in path: String) async throws -> String {
+        let output = try await run(["branch", "--show-current"], in: path)
+        return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Get diff of current changes
+    func diff(in path: String) async throws -> String {
+        try await run(["diff"], in: path)
+    }
+
+    /// Get diff between two branches
+    func diff(from base: String, to head: String, in path: String) async throws -> String {
+        try await run(["diff", "\(base)...\(head)"], in: path)
+    }
+
+    /// Get status
+    func status(in path: String) async throws -> String {
+        try await run(["status", "--porcelain"], in: path)
+    }
+
+    /// Get log (last N commits)
+    func log(count: Int = 10, in path: String) async throws -> String {
+        try await run(["log", "--oneline", "-\(count)"], in: path)
+    }
+
+    @discardableResult
+    private func run(_ arguments: [String], in directory: String) async throws -> String {
+        try await Process.run(
+            gitPath,
+            arguments: arguments,
+            currentDirectory: directory
+        )
+    }
+}
