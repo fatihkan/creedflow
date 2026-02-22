@@ -1,66 +1,139 @@
 import SwiftUI
+import GRDB
 
 struct AgentStatusView: View {
     let orchestrator: Orchestrator?
+    @Binding var selectedTaskId: UUID?
+    let appDatabase: AppDatabase?
+
+    @State private var taskMap: [UUID: AgentTask] = [:]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
             if let orchestrator {
-                // Orchestrator status
-                HStack {
-                    Circle()
-                        .fill(orchestrator.isRunning ? .green : .red)
-                        .frame(width: 12, height: 12)
-                    Text(orchestrator.isRunning ? "Orchestrator Running" : "Orchestrator Stopped")
-                        .font(.headline)
+                // Orchestrator status header
+                HStack(spacing: 10) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(orchestrator.isRunning ? Color.forgeSuccess : Color.forgeDanger)
+                            .frame(width: 8, height: 8)
+                            .overlay {
+                                if orchestrator.isRunning {
+                                    Circle()
+                                        .fill(Color.forgeSuccess.opacity(0.3))
+                                        .frame(width: 16, height: 16)
+                                }
+                            }
+                        Text(orchestrator.isRunning ? "Orchestrator Running" : "Orchestrator Stopped")
+                            .font(.system(.subheadline, weight: .semibold))
+                    }
+
                     Spacer()
+
+                    if orchestrator.isRunning {
+                        Text("\(orchestrator.activeRunners.count) active")
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.quaternary.opacity(0.3))
 
                 // Active runners
                 if orchestrator.activeRunners.isEmpty {
-                    ContentUnavailableView(
-                        "No Active Agents",
-                        systemImage: "cpu",
-                        description: Text("Agents will appear here when tasks are being processed")
+                    ForgeEmptyState(
+                        icon: "cpu",
+                        title: "No Active Agents",
+                        subtitle: "Agents will appear here when tasks are being processed"
                     )
                 } else {
-                    List {
-                        ForEach(Array(orchestrator.activeRunners.keys), id: \.self) { taskId in
-                            if let runner = orchestrator.activeRunners[taskId] {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        ProgressView()
-                                            .scaleEffect(0.7)
-                                        Text("Task \(taskId.uuidString.prefix(8))")
-                                            .font(.subheadline.bold())
-                                        Spacer()
-                                        Text("\(runner.liveOutput.count) lines")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    // Last few output lines
-                                    if let lastLine = runner.liveOutput.last {
-                                        Text(lastLine.text)
-                                            .font(.system(.caption, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                    }
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(Array(orchestrator.activeRunners.keys), id: \.self) { taskId in
+                                if let runner = orchestrator.activeRunners[taskId] {
+                                    activeRunnerCard(taskId: taskId, runner: runner)
                                 }
-                                .padding(.vertical, 4)
                             }
                         }
+                        .padding(16)
                     }
                 }
             } else {
-                ContentUnavailableView(
-                    "Orchestrator Not Initialized",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text("The orchestrator needs a database connection")
+                ForgeEmptyState(
+                    icon: "exclamationmark.triangle",
+                    title: "Not Initialized",
+                    subtitle: "The orchestrator needs a database connection"
                 )
             }
         }
         .navigationTitle("Agents")
+        .task {
+            await observeActiveTasks()
+        }
+    }
+
+    private func activeRunnerCard(taskId: UUID, runner: ClaudeAgentRunner) -> some View {
+        let task = taskMap[taskId]
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                if let task {
+                    AgentTypeBadge(type: task.agentType)
+                    Text(task.title)
+                        .font(.system(.subheadline, weight: .semibold))
+                        .lineLimit(1)
+                } else {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                    Text("Task \(taskId.uuidString.prefix(8))")
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                }
+                Spacer()
+                Text("\(runner.liveOutput.count) lines")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            // Last output line preview
+            if let lastLine = runner.liveOutput.last {
+                Text(lastLine.text)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .padding(6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.forgeTerminalBg)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+
+            // Mini terminal toggle
+            Button {
+                selectedTaskId = taskId
+            } label: {
+                Text("View Full Console")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.forgeAmber)
+        }
+        .padding(12)
+        .forgeCard(cornerRadius: 8)
+    }
+
+    private func observeActiveTasks() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try AgentTask
+                .filter(Column("status") == AgentTask.Status.inProgress.rawValue)
+                .fetchAll(db)
+        }
+        do {
+            for try await tasks in observation.values(in: db.dbQueue) {
+                var map: [UUID: AgentTask] = [:]
+                for t in tasks { map[t.id] = t }
+                taskMap = map
+            }
+        } catch {}
     }
 }

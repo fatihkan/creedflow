@@ -8,6 +8,7 @@ public struct ContentView: View {
     @State private var selectedTaskId: UUID?
     @State private var orchestrator: Orchestrator?
     @State private var telegramService = TelegramBotService()
+    @State private var detailHeight: CGFloat = 280
 
     public init() {}
 
@@ -15,7 +16,9 @@ public struct ContentView: View {
         NavigationSplitView {
             SidebarView(
                 selectedSection: $selectedSection,
-                orchestrator: orchestrator
+                selectedProjectId: $selectedProjectId,
+                orchestrator: orchestrator,
+                appDatabase: appDatabase
             )
         } detail: {
             VSplitView {
@@ -23,11 +26,11 @@ public struct ContentView: View {
                     .frame(minHeight: 200)
 
                 detailPanel
-                    .frame(minHeight: 150, idealHeight: 250)
+                    .frame(minHeight: 120, idealHeight: detailHeight)
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 960, minHeight: 640)
         .task {
             if let db = appDatabase {
                 let orch = Orchestrator(dbQueue: db.dbQueue)
@@ -43,6 +46,7 @@ public struct ContentView: View {
         case .projects:
             ProjectListView(
                 selectedProjectId: $selectedProjectId,
+                selectedTaskId: $selectedTaskId,
                 appDatabase: appDatabase
             )
         case .tasks:
@@ -50,24 +54,33 @@ public struct ContentView: View {
                 TaskBoardView(
                     projectId: projectId,
                     selectedTaskId: $selectedTaskId,
-                    appDatabase: appDatabase
+                    appDatabase: appDatabase,
+                    orchestrator: orchestrator
                 )
             } else {
-                ContentUnavailableView(
-                    "Select a Project",
-                    systemImage: "folder",
-                    description: Text("Choose a project to see its tasks")
+                ForgeEmptyState(
+                    icon: "folder",
+                    title: "Select a Project",
+                    subtitle: "Choose a project from the sidebar to see its task board"
                 )
             }
         case .agents:
-            AgentStatusView(orchestrator: orchestrator)
+            AgentStatusView(
+                orchestrator: orchestrator,
+                selectedTaskId: $selectedTaskId,
+                appDatabase: appDatabase
+            )
         case .costs:
             CostDashboardView(appDatabase: appDatabase)
+        case .reviews:
+            ReviewApprovalView(appDatabase: appDatabase)
+        case .deploys:
+            DeployView(appDatabase: appDatabase)
         case .settings, .none:
-            ContentUnavailableView(
-                "CodeForge",
-                systemImage: "hammer.fill",
-                description: Text("Select a section from the sidebar")
+            ForgeEmptyState(
+                icon: "hammer.fill",
+                title: "CodeForge",
+                subtitle: "Select a section from the sidebar to get started"
             )
         }
     }
@@ -78,7 +91,8 @@ public struct ContentView: View {
             TaskDetailView(
                 taskId: taskId,
                 appDatabase: appDatabase,
-                orchestrator: orchestrator
+                orchestrator: orchestrator,
+                onDismiss: { selectedTaskId = nil }
             )
         } else if let projectId = selectedProjectId, selectedSection == .projects {
             ProjectDetailView(
@@ -87,10 +101,10 @@ public struct ContentView: View {
                 orchestrator: orchestrator
             )
         } else {
-            ContentUnavailableView(
-                "No Selection",
-                systemImage: "rectangle.bottomhalf.filled",
-                description: Text("Select an item to view details")
+            ForgeEmptyState(
+                icon: "rectangle.bottomhalf.filled",
+                title: "No Selection",
+                subtitle: "Select an item to view details"
             )
         }
     }
@@ -101,5 +115,7 @@ enum SidebarSection: Hashable {
     case tasks
     case agents
     case costs
+    case reviews
+    case deploys
     case settings
 }

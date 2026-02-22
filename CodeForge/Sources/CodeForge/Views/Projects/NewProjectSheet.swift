@@ -14,41 +14,51 @@ struct NewProjectSheet: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("New Project")
-                    .font(.title2.bold())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("New Project")
+                        .font(.title3.bold())
+                    Text("Create a new project for CodeForge to manage")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
             }
-            .padding()
+            .padding(16)
 
             Divider()
 
             // Form
             Form {
-                TextField("Project Name", text: $name)
-                    .textFieldStyle(.roundedBorder)
+                Section("Project Info") {
+                    TextField("Project Name", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                }
 
-                VStack(alignment: .leading) {
-                    Text("Description")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                Section("Description") {
                     TextEditor(text: $description)
-                        .frame(minHeight: 120)
+                        .frame(minHeight: 100)
                         .font(.body)
                         .scrollContentBackground(.hidden)
                         .padding(8)
-                        .background(.background.secondary)
+                        .background(.quaternary.opacity(0.3))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
 
-                TextField("Tech Stack (e.g., React, Node.js, PostgreSQL)", text: $techStack)
-                    .textFieldStyle(.roundedBorder)
+                Section("Tech Stack") {
+                    TextField("e.g., React, Node.js, PostgreSQL", text: $techStack)
+                        .textFieldStyle(.roundedBorder)
+                }
 
                 if let error = errorMessage {
-                    Text(error)
-                        .foregroundStyle(.red)
-                        .font(.caption)
+                    ForgeErrorBanner(message: error, onDismiss: { errorMessage = nil })
                 }
             }
             .formStyle(.grouped)
@@ -57,17 +67,25 @@ struct NewProjectSheet: View {
 
             // Actions
             HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                 Spacer()
+                if isCreating {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .padding(.trailing, 8)
+                }
                 Button("Create Project") {
                     Task { await createProject() }
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(.forgeAmber)
                 .disabled(name.isEmpty || description.isEmpty || isCreating)
                 .keyboardShortcut(.defaultAction)
             }
-            .padding()
+            .padding(16)
         }
-        .frame(width: 500, height: 450)
+        .frame(width: 500, height: 480)
     }
 
     private func createProject() async {

@@ -1,0 +1,274 @@
+import SwiftUI
+
+// MARK: - Color Palette
+
+/// CodeForge "Forge" color system — industrial command-center with warmth.
+/// Uses `ShapeStyle where Self == Color` so colors work in `.foregroundStyle()`, `.fill()`, etc.
+extension ShapeStyle where Self == Color {
+    // Primary accent — forge amber
+    static var forgeAmber: Color { Color(red: 0.91, green: 0.65, blue: 0.12) }
+    static var forgeAmberLight: Color { Color(red: 0.96, green: 0.78, blue: 0.28) }
+    static var forgeAmberDim: Color { Color(red: 0.72, green: 0.50, blue: 0.08) }
+
+    // Status
+    static var forgeSuccess: Color { Color(red: 0.18, green: 0.75, blue: 0.48) }
+    static var forgeDanger: Color { Color(red: 0.92, green: 0.28, blue: 0.30) }
+    static var forgeWarning: Color { Color(red: 0.95, green: 0.62, blue: 0.12) }
+    static var forgeInfo: Color { Color(red: 0.30, green: 0.55, blue: 0.96) }
+    static var forgeNeutral: Color { Color(red: 0.50, green: 0.52, blue: 0.58) }
+
+    // Surfaces
+    static var forgeSurface: Color { Color(nsColor: .controlBackgroundColor) }
+    static var forgeSurfaceElevated: Color { Color(nsColor: .underPageBackgroundColor) }
+
+    // Terminal
+    static var forgeTerminalBg: Color { Color(red: 0.09, green: 0.09, blue: 0.11) }
+    static var forgeTerminalText: Color { Color(red: 0.72, green: 0.78, blue: 0.70) }
+    static var forgeTerminalCyan: Color { Color(red: 0.40, green: 0.85, blue: 0.82) }
+    static var forgeTerminalRed: Color { Color(red: 0.95, green: 0.42, blue: 0.38) }
+    static var forgeTerminalYellow: Color { Color(red: 0.92, green: 0.80, blue: 0.40) }
+
+    // Agent type colors
+    static var agentAnalyzer: Color { Color(red: 0.62, green: 0.40, blue: 0.90) }
+    static var agentCoder: Color { Color(red: 0.30, green: 0.55, blue: 0.96) }
+    static var agentReviewer: Color { Color(red: 0.95, green: 0.55, blue: 0.15) }
+    static var agentTester: Color { Color(red: 0.18, green: 0.75, blue: 0.48) }
+    static var agentDevops: Color { Color(red: 0.35, green: 0.75, blue: 0.82) }
+    static var agentMonitor: Color { Color(red: 0.88, green: 0.42, blue: 0.62) }
+}
+
+// MARK: - Agent Color Helper
+
+extension AgentTask.AgentType {
+    var themeColor: Color {
+        switch self {
+        case .analyzer: return .agentAnalyzer
+        case .coder: return .agentCoder
+        case .reviewer: return .agentReviewer
+        case .tester: return .agentTester
+        case .devops: return .agentDevops
+        case .monitor: return .agentMonitor
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .analyzer: return "magnifyingglass"
+        case .coder: return "chevron.left.forwardslash.chevron.right"
+        case .reviewer: return "checkmark.shield"
+        case .tester: return "testtube.2"
+        case .devops: return "server.rack"
+        case .monitor: return "waveform.path.ecg"
+        }
+    }
+}
+
+// MARK: - Status Color Helper
+
+extension AgentTask.Status {
+    var themeColor: Color {
+        switch self {
+        case .queued: return .forgeNeutral
+        case .inProgress: return .forgeInfo
+        case .passed: return .forgeSuccess
+        case .failed: return .forgeDanger
+        case .needsRevision: return .forgeWarning
+        case .cancelled: return .forgeNeutral
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .queued: return "Queued"
+        case .inProgress: return "In Progress"
+        case .passed: return "Passed"
+        case .failed: return "Failed"
+        case .needsRevision: return "Needs Revision"
+        case .cancelled: return "Cancelled"
+        }
+    }
+}
+
+// MARK: - Project Status Helper
+
+extension Project.Status {
+    var themeColor: Color {
+        switch self {
+        case .planning: return .forgeNeutral
+        case .analyzing: return .forgeInfo
+        case .inProgress: return .forgeInfo
+        case .reviewing: return .forgeWarning
+        case .deploying: return .forgeAmber
+        case .completed: return .forgeSuccess
+        case .failed: return .forgeDanger
+        case .paused: return .forgeNeutral
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .planning: return "Planning"
+        case .analyzing: return "Analyzing"
+        case .inProgress: return "In Progress"
+        case .reviewing: return "Reviewing"
+        case .deploying: return "Deploying"
+        case .completed: return "Completed"
+        case .failed: return "Failed"
+        case .paused: return "Paused"
+        }
+    }
+}
+
+// MARK: - View Modifiers
+
+/// Card surface with subtle border and shadow
+struct ForgeCardModifier: ViewModifier {
+    var isSelected: Bool = false
+    var cornerRadius: CGFloat = 10
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(.background)
+                    .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(
+                        isSelected ? Color.forgeAmber : Color.primary.opacity(0.06),
+                        lineWidth: isSelected ? 1.5 : 0.5
+                    )
+            }
+    }
+}
+
+/// Metric/stat card with icon accent stripe
+struct ForgeMetricCardModifier: ViewModifier {
+    let accentColor: Color
+
+    func body(content: Content) -> some View {
+        content
+            .padding(12)
+            .background {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(.background)
+                    .shadow(color: .black.opacity(0.06), radius: 1, y: 1)
+            }
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(accentColor)
+                    .frame(width: 3)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5)
+            }
+    }
+}
+
+/// Badge pill with tinted background
+struct ForgeBadgeModifier: ViewModifier {
+    let color: Color
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.14))
+            .foregroundStyle(color)
+            .clipShape(Capsule())
+    }
+}
+
+extension View {
+    func forgeCard(selected: Bool = false, cornerRadius: CGFloat = 10) -> some View {
+        modifier(ForgeCardModifier(isSelected: selected, cornerRadius: cornerRadius))
+    }
+
+    func forgeMetricCard(accent: Color = .forgeAmber) -> some View {
+        modifier(ForgeMetricCardModifier(accentColor: accent))
+    }
+
+    func forgeBadge(color: Color) -> some View {
+        modifier(ForgeBadgeModifier(color: color))
+    }
+}
+
+// MARK: - Reusable Components
+
+/// Inline error banner
+struct ForgeErrorBanner: View {
+    let message: String
+    var onDismiss: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Color.forgeDanger)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Spacer()
+            if let onDismiss {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(10)
+        .background(Color.forgeDanger.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.forgeDanger.opacity(0.2), lineWidth: 0.5)
+        }
+    }
+}
+
+/// Empty state placeholder matching the forge aesthetic
+struct ForgeEmptyState: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 36))
+                .foregroundStyle(Color.forgeNeutral.opacity(0.5))
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+/// Duration formatter
+struct ForgeDuration {
+    static func format(ms: Int64) -> String {
+        let totalSeconds = Double(ms) / 1000.0
+        if totalSeconds < 60 {
+            return String(format: "%.1fs", totalSeconds)
+        } else if totalSeconds < 3600 {
+            let minutes = Int(totalSeconds) / 60
+            let seconds = Int(totalSeconds) % 60
+            return "\(minutes)m \(seconds)s"
+        } else {
+            let hours = Int(totalSeconds) / 3600
+            let minutes = (Int(totalSeconds) % 3600) / 60
+            return "\(hours)h \(minutes)m"
+        }
+    }
+}

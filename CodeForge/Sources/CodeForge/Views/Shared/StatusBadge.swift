@@ -4,31 +4,30 @@ struct StatusBadge: View {
     let status: String
 
     var body: some View {
-        Text(status.replacingOccurrences(of: "_", with: " ").capitalized)
-            .font(.caption2.bold())
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.15))
-            .foregroundStyle(color)
-            .clipShape(Capsule())
+        Text(displayText)
+            .forgeBadge(color: color)
+    }
+
+    private var displayText: String {
+        status.replacingOccurrences(of: "_", with: " ").capitalized
     }
 
     private var color: Color {
         switch status.lowercased() {
         case "queued", "pending", "planning":
-            return .gray
+            return .forgeNeutral
         case "in_progress", "inprogress", "analyzing":
-            return .blue
+            return .forgeInfo
         case "passed", "completed", "success", "healthy":
-            return .green
+            return .forgeSuccess
         case "failed", "unhealthy":
-            return .red
+            return .forgeDanger
         case "needs_revision", "reviewing", "degraded":
-            return .orange
+            return .forgeWarning
         case "cancelled", "paused":
-            return .secondary
+            return .forgeNeutral.opacity(0.6)
         default:
-            return .secondary
+            return .forgeNeutral
         }
     }
 }
@@ -37,38 +36,11 @@ struct AgentTypeBadge: View {
     let type: AgentTask.AgentType
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
+        HStack(spacing: 3) {
+            Image(systemName: type.icon)
             Text(type.rawValue.capitalized)
         }
-        .font(.caption2.bold())
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(color.opacity(0.15))
-        .foregroundStyle(color)
-        .clipShape(Capsule())
-    }
-
-    private var icon: String {
-        switch type {
-        case .analyzer: return "magnifyingglass"
-        case .coder: return "chevron.left.forwardslash.chevron.right"
-        case .reviewer: return "checkmark.shield"
-        case .tester: return "testtube.2"
-        case .devops: return "server.rack"
-        case .monitor: return "waveform.path.ecg"
-        }
-    }
-
-    private var color: Color {
-        switch type {
-        case .analyzer: return .purple
-        case .coder: return .blue
-        case .reviewer: return .orange
-        case .tester: return .green
-        case .devops: return .cyan
-        case .monitor: return .pink
-        }
+        .forgeBadge(color: type.themeColor)
     }
 }
 
@@ -76,13 +48,27 @@ struct TaskRowCompactView: View {
     let task: AgentTask
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(task.status.themeColor)
+                .frame(width: 3, height: 20)
+
             AgentTypeBadge(type: task.agentType)
+
             Text(task.title)
                 .font(.subheadline)
                 .lineLimit(1)
+
             Spacer()
-            StatusBadge(status: task.status.rawValue)
+
+            if let cost = task.costUSD {
+                Text(String(format: "$%.4f", cost))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+
+            Text(task.status.displayName)
+                .forgeBadge(color: task.status.themeColor)
         }
         .padding(.vertical, 2)
     }

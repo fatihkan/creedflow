@@ -1,65 +1,177 @@
 import SwiftUI
+import GRDB
 
 struct SidebarView: View {
     @Binding var selectedSection: SidebarSection?
+    @Binding var selectedProjectId: UUID?
     let orchestrator: Orchestrator?
+    let appDatabase: AppDatabase?
+
+    @State private var projects: [Project] = []
+    @State private var pendingReviewCount: Int = 0
 
     var body: some View {
         List(selection: $selectedSection) {
-            Section("Workspace") {
-                Label("Projects", systemImage: "folder.fill")
-                    .tag(SidebarSection.projects)
-
-                Label("Tasks", systemImage: "checklist")
-                    .tag(SidebarSection.tasks)
-            }
-
-            Section("Agents") {
-                HStack {
-                    Label("Agent Status", systemImage: "cpu")
-                    Spacer()
-                    if let orchestrator, orchestrator.isRunning {
-                        Circle()
-                            .fill(.green)
-                            .frame(width: 8, height: 8)
-                        Text("\(orchestrator.activeRunners.count)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tag(SidebarSection.agents)
-            }
-
-            Section("Analytics") {
-                Label("Costs", systemImage: "dollarsign.circle")
-                    .tag(SidebarSection.costs)
-            }
-
-            Section {
-                Label("Settings", systemImage: "gear")
-                    .tag(SidebarSection.settings)
-            }
+            workspaceSection
+            projectShortcuts
+            pipelineSection
+            monitorSection
+            settingsSection
         }
         .listStyle(.sidebar)
         .navigationTitle("CodeForge")
         .toolbar {
             ToolbarItem {
-                Button {
-                    Task {
-                        if let orchestrator {
-                            if orchestrator.isRunning {
-                                await orchestrator.stop()
-                            } else {
-                                await orchestrator.start()
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: orchestrator?.isRunning == true ? "stop.circle.fill" : "play.circle.fill")
-                        .foregroundStyle(orchestrator?.isRunning == true ? .red : .green)
-                }
-                .help(orchestrator?.isRunning == true ? "Stop Orchestrator" : "Start Orchestrator")
+                orchestratorButton
             }
         }
+        .task {
+            await observeProjects()
+        }
+        .task {
+            await observeReviewCount()
+        }
+    }
+
+    // MARK: - Sections
+
+    private var workspaceSection: some View {
+        Section("Workspace") {
+            Label("Projects", systemImage: "folder.fill")
+                .tag(SidebarSection.projects)
+
+            Label("Tasks", systemImage: "checklist")
+                .tag(SidebarSection.tasks)
+        }
+    }
+
+    @ViewBuilder
+    private var projectShortcuts: some View {
+        if !projects.isEmpty {
+            Section("Recent Projects") {
+                ForEach(projects.prefix(5)) { project in
+                    Button {
+                        selectedProjectId = project.id
+                        selectedSection = .tasks
+                    } label: {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(project.status.themeColor)
+                                .frame(width: 6, height: 6)
+                            Text(project.name)
+                                .font(.subheadline)
+                                .lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var pipelineSection: some View {
+        Section("Pipeline") {
+            HStack {
+                Label("Reviews", systemImage: "checkmark.shield")
+                Spacer()
+                if pendingReviewCount > 0 {
+                    Text("\(pendingReviewCount)")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.forgeWarning, in: Capsule())
+                }
+            }
+            .tag(SidebarSection.reviews)
+
+            Label("Deployments", systemImage: "arrow.up.circle")
+                .tag(SidebarSection.deploys)
+        }
+    }
+
+    private var monitorSection: some View {
+        Section("Monitor") {
+            HStack {
+                Label("Agents", systemImage: "cpu")
+                Spacer()
+                agentIndicator
+            }
+            .tag(SidebarSection.agents)
+
+            Label("Costs", systemImage: "dollarsign.circle")
+                .tag(SidebarSection.costs)
+        }
+    }
+
+    private var settingsSection: some View {
+        Section {
+            Label("Settings", systemImage: "gear")
+                .tag(SidebarSection.settings)
+        }
+    }
+
+    @ViewBuilder
+    private var agentIndicator: some View {
+        if let orchestrator, orchestrator.isRunning {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(Color.forgeSuccess)
+                    .frame(width: 6, height: 6)
+                if orchestrator.activeRunners.count > 0 {
+                    Text("\(orchestrator.activeRunners.count)")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var orchestratorButton: some View {
+        Button {
+            Task {
+                if let orchestrator {
+                    if orchestrator.isRunning {
+                        await orchestrator.stop()
+                    } else {
+                        await orchestrator.start()
+                    }
+                }
+            }
+        } label: {
+            let isRunning = orchestrator?.isRunning == true
+            Image(systemName: isRunning ? "stop.circle.fill" : "play.circle.fill")
+                .foregroundStyle(isRunning ? Color.forgeDanger : Color.forgeSuccess)
+                .font(.body)
+        }
+        .help(orchestrator?.isRunning == true ? "Stop Orchestrator" : "Start Orchestrator")
+    }
+
+    // MARK: - Data Observation
+
+    private func observeProjects() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try Project.order(Column("updatedAt").desc).limit(5).fetchAll(db)
+        }
+        do {
+            for try await value in observation.values(in: db.dbQueue) {
+                projects = value
+            }
+        } catch {}
+    }
+
+    private func observeReviewCount() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try Review
+                .filter(Column("verdict") != Review.Verdict.pass.rawValue)
+                .fetchCount(db)
+        }
+        do {
+            for try await count in observation.values(in: db.dbQueue) {
+                pendingReviewCount = count
+            }
+        } catch {}
     }
 }

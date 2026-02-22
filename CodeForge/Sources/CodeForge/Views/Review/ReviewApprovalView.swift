@@ -4,77 +4,108 @@ import GRDB
 struct ReviewApprovalView: View {
     let appDatabase: AppDatabase?
     @State private var pendingReviews: [(review: Review, task: AgentTask, project: Project)] = []
+    @State private var errorMessage: String?
 
     var body: some View {
-        List {
-            if pendingReviews.isEmpty {
-                ContentUnavailableView(
-                    "No Pending Reviews",
-                    systemImage: "checkmark.shield",
-                    description: Text("Reviews requiring approval will appear here")
+        ZStack {
+            if pendingReviews.isEmpty && errorMessage == nil {
+                ForgeEmptyState(
+                    icon: "checkmark.shield",
+                    title: "No Pending Reviews",
+                    subtitle: "Reviews requiring approval will appear here"
                 )
             } else {
-                ForEach(pendingReviews, id: \.review.id) { item in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(item.task.title)
-                                .font(.headline)
-                            Spacer()
-                            StatusBadge(status: item.review.verdict.rawValue)
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        if let errorMessage {
+                            ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                         }
 
-                        Text(item.project.name)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        Text(item.review.summary)
-                            .font(.subheadline)
-
-                        HStack {
-                            Text(String(format: "Score: %.1f/10", item.review.score))
-                                .font(.caption.bold())
-
-                            Spacer()
-
-                            Button("Approve") {
-                                Task { await approve(item.task) }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.green)
-
-                            Button("Reject") {
-                                Task { await reject(item.task) }
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.red)
+                        ForEach(pendingReviews, id: \.review.id) { item in
+                            reviewCard(item: item)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(16)
                 }
             }
         }
         .navigationTitle("Reviews")
-        .task { await loadReviews() }
+        .task {
+            await observeReviews()
+        }
     }
 
-    private func loadReviews() async {
-        guard let db = appDatabase else { return }
-        do {
-            pendingReviews = try await db.dbQueue.read { dbConn in
-                let reviews = try Review
-                    .filter(Column("verdict") != Review.Verdict.pass.rawValue)
-                    .order(Column("createdAt").desc)
-                    .fetchAll(dbConn)
-
-                return try reviews.compactMap { review in
-                    guard let task = try AgentTask.fetchOne(dbConn, id: review.taskId),
-                          let project = try Project.fetchOne(dbConn, id: task.projectId) else {
-                        return nil
-                    }
-                    return (review: review, task: task, project: project)
-                }
+    private func reviewCard(item: (review: Review, task: AgentTask, project: Project)) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(item.task.title)
+                    .font(.system(.subheadline, weight: .semibold))
+                    .lineLimit(1)
+                Spacer()
+                Text(item.review.verdict.rawValue.uppercased())
+                    .forgeBadge(color: item.review.verdict == .pass ? .forgeSuccess :
+                                item.review.verdict == .needsRevision ? .forgeWarning : .forgeDanger)
             }
-        } catch {}
+
+            HStack(spacing: 6) {
+                Text(item.project.name)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Text("Score: \(String(format: "%.1f", item.review.score))/10")
+                    .font(.system(.caption, design: .monospaced, weight: .medium))
+            }
+
+            Text(item.review.summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+
+            HStack(spacing: 8) {
+                Spacer()
+                Button {
+                    Task { await reject(item.task) }
+                } label: {
+                    Label("Reject", systemImage: "xmark")
+                }
+                .buttonStyle(.bordered)
+                .tint(.forgeDanger)
+
+                Button {
+                    Task { await approve(item.task) }
+                } label: {
+                    Label("Approve", systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.forgeSuccess)
+            }
+        }
+        .padding(12)
+        .forgeCard(cornerRadius: 8)
+    }
+
+    private func observeReviews() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            let reviews = try Review
+                .filter(Column("verdict") != Review.Verdict.pass.rawValue)
+                .order(Column("createdAt").desc)
+                .fetchAll(db)
+
+            return try reviews.compactMap { review -> (review: Review, task: AgentTask, project: Project)? in
+                guard let task = try AgentTask.fetchOne(db, id: review.taskId),
+                      let project = try Project.fetchOne(db, id: task.projectId) else {
+                    return nil
+                }
+                return (review: review, task: task, project: project)
+            }
+        }
+        do {
+            for try await value in observation.values(in: db.dbQueue) {
+                pendingReviews = value
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func approve(_ task: AgentTask) async {
@@ -86,8 +117,9 @@ struct ReviewApprovalView: View {
                 updated.updatedAt = Date()
                 try updated.update(dbConn)
             }
-            await loadReviews()
-        } catch {}
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func reject(_ task: AgentTask) async {
@@ -101,7 +133,8 @@ struct ReviewApprovalView: View {
                 updated.completedAt = Date()
                 try updated.update(dbConn)
             }
-            await loadReviews()
-        } catch {}
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

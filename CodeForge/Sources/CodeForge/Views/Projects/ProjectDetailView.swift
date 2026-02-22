@@ -9,89 +9,117 @@ struct ProjectDetailView: View {
     @State private var project: Project?
     @State private var tasks: [AgentTask] = []
     @State private var showAnalyze = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ScrollView {
             if let project {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
                     // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(project.name)
-                                .font(.largeTitle.bold())
-                            Spacer()
-                            StatusBadge(status: project.status.rawValue)
-                        }
-                        Text(project.description)
-                            .foregroundStyle(.secondary)
-                        if !project.techStack.isEmpty {
-                            HStack {
-                                Image(systemName: "wrench.and.screwdriver")
-                                Text(project.techStack)
+                                .font(.title2.bold())
+                            Text(project.description)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(3)
+                            if !project.techStack.isEmpty {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "wrench.and.screwdriver")
+                                    Text(project.techStack)
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
                             }
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
                         }
+                        Spacer()
+                        Text(project.status.displayName)
+                            .forgeBadge(color: project.status.themeColor)
                     }
 
-                    Divider()
-
-                    // Stats
-                    HStack(spacing: 24) {
-                        StatCard(title: "Tasks", value: "\(tasks.count)", icon: "checklist")
-                        StatCard(
-                            title: "Completed",
+                    // Stats row
+                    HStack(spacing: 12) {
+                        MetricCard(
+                            label: "Total",
+                            value: "\(tasks.count)",
+                            icon: "checklist",
+                            accent: .forgeAmber
+                        )
+                        MetricCard(
+                            label: "Done",
                             value: "\(tasks.filter { $0.status == .passed }.count)",
-                            icon: "checkmark.circle"
+                            icon: "checkmark.circle",
+                            accent: .forgeSuccess
                         )
-                        StatCard(
-                            title: "Active",
+                        MetricCard(
+                            label: "Active",
                             value: "\(tasks.filter { $0.status == .inProgress }.count)",
-                            icon: "play.circle"
+                            icon: "play.circle",
+                            accent: .forgeInfo
                         )
-                        StatCard(
-                            title: "Failed",
+                        MetricCard(
+                            label: "Failed",
                             value: "\(tasks.filter { $0.status == .failed }.count)",
-                            icon: "xmark.circle"
+                            icon: "xmark.circle",
+                            accent: .forgeDanger
                         )
                     }
 
-                    Divider()
+                    if let errorMessage {
+                        ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
+                    }
 
                     // Actions
-                    HStack {
-                        Button("Analyze Project") {
+                    HStack(spacing: 8) {
+                        Button {
                             showAnalyze = true
+                        } label: {
+                            Label("Analyze Project", systemImage: "magnifyingglass")
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(.forgeAmber)
 
-                        Button("Open in Finder") {
+                        Button {
                             NSWorkspace.shared.open(URL(fileURLWithPath: project.directoryPath))
+                        } label: {
+                            Label("Finder", systemImage: "folder")
                         }
+                        .buttonStyle(.bordered)
 
-                        Button("Open in Terminal") {
+                        Button {
                             openTerminal(at: project.directoryPath)
+                        } label: {
+                            Label("Terminal", systemImage: "terminal")
                         }
+                        .buttonStyle(.bordered)
                     }
 
-                    // Task list summary
+                    // Recent tasks
                     if !tasks.isEmpty {
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("Recent Tasks")
-                                .font(.headline)
-                            ForEach(tasks.prefix(10)) { task in
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.secondary)
+                            ForEach(tasks.prefix(8)) { task in
                                 TaskRowCompactView(task: task)
+                            }
+                            if tasks.count > 8 {
+                                Text("\(tasks.count - 8) more...")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
                             }
                         }
                     }
                 }
-                .padding()
+                .padding(16)
             } else {
                 ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .task {
-            await loadData()
+        .task(id: projectId) {
+            await observeData()
         }
         .alert("Analyze Project", isPresented: $showAnalyze) {
             Button("Start Analysis") {
@@ -103,71 +131,81 @@ struct ProjectDetailView: View {
         }
     }
 
-    private func loadData() async {
+    private func observeData() async {
         guard let db = appDatabase else { return }
+        // Observe project + tasks together
+        let observation = ValueObservation.tracking { db -> (Project?, [AgentTask]) in
+            let project = try Project.fetchOne(db, id: projectId)
+            let tasks = try AgentTask
+                .filter(Column("projectId") == projectId)
+                .order(Column("priority").desc, Column("createdAt").asc)
+                .fetchAll(db)
+            return (project, tasks)
+        }
         do {
-            project = try await db.dbQueue.read { db in
-                try Project.fetchOne(db, id: projectId)
+            for try await (proj, taskList) in observation.values(in: db.dbQueue) {
+                project = proj
+                tasks = taskList
             }
-            tasks = try await db.dbQueue.read { db in
-                try AgentTask
-                    .filter(Column("projectId") == projectId)
-                    .order(Column("priority").desc, Column("createdAt").asc)
-                    .fetchAll(db)
-            }
-        } catch {}
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func startAnalysis() async {
         guard let db = appDatabase, let project else { return }
-
         do {
             try await db.dbQueue.write { dbConn in
-                var task = AgentTask(
+                var newTask = AgentTask(
                     projectId: project.id,
                     agentType: .analyzer,
                     title: "Analyze: \(project.name)",
                     description: project.description,
                     priority: 10
                 )
-                try task.insert(dbConn)
+                try newTask.insert(dbConn)
             }
-
-            // Start orchestrator if not running
             if let orchestrator, !orchestrator.isRunning {
                 await orchestrator.start()
             }
-        } catch {}
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func openTerminal(at path: String) {
-        let script = "tell application \"Terminal\" to do script \"cd \(path)\""
+        let escapedPath = path.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "tell application \"Terminal\" to do script \"cd \\\"\(escapedPath)\\\"\""
         if let appleScript = NSAppleScript(source: script) {
             var error: NSDictionary?
             appleScript.executeAndReturnError(&error)
         }
     }
+
 }
 
-struct StatCard: View {
-    let title: String
+// MARK: - Metric Card
+
+struct MetricCard: View {
+    let label: String
     let value: String
     let icon: String
+    let accent: Color
 
     var body: some View {
-        VStack(spacing: 4) {
+        HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title.bold())
-            Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(accent)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                Text(label)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
         }
-        .frame(minWidth: 80)
-        .padding()
-        .background(.background.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .forgeMetricCard(accent: accent)
     }
 }
