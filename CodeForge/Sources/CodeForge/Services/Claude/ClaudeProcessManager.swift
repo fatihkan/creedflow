@@ -29,8 +29,12 @@ actor ClaudeProcessManager {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        // Prevent child process from inheriting signals
-        process.environment = ProcessInfo.processInfo.environment
+        // Clean environment: remove CLAUDECODE to prevent nested session detection
+        var env = ProcessInfo.processInfo.environment
+        env.removeValue(forKey: "CLAUDECODE")
+        env.removeValue(forKey: "CLAUDE_CODE")
+        env.removeValue(forKey: "CLAUDE_CODE_SESSION")
+        process.environment = env
 
         activeProcesses[processId] = process
 
