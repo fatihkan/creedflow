@@ -6,6 +6,7 @@ enum ClaudeStreamEvent: Sendable {
     case system(SystemEvent)
     case assistant(AssistantEvent)
     case result(ResultEvent)
+    case ignored          // known but uninteresting events (rate_limit_event, etc.)
     case unknown(String)
 
     struct SystemEvent: Decodable, Sendable {
@@ -93,6 +94,8 @@ extension ClaudeStreamEvent {
                 isError: raw.isError,
                 totalCostUsd: raw.totalCostUsd
             ))
+        case "rate_limit_event":
+            return .ignored
         default:
             return .unknown(jsonString)
         }

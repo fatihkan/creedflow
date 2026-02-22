@@ -111,8 +111,10 @@ final class ClaudeAgentRunner {
                         addOutputLine("Completed successfully", type: .system)
                     }
 
-                case .unknown(let raw):
-                    addOutputLine("Unknown event: \(raw.prefix(100))", type: .system)
+                case .ignored:
+                    break
+                case .unknown:
+                    break
                 }
             }
 
