@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct SettingsView: View {
     @Environment(\.appDatabase) private var appDatabase
-    @AppStorage("claudePath") private var claudePath = "/usr/local/bin/claude"
+    @AppStorage("claudePath") private var claudePath = ""
     @AppStorage("maxConcurrency") private var maxConcurrency = 3
     @AppStorage("telegramBotToken") private var telegramBotToken = ""
     @AppStorage("telegramChatId") private var telegramChatId = ""
@@ -109,18 +109,23 @@ public struct SettingsView: View {
     }
 
     private func checkToolVersions() async {
+        // Resolve claude path
+        let resolvedClaudePath = claudePath.isEmpty
+            ? "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/claude"
+            : claudePath
+
         // Check claude
         do {
-            let output = try await Process.run(claudePath, arguments: ["--version"])
+            let output = try await Process.run(resolvedClaudePath, arguments: ["--version"])
             claudeVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
         } catch {
-            claudeVersion = "Not found"
+            claudeVersion = "Not found at \(resolvedClaudePath)"
         }
 
         // Check gh
         do {
             let output = try await Process.run("/usr/local/bin/gh", arguments: ["--version"])
-            claudeVersion = output.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n").first ?? ""
+            ghVersion = output.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n").first ?? ""
         } catch {
             ghVersion = "Not found"
         }

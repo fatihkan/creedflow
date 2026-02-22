@@ -20,16 +20,37 @@ final class Orchestrator {
     init(
         dbQueue: DatabaseQueue,
         maxConcurrency: Int = 3,
-        claudePath: String = "/usr/local/bin/claude"
+        claudePath: String? = nil
     ) {
         self.dbQueue = dbQueue
         self.taskQueue = TaskQueue(dbQueue: dbQueue)
         self.scheduler = AgentScheduler(maxConcurrency: maxConcurrency)
-        self.processManager = ClaudeProcessManager(claudePath: claudePath)
+
+        // Resolve claude path: explicit > AppStorage > PATH lookup > common locations
+        let resolvedPath = claudePath
+            ?? UserDefaults.standard.string(forKey: "claudePath").flatMap({ $0.isEmpty ? nil : $0 })
+            ?? Self.findClaudeCLI()
+        self.processManager = ClaudeProcessManager(claudePath: resolvedPath)
+
         self.gitService = GitService()
         self.gitHubService = GitHubService()
         self.projectDirService = ProjectDirectoryService()
         self.retryPolicy = .default
+    }
+
+    /// Try to find the claude CLI binary
+    private static func findClaudeCLI() -> String {
+        let candidates = [
+            "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/claude",
+            "/usr/local/bin/claude",
+            "/opt/homebrew/bin/claude",
+        ]
+        for path in candidates {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+        }
+        return candidates[0] // fallback
     }
 
     /// Start the orchestration loop
@@ -98,10 +119,13 @@ final class Orchestrator {
                     try await self.setupCoderBranch(task: task)
                 }
 
-                let _ = try await runner.execute(task: task, agent: agent)
+                // Resolve working directory from project
+                let workingDir = try await self.resolveWorkingDirectory(for: task)
+
+                let result = try await runner.execute(task: task, agent: agent, workingDirectory: workingDir)
 
                 // Post-completion pipeline
-                await self.handleTaskCompletion(task: task)
+                await self.handleTaskCompletion(task: task, result: result)
             } catch {
                 // Handle retry
                 if self.retryPolicy.shouldRetry(task: task, error: error) {
@@ -126,6 +150,17 @@ final class Orchestrator {
         }
     }
 
+    /// Resolve the working directory for a task from its project
+    private func resolveWorkingDirectory(for task: AgentTask) async throws -> String {
+        let project = try await dbQueue.read { db in
+            try Project.fetchOne(db, id: task.projectId)
+        }
+        guard let project, !project.directoryPath.isEmpty else {
+            return FileManager.default.homeDirectoryForCurrentUser.path
+        }
+        return project.directoryPath
+    }
+
     /// Set up a git branch for coder tasks
     private func setupCoderBranch(task: AgentTask) async throws {
         let project = try await dbQueue.read { db in
@@ -145,9 +180,12 @@ final class Orchestrator {
         }
     }
 
-    /// Handle post-completion pipeline (coder → commit → reviewer)
-    private func handleTaskCompletion(task: AgentTask) async {
+    /// Handle post-completion pipeline
+    private func handleTaskCompletion(task: AgentTask, result: AgentResult) async {
         switch task.agentType {
+        case .analyzer:
+            // After analyzer: parse JSON → create features + tasks in DB
+            await handleAnalyzerCompletion(task: task, result: result)
         case .coder:
             // After coder: commit changes, push, create PR, queue reviewer
             await handleCoderCompletion(task: task)
@@ -156,6 +194,128 @@ final class Orchestrator {
             break
         default:
             break
+        }
+    }
+
+    /// Parse analyzer JSON output and create features + tasks in DB
+    private func handleAnalyzerCompletion(task: AgentTask, result: AgentResult) async {
+        guard let output = result.output, let data = output.data(using: .utf8) else {
+            try? await logError(taskId: task.id, agent: .analyzer, message: "Analyzer returned no output")
+            return
+        }
+
+        // Parse the structured JSON output
+        struct AnalyzerOutput: Decodable {
+            let projectName: String?
+            let techStack: String?
+            let features: [FeatureOutput]
+
+            struct FeatureOutput: Decodable {
+                let name: String
+                let description: String
+                let priority: Int
+                let tasks: [TaskOutput]
+            }
+
+            struct TaskOutput: Decodable {
+                let title: String
+                let description: String
+                let agentType: String
+                let priority: Int
+                let dependsOn: [String]?
+            }
+        }
+
+        do {
+            let parsed = try JSONDecoder().decode(AnalyzerOutput.self, from: data)
+
+            // Update project tech stack if provided
+            if let techStack = parsed.techStack {
+                try await dbQueue.write { db in
+                    var project = try Project.fetchOne(db, id: task.projectId)!
+                    project.techStack = techStack
+                    project.status = .inProgress
+                    project.updatedAt = Date()
+                    try project.update(db)
+                }
+            }
+
+            // Create features and tasks
+            // First pass: create all features and tasks, collect title → id mapping
+            var titleToTaskId: [String: UUID] = [:]
+
+            try await dbQueue.write { db in
+                for featureOutput in parsed.features {
+                    // Create feature
+                    var feature = Feature(
+                        projectId: task.projectId,
+                        name: featureOutput.name,
+                        description: featureOutput.description,
+                        priority: featureOutput.priority
+                    )
+                    try feature.insert(db)
+
+                    // Create tasks for this feature
+                    for taskOutput in featureOutput.tasks {
+                        let agentType: AgentTask.AgentType
+                        switch taskOutput.agentType.lowercased() {
+                        case "coder": agentType = .coder
+                        case "devops": agentType = .devops
+                        case "tester": agentType = .tester
+                        case "reviewer": agentType = .reviewer
+                        default: agentType = .coder
+                        }
+
+                        var newTask = AgentTask(
+                            projectId: task.projectId,
+                            featureId: feature.id,
+                            agentType: agentType,
+                            title: taskOutput.title,
+                            description: taskOutput.description,
+                            priority: taskOutput.priority
+                        )
+                        try newTask.insert(db)
+                        titleToTaskId[taskOutput.title] = newTask.id
+                    }
+                }
+
+                // Second pass: create dependency edges
+                for featureOutput in parsed.features {
+                    for taskOutput in featureOutput.tasks {
+                        guard let deps = taskOutput.dependsOn, !deps.isEmpty else { continue }
+                        guard let taskId = titleToTaskId[taskOutput.title] else { continue }
+
+                        for depTitle in deps {
+                            if let depId = titleToTaskId[depTitle] {
+                                let dep = TaskDependency(taskId: taskId, dependsOnTaskId: depId)
+                                try dep.insert(db)
+                            }
+                        }
+                    }
+                }
+            }
+
+            let totalTasks = titleToTaskId.count
+            try? await logInfo(taskId: task.id, agent: .analyzer,
+                             message: "Created \(parsed.features.count) features and \(totalTasks) tasks")
+
+        } catch {
+            try? await logError(taskId: task.id, agent: .analyzer,
+                              message: "Failed to parse analyzer output: \(error.localizedDescription)")
+        }
+    }
+
+    private func logError(taskId: UUID, agent: AgentTask.AgentType, message: String) async throws {
+        try await dbQueue.write { db in
+            var log = AgentLog(taskId: taskId, agentType: agent, level: .error, message: message)
+            try log.insert(db)
+        }
+    }
+
+    private func logInfo(taskId: UUID, agent: AgentTask.AgentType, message: String) async throws {
+        try await dbQueue.write { db in
+            var log = AgentLog(taskId: taskId, agentType: agent, level: .info, message: message)
+            try log.insert(db)
         }
     }
 

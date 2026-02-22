@@ -32,7 +32,7 @@ final class ClaudeAgentRunner {
     }
 
     /// Execute an agent task with full lifecycle management
-    func execute(task: AgentTask, agent: any AgentProtocol) async throws -> AgentResult {
+    func execute(task: AgentTask, agent: any AgentProtocol, workingDirectory: String = "") async throws -> AgentResult {
         isRunning = true
         liveOutput = []
         defer { isRunning = false }
@@ -50,8 +50,20 @@ final class ClaudeAgentRunner {
 
         addOutputLine("Starting \(agent.agentType.rawValue) agent for: \(task.title)", type: .system)
 
-        // Build invocation from agent config
-        let invocation = agent.buildInvocation(for: task)
+        // Build invocation from agent config, override working directory
+        var invocation = agent.buildInvocation(for: task)
+        if !workingDirectory.isEmpty {
+            invocation = ClaudeInvocation(
+                prompt: invocation.prompt,
+                workingDirectory: workingDirectory,
+                systemPrompt: invocation.systemPrompt,
+                outputFormat: invocation.outputFormat,
+                allowedTools: invocation.allowedTools,
+                maxBudgetUSD: invocation.maxBudgetUSD,
+                jsonSchema: invocation.jsonSchema,
+                resumeSessionId: invocation.resumeSessionId
+            )
+        }
         let (processId, stream) = await processManager.run(invocation)
 
         var sessionId: String?
