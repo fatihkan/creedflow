@@ -26,7 +26,9 @@ public struct ContentView: View {
         .frame(minWidth: 900, minHeight: 600)
         .task {
             if let db = appDatabase {
-                orchestrator = Orchestrator(dbQueue: db.dbQueue)
+                let orch = Orchestrator(dbQueue: db.dbQueue)
+                orchestrator = orch
+                await orch.start()
             }
         }
     }
