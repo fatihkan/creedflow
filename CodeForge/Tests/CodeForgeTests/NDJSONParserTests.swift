@@ -1,133 +1,158 @@
-import XCTest
-@testable import CodeForge
+import Foundation
+@testable import CodeForgeLib
 
-final class NDJSONParserTests: XCTestCase {
+func assertEq<T: Equatable>(_ a: T, _ b: T, _ msg: String = "", file: String = #file, line: Int = #line) {
+    guard a == b else {
+        fatalError("Assertion failed: \(a) != \(b) \(msg) (\(file):\(line))")
+    }
+}
+func assertTrue(_ v: Bool, _ msg: String = "", file: String = #file, line: Int = #line) {
+    guard v else { fatalError("Assertion failed: expected true \(msg) (\(file):\(line))") }
+}
+func assertNil<T>(_ v: T?, _ msg: String = "", file: String = #file, line: Int = #line) {
+    guard v == nil else { fatalError("Assertion failed: expected nil, got \(v!) \(msg) (\(file):\(line))") }
+}
 
-    func testCompleteSingleLine() {
+enum NDJSONParserTests {
+    static func runAll() {
+        testCompleteSingleLine()
+        testMultipleCompleteLines()
+        testPartialLineBuffering()
+        testChunkSplitMiddle()
+        testEmptyLinesSkipped()
+        testFlushReturnsRemainingBuffer()
+        testFlushReturnsNilWhenEmpty()
+        testFeedData()
+        testRealisticStreamOutput()
+        testParseSystemEvent()
+        testParseResultEventWithCost()
+        testUnknownEventType()
+        testMalformedJSON()
+        print("  NDJSONParserTests: 13/13 passed")
+    }
+
+    static func testCompleteSingleLine() {
         var parser = NDJSONParser()
         let lines = parser.feed("{\"type\":\"system\"}\n")
-        XCTAssertEqual(lines, ["{\"type\":\"system\"}"])
+        assertEq(lines, ["{\"type\":\"system\"}"])
     }
 
-    func testMultipleCompleteLines() {
+    static func testMultipleCompleteLines() {
         var parser = NDJSONParser()
         let lines = parser.feed("{\"type\":\"system\"}\n{\"type\":\"result\"}\n")
-        XCTAssertEqual(lines.count, 2)
-        XCTAssertEqual(lines[0], "{\"type\":\"system\"}")
-        XCTAssertEqual(lines[1], "{\"type\":\"result\"}")
+        assertEq(lines.count, 2)
+        assertEq(lines[0], "{\"type\":\"system\"}")
+        assertEq(lines[1], "{\"type\":\"result\"}")
     }
 
-    func testPartialLineBuffering() {
+    static func testPartialLineBuffering() {
         var parser = NDJSONParser()
         let lines1 = parser.feed("{\"type\":")
-        XCTAssertTrue(lines1.isEmpty)
+        assertTrue(lines1.isEmpty)
 
         let lines2 = parser.feed("\"system\"}\n")
-        XCTAssertEqual(lines2, ["{\"type\":\"system\"}"])
+        assertEq(lines2, ["{\"type\":\"system\"}"])
     }
 
-    func testChunkSplitMiddle() {
+    static func testChunkSplitMiddle() {
         var parser = NDJSONParser()
 
         let lines1 = parser.feed("{\"type\":\"system\",\"ses")
-        XCTAssertTrue(lines1.isEmpty)
+        assertTrue(lines1.isEmpty)
 
         let lines2 = parser.feed("sionId\":\"abc\"}\n{\"type\":\"res")
-        XCTAssertEqual(lines2, ["{\"type\":\"system\",\"sessionId\":\"abc\"}"])
+        assertEq(lines2, ["{\"type\":\"system\",\"sessionId\":\"abc\"}"])
 
         let lines3 = parser.feed("ult\"}\n")
-        XCTAssertEqual(lines3, ["{\"type\":\"result\"}"])
+        assertEq(lines3, ["{\"type\":\"result\"}"])
     }
 
-    func testEmptyLinesSkipped() {
+    static func testEmptyLinesSkipped() {
         var parser = NDJSONParser()
         let lines = parser.feed("\n\n{\"type\":\"system\"}\n\n")
-        XCTAssertEqual(lines, ["{\"type\":\"system\"}"])
+        assertEq(lines, ["{\"type\":\"system\"}"])
     }
 
-    func testFlushReturnsRemainingBuffer() {
+    static func testFlushReturnsRemainingBuffer() {
         var parser = NDJSONParser()
         let lines = parser.feed("{\"type\":\"partial\"}")
-        XCTAssertTrue(lines.isEmpty)
+        assertTrue(lines.isEmpty)
 
         let flushed = parser.flush()
-        XCTAssertEqual(flushed, "{\"type\":\"partial\"}")
+        assertEq(flushed, "{\"type\":\"partial\"}")
     }
 
-    func testFlushReturnsNilWhenEmpty() {
+    static func testFlushReturnsNilWhenEmpty() {
         var parser = NDJSONParser()
         _ = parser.feed("{\"type\":\"system\"}\n")
         let flushed = parser.flush()
-        XCTAssertNil(flushed)
+        assertNil(flushed)
     }
 
-    func testFeedData() {
+    static func testFeedData() {
         var parser = NDJSONParser()
         let data = "{\"type\":\"system\"}\n".data(using: .utf8)!
         let lines = parser.feed(data)
-        XCTAssertEqual(lines, ["{\"type\":\"system\"}"])
+        assertEq(lines, ["{\"type\":\"system\"}"])
     }
 
-    func testRealisticStreamOutput() {
+    static func testRealisticStreamOutput() {
         var parser = NDJSONParser()
 
-        let chunk1 = "{\"type\":\"system\",\"sessionId\":\"abc123\",\"tools\":[\"Read\",\"Write\"]}\n"
-        let lines1 = parser.feed(chunk1)
-        XCTAssertEqual(lines1.count, 1)
+        let lines1 = parser.feed("{\"type\":\"system\",\"sessionId\":\"abc123\",\"tools\":[\"Read\",\"Write\"]}\n")
+        assertEq(lines1.count, 1)
 
-        let chunk2 = "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Hello\"}]},\"sessionId\":\"abc123\"}\n"
-        let lines2 = parser.feed(chunk2)
-        XCTAssertEqual(lines2.count, 1)
+        let lines2 = parser.feed("{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Hello\"}]},\"sessionId\":\"abc123\"}\n")
+        assertEq(lines2.count, 1)
 
-        let chunk3 = "{\"type\":\"result\",\"sessionId\":\"abc123\",\"result\":\"done\",\"durationMs\":1234}\n"
-        let lines3 = parser.feed(chunk3)
-        XCTAssertEqual(lines3.count, 1)
+        let lines3 = parser.feed("{\"type\":\"result\",\"sessionId\":\"abc123\",\"result\":\"done\",\"durationMs\":1234}\n")
+        assertEq(lines3.count, 1)
     }
 
-    func testParseSystemEvent() {
+    static func testParseSystemEvent() {
         let line = "{\"type\":\"system\",\"sessionId\":\"abc123\"}"
         let event = ClaudeStreamEvent.parse(from: line)
 
         if case .system(let sysEvent) = event {
-            XCTAssertEqual(sysEvent.sessionId, "abc123")
+            assertEq(sysEvent.sessionId, "abc123")
         } else {
-            XCTFail("Expected system event")
+            fatalError("Expected system event")
         }
     }
 
-    func testParseResultEventWithCost() {
+    static func testParseResultEventWithCost() {
         let line = "{\"type\":\"result\",\"sessionId\":\"abc\",\"result\":\"done\",\"durationMs\":500,\"cost\":{\"inputTokens\":100,\"outputTokens\":50,\"totalUsd\":0.001}}"
         let event = ClaudeStreamEvent.parse(from: line)
 
         if case .result(let res) = event {
-            XCTAssertEqual(res.sessionId, "abc")
-            XCTAssertEqual(res.durationMs, 500)
-            XCTAssertEqual(res.cost?.inputTokens, 100)
-            XCTAssertEqual(res.cost?.outputTokens, 50)
+            assertEq(res.sessionId, "abc")
+            assertEq(res.durationMs, 500)
+            assertEq(res.cost?.inputTokens, 100)
+            assertEq(res.cost?.outputTokens, 50)
         } else {
-            XCTFail("Expected result event")
+            fatalError("Expected result event")
         }
     }
 
-    func testUnknownEventType() {
+    static func testUnknownEventType() {
         let line = "{\"type\":\"unknown_type\",\"data\":123}"
         let event = ClaudeStreamEvent.parse(from: line)
 
         if case .unknown = event {
             // Expected
         } else {
-            XCTFail("Expected unknown event")
+            fatalError("Expected unknown event")
         }
     }
 
-    func testMalformedJSON() {
+    static func testMalformedJSON() {
         let line = "not valid json at all"
         let event = ClaudeStreamEvent.parse(from: line)
 
         if case .unknown = event {
             // Expected
         } else {
-            XCTFail("Expected unknown event for malformed JSON")
+            fatalError("Expected unknown event for malformed JSON")
         }
     }
 }

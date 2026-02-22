@@ -4,8 +4,8 @@ import os.log
 
 /// The application database — manages SQLite connection, migrations, and provides
 /// a shared `DatabaseQueue` for all read/write operations.
-struct AppDatabase {
-    let dbQueue: DatabaseQueue
+public struct AppDatabase {
+    public let dbQueue: DatabaseQueue
 
     init(_ dbQueue: DatabaseQueue) throws {
         self.dbQueue = dbQueue
@@ -173,7 +173,7 @@ struct AppDatabase {
 
 extension AppDatabase {
     /// Creates the default database in Application Support.
-    static func makeDefault() throws -> AppDatabase {
+    public static func makeDefault() throws -> AppDatabase {
         let fileManager = FileManager.default
         let appSupportURL = try fileManager.url(
             for: .applicationSupportDirectory,
@@ -190,7 +190,7 @@ extension AppDatabase {
     }
 
     /// Creates an in-memory database for testing.
-    static func makeEmpty() throws -> AppDatabase {
+    public static func makeEmpty() throws -> AppDatabase {
         let dbQueue = try DatabaseQueue(configuration: .init())
         return try AppDatabase(dbQueue)
     }
@@ -200,11 +200,11 @@ extension AppDatabase {
 
 import SwiftUI
 
-private struct AppDatabaseKey: EnvironmentKey {
+struct AppDatabaseKey: EnvironmentKey {
     static let defaultValue: AppDatabase? = nil
 }
 
-extension EnvironmentValues {
+public extension EnvironmentValues {
     var appDatabase: AppDatabase? {
         get { self[AppDatabaseKey.self] }
         set { self[AppDatabaseKey.self] = newValue }

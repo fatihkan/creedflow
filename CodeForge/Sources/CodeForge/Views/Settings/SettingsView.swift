@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SettingsView: View {
+public struct SettingsView: View {
     @Environment(\.appDatabase) private var appDatabase
     @AppStorage("claudePath") private var claudePath = "/usr/local/bin/claude"
     @AppStorage("maxConcurrency") private var maxConcurrency = 3
@@ -12,7 +12,9 @@ struct SettingsView: View {
     @State private var claudeVersion = "Checking..."
     @State private var ghVersion = "Checking..."
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         TabView {
             generalTab
                 .tabItem { Label("General", systemImage: "gear") }

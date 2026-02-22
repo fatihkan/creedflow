@@ -1,10 +1,19 @@
-import XCTest
 import Foundation
-@testable import CodeForge
+@testable import CodeForgeLib
 
-final class DependencyGraphTests: XCTestCase {
+enum DependencyGraphTests {
+    static func runAll() {
+        testSimpleTopologicalSort()
+        testCycleDetectionThrows()
+        testWouldCreateCycle()
+        testReadyTasksNoDeps()
+        testReadyTasksPartialComplete()
+        testEmptyGraph()
+        testDiamondDependencyGraph()
+        print("  DependencyGraphTests: 7/7 passed")
+    }
 
-    func testSimpleTopologicalSort() throws {
+    static func testSimpleTopologicalSort() {
         var graph = DependencyGraph()
         let a = UUID()
         let b = UUID()
@@ -16,17 +25,17 @@ final class DependencyGraphTests: XCTestCase {
         graph.addDependency(task: b, dependsOn: a)
         graph.addDependency(task: c, dependsOn: b)
 
-        let sorted = try graph.topologicalSort()
-        XCTAssertEqual(sorted.count, 3)
+        let sorted = try! graph.topologicalSort()
+        assertEq(sorted.count, 3)
 
         let indexA = sorted.firstIndex(of: a)!
         let indexB = sorted.firstIndex(of: b)!
         let indexC = sorted.firstIndex(of: c)!
-        XCTAssertLessThan(indexA, indexB)
-        XCTAssertLessThan(indexB, indexC)
+        assertTrue(indexA < indexB)
+        assertTrue(indexB < indexC)
     }
 
-    func testCycleDetectionThrows() {
+    static func testCycleDetectionThrows() {
         var graph = DependencyGraph()
         let a = UUID()
         let b = UUID()
@@ -34,10 +43,15 @@ final class DependencyGraphTests: XCTestCase {
         graph.addDependency(task: a, dependsOn: b)
         graph.addDependency(task: b, dependsOn: a)
 
-        XCTAssertThrowsError(try graph.topologicalSort())
+        do {
+            _ = try graph.topologicalSort()
+            fatalError("Expected cycle error")
+        } catch {
+            // Expected
+        }
     }
 
-    func testWouldCreateCycle() {
+    static func testWouldCreateCycle() {
         var graph = DependencyGraph()
         let a = UUID()
         let b = UUID()
@@ -46,14 +60,14 @@ final class DependencyGraphTests: XCTestCase {
         graph.addDependency(task: b, dependsOn: a)
         graph.addDependency(task: c, dependsOn: b)
 
-        XCTAssertTrue(graph.wouldCreateCycle(task: a, dependsOn: c))
+        assertTrue(graph.wouldCreateCycle(task: a, dependsOn: c))
 
         let d = UUID()
         graph.addNode(d)
-        XCTAssertFalse(graph.wouldCreateCycle(task: a, dependsOn: d))
+        assertTrue(!graph.wouldCreateCycle(task: a, dependsOn: d))
     }
 
-    func testReadyTasksNoDeps() {
+    static func testReadyTasksNoDeps() {
         var graph = DependencyGraph()
         let a = UUID()
         let b = UUID()
@@ -62,10 +76,10 @@ final class DependencyGraphTests: XCTestCase {
         graph.addNode(b)
 
         let ready = graph.readyTasks(completedTasks: [])
-        XCTAssertEqual(ready.count, 2)
+        assertEq(ready.count, 2)
     }
 
-    func testReadyTasksPartialComplete() {
+    static func testReadyTasksPartialComplete() {
         var graph = DependencyGraph()
         let a = UUID()
         let b = UUID()
@@ -75,22 +89,22 @@ final class DependencyGraphTests: XCTestCase {
         graph.addDependency(task: c, dependsOn: a)
 
         var ready = graph.readyTasks(completedTasks: [])
-        XCTAssertEqual(ready.count, 1)
-        XCTAssertTrue(ready.contains(a))
+        assertEq(ready.count, 1)
+        assertTrue(ready.contains(a))
 
         ready = graph.readyTasks(completedTasks: [a])
-        XCTAssertEqual(ready.count, 2)
-        XCTAssertTrue(ready.contains(b))
-        XCTAssertTrue(ready.contains(c))
+        assertEq(ready.count, 2)
+        assertTrue(ready.contains(b))
+        assertTrue(ready.contains(c))
     }
 
-    func testEmptyGraph() throws {
+    static func testEmptyGraph() {
         let graph = DependencyGraph()
-        let sorted = try graph.topologicalSort()
-        XCTAssertTrue(sorted.isEmpty)
+        let sorted = try! graph.topologicalSort()
+        assertTrue(sorted.isEmpty)
     }
 
-    func testDiamondDependencyGraph() throws {
+    static func testDiamondDependencyGraph() {
         var graph = DependencyGraph()
         let a = UUID()
         let b = UUID()
@@ -102,17 +116,17 @@ final class DependencyGraphTests: XCTestCase {
         graph.addDependency(task: d, dependsOn: b)
         graph.addDependency(task: d, dependsOn: c)
 
-        let sorted = try graph.topologicalSort()
-        XCTAssertEqual(sorted.count, 4)
+        let sorted = try! graph.topologicalSort()
+        assertEq(sorted.count, 4)
 
         let indexA = sorted.firstIndex(of: a)!
         let indexB = sorted.firstIndex(of: b)!
         let indexC = sorted.firstIndex(of: c)!
         let indexD = sorted.firstIndex(of: d)!
 
-        XCTAssertLessThan(indexA, indexB)
-        XCTAssertLessThan(indexA, indexC)
-        XCTAssertLessThan(indexB, indexD)
-        XCTAssertLessThan(indexC, indexD)
+        assertTrue(indexA < indexB)
+        assertTrue(indexA < indexC)
+        assertTrue(indexB < indexD)
+        assertTrue(indexC < indexD)
     }
 }

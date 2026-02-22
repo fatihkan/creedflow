@@ -1,7 +1,7 @@
 import SwiftUI
 import GRDB
 
-struct ContentView: View {
+public struct ContentView: View {
     @Environment(\.appDatabase) private var appDatabase
     @State private var selectedSection: SidebarSection? = .projects
     @State private var selectedProjectId: UUID?
@@ -9,7 +9,9 @@ struct ContentView: View {
     @State private var orchestrator: Orchestrator?
     @State private var telegramService = TelegramBotService()
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         NavigationSplitView {
             SidebarView(
                 selectedSection: $selectedSection,
