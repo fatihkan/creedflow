@@ -165,6 +165,19 @@ public struct AppDatabase {
             )
         }
 
+        migrator.registerMigration("v2_mcp_server_config") { db in
+            try db.create(table: "mcpServerConfig") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("name", .text).notNull().unique()
+                t.column("command", .text).notNull()
+                t.column("arguments", .text).notNull().defaults(to: "[]")
+                t.column("environmentVars", .text).notNull().defaults(to: "{}")
+                t.column("isEnabled", .boolean).notNull().defaults(to: true)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+        }
+
         return migrator
     }
 }

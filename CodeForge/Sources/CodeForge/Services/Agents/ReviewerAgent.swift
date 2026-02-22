@@ -21,12 +21,18 @@ struct ReviewerAgent: AgentProtocol {
         - < 5.0 average: FAIL (explain critical issues)
 
         Output must be valid JSON matching the schema.
+
+        MCP Tools Available (via codeforge server):
+        - get_agent_logs: Read the coder agent's logs to understand what was done
+        - list_tasks: See related tasks for context
+        - get_project_status: Check overall project state
         """
 
     let allowedTools: [String]? = ["Read", "Glob", "Grep", "Bash"]
     let maxBudgetUSD: Double = 2.0
     let timeoutSeconds = 300 // 5 minutes
     let streamOutput = false
+    let mcpServers: [String]? = ["codeforge"]
 
     var jsonSchema: String? {
         """

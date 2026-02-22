@@ -1,23 +1,23 @@
 import Foundation
 import GRDB
 
-struct AgentLog: Codable, Identifiable, Equatable {
-    var id: UUID
-    var taskId: UUID
-    var agentType: AgentTask.AgentType
-    var level: Level
-    var message: String
-    var metadata: String?
-    var createdAt: Date
+package struct AgentLog: Codable, Identifiable, Equatable {
+    package var id: UUID
+    package var taskId: UUID
+    package var agentType: AgentTask.AgentType
+    package var level: Level
+    package var message: String
+    package var metadata: String?
+    package var createdAt: Date
 
-    enum Level: String, Codable, CaseIterable, DatabaseValueConvertible {
+    package enum Level: String, Codable, CaseIterable, DatabaseValueConvertible {
         case debug
         case info
         case warning
         case error
     }
 
-    init(
+    package init(
         id: UUID = UUID(),
         taskId: UUID,
         agentType: AgentTask.AgentType,
@@ -39,7 +39,7 @@ struct AgentLog: Codable, Identifiable, Equatable {
 // MARK: - Persistence
 
 extension AgentLog: FetchableRecord, PersistableRecord {
-    static let databaseTableName = "agentLog"
+    package static let databaseTableName = "agentLog"
 
     static let task = belongsTo(AgentTask.self)
 }

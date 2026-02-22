@@ -1,18 +1,18 @@
 import Foundation
 import GRDB
 
-struct Project: Codable, Identifiable, Equatable {
-    var id: UUID
-    var name: String
-    var description: String
-    var techStack: String
-    var status: Status
-    var directoryPath: String
-    var telegramChatId: Int64?
-    var createdAt: Date
-    var updatedAt: Date
+package struct Project: Codable, Identifiable, Equatable {
+    package var id: UUID
+    package var name: String
+    package var description: String
+    package var techStack: String
+    package var status: Status
+    package var directoryPath: String
+    package var telegramChatId: Int64?
+    package var createdAt: Date
+    package var updatedAt: Date
 
-    enum Status: String, Codable, CaseIterable, DatabaseValueConvertible {
+    package enum Status: String, Codable, CaseIterable, DatabaseValueConvertible {
         case planning
         case analyzing
         case inProgress = "in_progress"
@@ -23,7 +23,7 @@ struct Project: Codable, Identifiable, Equatable {
         case paused
     }
 
-    init(
+    package init(
         id: UUID = UUID(),
         name: String,
         description: String,
@@ -49,7 +49,7 @@ struct Project: Codable, Identifiable, Equatable {
 // MARK: - Persistence
 
 extension Project: FetchableRecord, PersistableRecord {
-    static let databaseTableName = "project"
+    package static let databaseTableName = "project"
 
     static let features = hasMany(Feature.self)
     static let tasks = hasMany(AgentTask.self)

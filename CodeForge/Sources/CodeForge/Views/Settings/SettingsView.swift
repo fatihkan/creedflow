@@ -24,8 +24,11 @@ public struct SettingsView: View {
 
             telegramTab
                 .tabItem { Label("Telegram", systemImage: "paperplane") }
+
+            MCPSettingsView(appDatabase: appDatabase)
+                .tabItem { Label("MCP", systemImage: "server.rack") }
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 550, height: 450)
         .task {
             await checkToolVersions()
         }

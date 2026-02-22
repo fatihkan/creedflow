@@ -15,11 +15,16 @@ struct TesterAgent: AgentProtocol {
         - If tests fail, fix them (don't fix the implementation — report bugs instead)
         - Target at least 80% coverage for new code
         - Include integration tests for API endpoints if applicable
+
+        MCP Tools Available (via codeforge server):
+        - get_agent_logs: Read the coder agent's logs to understand the implementation
+        - list_tasks: See related tasks for context
         """
 
     let allowedTools: [String]? = nil // Full access to write and run tests
     let maxBudgetUSD: Double = 3.0
     let timeoutSeconds = 600 // 10 minutes
+    let mcpServers: [String]? = ["codeforge"]
 
     func buildPrompt(for task: AgentTask) -> String {
         """
@@ -29,6 +34,7 @@ struct TesterAgent: AgentProtocol {
         Description: \(task.description)
 
         Read the implementation first, then write appropriate tests. Run them to verify they pass.
+        Use the codeforge MCP tools to check the coder's logs and related task context.
         """
     }
 }

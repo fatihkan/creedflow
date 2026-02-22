@@ -17,10 +17,14 @@ public struct ContentView: View {
                 selectedSection: $selectedSection,
                 orchestrator: orchestrator
             )
-        } content: {
-            contentPanel
         } detail: {
-            detailPanel
+            VSplitView {
+                contentPanel
+                    .frame(minHeight: 200)
+
+                detailPanel
+                    .frame(minHeight: 150, idealHeight: 250)
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 900, minHeight: 600)
@@ -85,7 +89,7 @@ public struct ContentView: View {
         } else {
             ContentUnavailableView(
                 "No Selection",
-                systemImage: "sidebar.right",
+                systemImage: "rectangle.bottomhalf.filled",
                 description: Text("Select an item to view details")
             )
         }

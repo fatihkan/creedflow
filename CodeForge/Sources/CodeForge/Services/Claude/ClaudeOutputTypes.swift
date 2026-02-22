@@ -109,6 +109,14 @@ extension ClaudeStreamEvent {
     }
 }
 
+/// Permission mode for Claude CLI invocation
+enum PermissionMode: String, Sendable {
+    /// Full auto-accept — no permission prompts. Uses `--dangerously-skip-permissions`.
+    case dangerouslySkipPermissions
+    /// Default interactive mode (no flag added)
+    case interactive
+}
+
 /// Configuration for a Claude CLI invocation
 struct ClaudeInvocation: Sendable {
     let prompt: String
@@ -119,6 +127,9 @@ struct ClaudeInvocation: Sendable {
     let maxBudgetUSD: Double?
     let jsonSchema: String?
     let resumeSessionId: String?
+    let mcpConfigPath: String?
+    let mcpServerNames: [String]?
+    let permissionMode: PermissionMode
 
     enum OutputFormat: String, Sendable {
         case streamJSON = "stream-json"
@@ -133,7 +144,10 @@ struct ClaudeInvocation: Sendable {
         allowedTools: [String]? = nil,
         maxBudgetUSD: Double? = nil,
         jsonSchema: String? = nil,
-        resumeSessionId: String? = nil
+        resumeSessionId: String? = nil,
+        mcpConfigPath: String? = nil,
+        mcpServerNames: [String]? = nil,
+        permissionMode: PermissionMode = .dangerouslySkipPermissions
     ) {
         self.prompt = prompt
         self.workingDirectory = workingDirectory
@@ -143,6 +157,29 @@ struct ClaudeInvocation: Sendable {
         self.maxBudgetUSD = maxBudgetUSD
         self.jsonSchema = jsonSchema
         self.resumeSessionId = resumeSessionId
+        self.mcpConfigPath = mcpConfigPath
+        self.mcpServerNames = mcpServerNames
+        self.permissionMode = permissionMode
+    }
+
+    /// Create a copy with specific fields overridden
+    func with(
+        workingDirectory: String? = nil,
+        mcpConfigPath: String? = nil
+    ) -> ClaudeInvocation {
+        ClaudeInvocation(
+            prompt: prompt,
+            workingDirectory: workingDirectory ?? self.workingDirectory,
+            systemPrompt: systemPrompt,
+            outputFormat: outputFormat,
+            allowedTools: allowedTools,
+            maxBudgetUSD: maxBudgetUSD,
+            jsonSchema: jsonSchema,
+            resumeSessionId: resumeSessionId,
+            mcpConfigPath: mcpConfigPath ?? self.mcpConfigPath,
+            mcpServerNames: mcpServerNames,
+            permissionMode: permissionMode
+        )
     }
 
     /// Build the full command-line arguments for `claude`
@@ -157,6 +194,11 @@ struct ClaudeInvocation: Sendable {
 
         args += ["--output-format", outputFormat.rawValue, "--verbose"]
 
+        // Permission mode — agents run non-interactively, skip all permission prompts
+        if permissionMode == .dangerouslySkipPermissions {
+            args += ["--dangerously-skip-permissions"]
+        }
+
         if let systemPrompt {
             args += ["--system-prompt", systemPrompt]
         }
@@ -168,6 +210,9 @@ struct ClaudeInvocation: Sendable {
         }
         if let schema = jsonSchema {
             args += ["--json-schema", schema]
+        }
+        if let mcpConfig = mcpConfigPath {
+            args += ["--mcp-config", mcpConfig]
         }
 
         return args

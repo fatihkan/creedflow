@@ -2,30 +2,30 @@ import Foundation
 import GRDB
 
 /// Named "AgentTask" to avoid collision with Swift.Task
-struct AgentTask: Codable, Identifiable, Equatable {
-    var id: UUID
-    var projectId: UUID
-    var featureId: UUID?
-    var agentType: AgentType
-    var title: String
-    var description: String
-    var priority: Int
-    var status: Status
-    var result: String?
-    var errorMessage: String?
-    var retryCount: Int
-    var maxRetries: Int
-    var sessionId: String?
-    var branchName: String?
-    var prNumber: Int?
-    var costUSD: Double?
-    var durationMs: Int64?
-    var createdAt: Date
-    var updatedAt: Date
-    var startedAt: Date?
-    var completedAt: Date?
+package struct AgentTask: Codable, Identifiable, Equatable {
+    package var id: UUID
+    package var projectId: UUID
+    package var featureId: UUID?
+    package var agentType: AgentType
+    package var title: String
+    package var description: String
+    package var priority: Int
+    package var status: Status
+    package var result: String?
+    package var errorMessage: String?
+    package var retryCount: Int
+    package var maxRetries: Int
+    package var sessionId: String?
+    package var branchName: String?
+    package var prNumber: Int?
+    package var costUSD: Double?
+    package var durationMs: Int64?
+    package var createdAt: Date
+    package var updatedAt: Date
+    package var startedAt: Date?
+    package var completedAt: Date?
 
-    enum AgentType: String, Codable, CaseIterable, DatabaseValueConvertible {
+    package enum AgentType: String, Codable, CaseIterable, DatabaseValueConvertible {
         case analyzer
         case coder
         case reviewer
@@ -34,7 +34,7 @@ struct AgentTask: Codable, Identifiable, Equatable {
         case monitor
     }
 
-    enum Status: String, Codable, CaseIterable, DatabaseValueConvertible {
+    package enum Status: String, Codable, CaseIterable, DatabaseValueConvertible {
         case queued
         case inProgress = "in_progress"
         case passed
@@ -43,7 +43,7 @@ struct AgentTask: Codable, Identifiable, Equatable {
         case cancelled
     }
 
-    init(
+    package init(
         id: UUID = UUID(),
         projectId: UUID,
         featureId: UUID? = nil,
@@ -93,7 +93,7 @@ struct AgentTask: Codable, Identifiable, Equatable {
 // MARK: - Persistence
 
 extension AgentTask: FetchableRecord, PersistableRecord {
-    static let databaseTableName = "agentTask"
+    package static let databaseTableName = "agentTask"
 
     static let project = belongsTo(Project.self)
     static let feature = belongsTo(Feature.self)

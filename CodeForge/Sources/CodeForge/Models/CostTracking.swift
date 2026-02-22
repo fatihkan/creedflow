@@ -1,19 +1,19 @@
 import Foundation
 import GRDB
 
-struct CostTracking: Codable, Identifiable, Equatable {
-    var id: UUID
-    var projectId: UUID
-    var taskId: UUID?
-    var agentType: AgentTask.AgentType
-    var inputTokens: Int
-    var outputTokens: Int
-    var costUSD: Double
-    var model: String
-    var sessionId: String?
-    var createdAt: Date
+package struct CostTracking: Codable, Identifiable, Equatable {
+    package var id: UUID
+    package var projectId: UUID
+    package var taskId: UUID?
+    package var agentType: AgentTask.AgentType
+    package var inputTokens: Int
+    package var outputTokens: Int
+    package var costUSD: Double
+    package var model: String
+    package var sessionId: String?
+    package var createdAt: Date
 
-    init(
+    package init(
         id: UUID = UUID(),
         projectId: UUID,
         taskId: UUID? = nil,
@@ -41,7 +41,7 @@ struct CostTracking: Codable, Identifiable, Equatable {
 // MARK: - Persistence
 
 extension CostTracking: FetchableRecord, PersistableRecord {
-    static let databaseTableName = "costTracking"
+    package static let databaseTableName = "costTracking"
 
     static let project = belongsTo(Project.self)
     static let task = belongsTo(AgentTask.self)

@@ -50,18 +50,27 @@ final class ClaudeAgentRunner {
 
         addOutputLine("Starting \(agent.agentType.rawValue) agent for: \(task.title)", type: .system)
 
-        // Build invocation from agent config, override working directory
+        // Generate MCP config if agent needs MCP servers
+        var mcpConfigPath: String?
+        if let serverNames = agent.mcpServers, !serverNames.isEmpty {
+            let generator = MCPConfigGenerator(dbQueue: dbQueue)
+            mcpConfigPath = try generator.generateConfig(serverNames: serverNames)
+            if let path = mcpConfigPath {
+                addOutputLine("MCP config: \(path)", type: .system)
+            }
+        }
+        defer {
+            if let path = mcpConfigPath {
+                MCPConfigGenerator.cleanup(path: path)
+            }
+        }
+
+        // Build invocation from agent config, override working directory and MCP config
         var invocation = agent.buildInvocation(for: task)
-        if !workingDirectory.isEmpty {
-            invocation = ClaudeInvocation(
-                prompt: invocation.prompt,
-                workingDirectory: workingDirectory,
-                systemPrompt: invocation.systemPrompt,
-                outputFormat: invocation.outputFormat,
-                allowedTools: invocation.allowedTools,
-                maxBudgetUSD: invocation.maxBudgetUSD,
-                jsonSchema: invocation.jsonSchema,
-                resumeSessionId: invocation.resumeSessionId
+        if !workingDirectory.isEmpty || mcpConfigPath != nil {
+            invocation = invocation.with(
+                workingDirectory: workingDirectory.isEmpty ? nil : workingDirectory,
+                mcpConfigPath: mcpConfigPath
             )
         }
         let (processId, stream) = await processManager.run(invocation)
@@ -136,39 +145,47 @@ final class ClaudeAgentRunner {
             throw error
         }
 
+        // Capture final values for Sendable closure safety
+        let finalSessionId = sessionId
+        let finalResultText = resultText
+        let finalTotalCost = totalCost
+        let finalDurationMs = durationMs
+        let finalInputTokens = inputTokens
+        let finalOutputTokens = outputTokens
+
         let agentResult = AgentResult(
-            sessionId: sessionId,
-            output: resultText,
-            costUSD: totalCost,
-            durationMs: durationMs,
-            inputTokens: inputTokens,
-            outputTokens: outputTokens
+            sessionId: finalSessionId,
+            output: finalResultText,
+            costUSD: finalTotalCost,
+            durationMs: finalDurationMs,
+            inputTokens: finalInputTokens,
+            outputTokens: finalOutputTokens
         )
 
         // Update task with results
         try await dbQueue.write { db in
             var updatedTask = task
             updatedTask.status = .passed
-            updatedTask.result = resultText
-            updatedTask.sessionId = sessionId
-            updatedTask.costUSD = totalCost
-            updatedTask.durationMs = durationMs.map(Int64.init)
+            updatedTask.result = finalResultText
+            updatedTask.sessionId = finalSessionId
+            updatedTask.costUSD = finalTotalCost
+            updatedTask.durationMs = finalDurationMs.map(Int64.init)
             updatedTask.updatedAt = Date()
             updatedTask.completedAt = Date()
             try updatedTask.update(db)
         }
 
         // Record cost
-        if let cost = totalCost, cost > 0 {
+        if let cost = finalTotalCost, cost > 0 {
             try await dbQueue.write { db in
-                var costRecord = CostTracking(
+                let costRecord = CostTracking(
                     projectId: task.projectId,
                     taskId: task.id,
                     agentType: task.agentType,
-                    inputTokens: inputTokens,
-                    outputTokens: outputTokens,
+                    inputTokens: finalInputTokens,
+                    outputTokens: finalOutputTokens,
                     costUSD: cost,
-                    sessionId: sessionId
+                    sessionId: finalSessionId
                 )
                 try costRecord.insert(db)
             }

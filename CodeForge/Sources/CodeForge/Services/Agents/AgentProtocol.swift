@@ -11,6 +11,9 @@ protocol AgentProtocol: Sendable {
     var jsonSchema: String? { get }
     var streamOutput: Bool { get }
 
+    /// MCP server names this agent needs (looked up from DB at runtime)
+    var mcpServers: [String]? { get }
+
     /// Build a prompt for the given task
     func buildPrompt(for task: AgentTask) -> String
 
@@ -21,6 +24,7 @@ protocol AgentProtocol: Sendable {
 extension AgentProtocol {
     var jsonSchema: String? { nil }
     var streamOutput: Bool { true }
+    var mcpServers: [String]? { nil }
 
     func buildInvocation(for task: AgentTask) -> ClaudeInvocation {
         ClaudeInvocation(
