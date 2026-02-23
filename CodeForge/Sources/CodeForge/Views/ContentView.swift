@@ -76,6 +76,16 @@ public struct ContentView: View {
             ReviewApprovalView(appDatabase: appDatabase)
         case .deploys:
             DeployView(appDatabase: appDatabase)
+        case .prompts:
+            PromptsLibraryView(appDatabase: appDatabase)
+        case .projectTasks(let projectId):
+            TaskBoardView(
+                projectId: projectId,
+                selectedTaskId: $selectedTaskId,
+                appDatabase: appDatabase,
+                orchestrator: orchestrator
+            )
+            .onAppear { selectedProjectId = projectId }
         case .settings, .none:
             ForgeEmptyState(
                 icon: "hammer.fill",
@@ -118,4 +128,6 @@ enum SidebarSection: Hashable {
     case reviews
     case deploys
     case settings
+    case prompts
+    case projectTasks(UUID)
 }

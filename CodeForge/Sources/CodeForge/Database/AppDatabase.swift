@@ -178,6 +178,27 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v3_prompt") { db in
+            try db.create(table: "prompt") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("title", .text).notNull()
+                t.column("content", .text).notNull()
+                t.column("source", .text).notNull().defaults(to: "user")
+                t.column("category", .text).notNull().defaults(to: "general")
+                t.column("contributor", .text)
+                t.column("isBuiltIn", .boolean).notNull().defaults(to: false)
+                t.column("isFavorite", .boolean).notNull().defaults(to: false)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(
+                index: "prompt_on_source_category",
+                on: "prompt",
+                columns: ["source", "category"]
+            )
+        }
+
         return migrator
     }
 }

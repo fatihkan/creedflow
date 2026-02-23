@@ -16,6 +16,7 @@ struct SidebarView: View {
             projectShortcuts
             pipelineSection
             monitorSection
+            promptsSection
             settingsSection
         }
         .listStyle(.sidebar)
@@ -50,20 +51,15 @@ struct SidebarView: View {
         if !projects.isEmpty {
             Section("Recent Projects") {
                 ForEach(projects.prefix(5)) { project in
-                    Button {
-                        selectedProjectId = project.id
-                        selectedSection = .tasks
-                    } label: {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(project.status.themeColor)
-                                .frame(width: 6, height: 6)
-                            Text(project.name)
-                                .font(.subheadline)
-                                .lineLimit(1)
-                        }
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(project.status.themeColor)
+                            .frame(width: 6, height: 6)
+                        Text(project.name)
+                            .font(.subheadline)
+                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
+                    .tag(SidebarSection.projectTasks(project.id))
                 }
             }
         }
@@ -101,6 +97,13 @@ struct SidebarView: View {
 
             Label("Costs", systemImage: "dollarsign.circle")
                 .tag(SidebarSection.costs)
+        }
+    }
+
+    private var promptsSection: some View {
+        Section("Library") {
+            Label("Prompts", systemImage: "text.book.closed")
+                .tag(SidebarSection.prompts)
         }
     }
 

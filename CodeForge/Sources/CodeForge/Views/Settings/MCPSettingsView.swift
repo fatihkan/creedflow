@@ -7,36 +7,13 @@ struct MCPSettingsView: View {
     @State private var store = MCPServerConfigStore()
     @State private var showAddSheet = false
     @State private var editingConfig: MCPServerConfig?
+    @State private var setupTemplate: MCPServerTemplate?
 
     var body: some View {
         Form {
-            Section {
-                if store.configs.isEmpty {
-                    ContentUnavailableView(
-                        "No MCP Servers",
-                        systemImage: "server.rack",
-                        description: Text("Add MCP servers that agents can use for external tool access")
-                    )
-                } else {
-                    ForEach(store.configs) { config in
-                        MCPServerRow(
-                            config: config,
-                            onToggle: { toggleEnabled(config) },
-                            onEdit: { editingConfig = config },
-                            onDelete: { delete(config) }
-                        )
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("MCP Servers")
-                    Spacer()
-                    Button("Add Server", systemImage: "plus") {
-                        showAddSheet = true
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
+            templateSection
+            configuredServersSection
+            manualAddSection
         }
         .formStyle(.grouped)
         .onAppear {
@@ -49,6 +26,81 @@ struct MCPSettingsView: View {
         }
         .sheet(item: $editingConfig) { config in
             MCPServerEditSheet(appDatabase: appDatabase, existing: config)
+        }
+        .sheet(item: $setupTemplate) { template in
+            MCPTemplateSetupSheet(appDatabase: appDatabase, template: template)
+        }
+    }
+
+    // MARK: - Quick Setup Templates
+
+    private var templateSection: some View {
+        Section("Quick Setup") {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 12),
+                GridItem(.flexible(), spacing: 12),
+                GridItem(.flexible(), spacing: 12),
+                GridItem(.flexible(), spacing: 12)
+            ], spacing: 12) {
+                ForEach(MCPServerTemplate.all) { template in
+                    let isConfigured = store.configs.contains { $0.name == template.id }
+                    MCPTemplateCard(
+                        template: template,
+                        isConfigured: isConfigured,
+                        onTap: {
+                            if template.requiredInputs.isEmpty {
+                                installTemplateDirectly(template)
+                            } else {
+                                setupTemplate = template
+                            }
+                        }
+                    )
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: - Configured Servers
+
+    private var configuredServersSection: some View {
+        Section("Configured Servers") {
+            if store.configs.isEmpty {
+                Text("No servers configured yet. Use Quick Setup above or add manually.")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            } else {
+                ForEach(store.configs) { config in
+                    MCPServerRow(
+                        config: config,
+                        onToggle: { toggleEnabled(config) },
+                        onEdit: { editingConfig = config },
+                        onDelete: { delete(config) }
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - Manual Add
+
+    private var manualAddSection: some View {
+        Section {
+            Button {
+                showAddSheet = true
+            } label: {
+                Label("Add Server Manually", systemImage: "plus.circle")
+            }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func installTemplateDirectly(_ template: MCPServerTemplate) {
+        guard let db = appDatabase else { return }
+        var config = template.buildConfig(inputs: [:])
+        try? db.dbQueue.write { dbConn in
+            try config.insert(dbConn)
         }
     }
 
@@ -70,7 +122,143 @@ struct MCPSettingsView: View {
     }
 }
 
-// MARK: - Row
+// MARK: - Template Card
+
+private struct MCPTemplateCard: View {
+    let template: MCPServerTemplate
+    let isConfigured: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: template.icon)
+                        .font(.title2)
+                        .foregroundStyle(isConfigured ? .green : .accentColor)
+                        .frame(width: 36, height: 36)
+                    if isConfigured {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                            .offset(x: 4, y: -4)
+                    }
+                }
+                Text(template.displayName)
+                    .font(.subheadline.weight(.medium))
+                Text(template.description)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, minHeight: 100)
+            .padding(8)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isConfigured ? .green.opacity(0.3) : .clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Template Setup Sheet
+
+private struct MCPTemplateSetupSheet: View {
+    let appDatabase: AppDatabase?
+    let template: MCPServerTemplate
+    @Environment(\.dismiss) private var dismiss
+    @State private var inputValues: [String: String] = [:]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                Image(systemName: template.icon)
+                    .font(.largeTitle)
+                    .foregroundStyle(Color.accentColor)
+                Text("Setup \(template.displayName)")
+                    .font(.headline)
+                Text(template.description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+
+            Form {
+                ForEach(template.requiredInputs) { input in
+                    Section(input.label) {
+                        switch input.type {
+                        case .path:
+                            HStack {
+                                TextField(input.placeholder, text: binding(for: input.id))
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Browse") {
+                                    pickPath(for: input.id)
+                                }
+                            }
+                        case .secret:
+                            SecureField(input.placeholder, text: binding(for: input.id))
+                                .textFieldStyle(.roundedBorder)
+                        case .text:
+                            TextField(input.placeholder, text: binding(for: input.id))
+                                .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                }
+            }
+            .formStyle(.grouped)
+
+            Divider()
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Install") { install() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!allInputsFilled)
+            }
+            .padding()
+        }
+        .frame(width: 420, height: 320)
+    }
+
+    private var allInputsFilled: Bool {
+        template.requiredInputs.allSatisfy { input in
+            guard let value = inputValues[input.id] else { return false }
+            return !value.isEmpty
+        }
+    }
+
+    private func binding(for key: String) -> Binding<String> {
+        Binding(
+            get: { inputValues[key, default: ""] },
+            set: { inputValues[key] = $0 }
+        )
+    }
+
+    private func pickPath(for inputId: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            inputValues[inputId] = url.path
+        }
+    }
+
+    private func install() {
+        guard let db = appDatabase else { return }
+        var config = template.buildConfig(inputs: inputValues)
+        try? db.dbQueue.write { dbConn in
+            try config.insert(dbConn)
+        }
+        dismiss()
+    }
+}
+
+// MARK: - Server Row
 
 private struct MCPServerRow: View {
     let config: MCPServerConfig
@@ -198,5 +386,13 @@ private struct MCPServerEditSheet: View {
             }
         }
         dismiss()
+    }
+}
+
+// MARK: - Equatable for sheet(item:)
+
+extension MCPServerTemplate: Equatable {
+    static func == (lhs: MCPServerTemplate, rhs: MCPServerTemplate) -> Bool {
+        lhs.id == rhs.id
     }
 }

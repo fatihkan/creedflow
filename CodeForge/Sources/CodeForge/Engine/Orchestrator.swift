@@ -190,8 +190,7 @@ final class Orchestrator {
             // After coder: commit changes, push, create PR, queue reviewer
             await handleCoderCompletion(task: task)
         case .reviewer:
-            // After reviewer: parse result, update review status
-            break
+            await handleReviewerCompletion(task: task, result: result)
         default:
             break
         }
@@ -349,6 +348,82 @@ final class Orchestrator {
         try await dbQueue.write { db in
             var log = AgentLog(taskId: taskId, agentType: agent, level: .info, message: message)
             try log.insert(db)
+        }
+    }
+
+    /// Parse reviewer JSON output and create a Review record
+    private func handleReviewerCompletion(task: AgentTask, result: AgentResult) async {
+        guard let output = result.output else {
+            try? await logError(taskId: task.id, agent: .reviewer, message: "Reviewer returned no output")
+            return
+        }
+
+        guard let data = extractJSON(from: output) else {
+            try? await logError(taskId: task.id, agent: .reviewer, message: "Could not extract JSON from reviewer output: \(output.prefix(200))")
+            return
+        }
+
+        struct ReviewerOutput: Decodable {
+            let score: Double
+            let verdict: String
+            let summary: String
+            let issues: String?
+            let suggestions: String?
+            let securityNotes: String?
+        }
+
+        do {
+            let parsed = try JSONDecoder().decode(ReviewerOutput.self, from: data)
+
+            let verdict: Review.Verdict
+            switch parsed.verdict.lowercased() {
+            case "pass": verdict = .pass
+            case "needs_revision", "needsrevision", "needs-revision": verdict = .needsRevision
+            default: verdict = .fail
+            }
+
+            // Insert review record
+            try await dbQueue.write { db in
+                var review = Review(
+                    taskId: task.id,
+                    score: parsed.score,
+                    verdict: verdict,
+                    summary: parsed.summary,
+                    issues: parsed.issues,
+                    suggestions: parsed.suggestions,
+                    securityNotes: parsed.securityNotes,
+                    sessionId: result.sessionId,
+                    costUSD: result.costUSD
+                )
+                try review.insert(db)
+            }
+
+            // Find the original coder task (the one this review task depends on)
+            // and update its status based on the verdict
+            if verdict != .pass {
+                let coderTaskStatus: AgentTask.Status = verdict == .needsRevision ? .needsRevision : .failed
+                try await dbQueue.write { db in
+                    // Find dependency: this reviewer task depends on a coder task
+                    let deps = try TaskDependency
+                        .filter(Column("taskId") == task.id)
+                        .fetchAll(db)
+                    for dep in deps {
+                        var coderTask = try AgentTask.fetchOne(db, id: dep.dependsOnTaskId)
+                        if coderTask?.agentType == .coder {
+                            coderTask?.status = coderTaskStatus
+                            coderTask?.updatedAt = Date()
+                            try coderTask?.update(db)
+                        }
+                    }
+                }
+            }
+
+            try? await logInfo(taskId: task.id, agent: .reviewer,
+                             message: "Review completed: score=\(parsed.score), verdict=\(verdict.rawValue)")
+
+        } catch {
+            try? await logError(taskId: task.id, agent: .reviewer,
+                              message: "Failed to parse reviewer output: \(error.localizedDescription)")
         }
     }
 
