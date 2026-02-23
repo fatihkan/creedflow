@@ -33,7 +33,7 @@ public struct ContentView: View {
         .frame(minWidth: 960, minHeight: 640)
         .task {
             if let db = appDatabase {
-                let orch = Orchestrator(dbQueue: db.dbQueue)
+                let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)
                 orchestrator = orch
                 await orch.start()
             }

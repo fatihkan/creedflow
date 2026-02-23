@@ -7,6 +7,9 @@ struct AgentStatusView: View {
     let appDatabase: AppDatabase?
 
     @State private var taskMap: [UUID: AgentTask] = [:]
+    @State private var projects: [Project] = []
+    @State private var selectedProjectForHealth: UUID?
+    @State private var healthCheckTriggered = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -68,8 +71,34 @@ struct AgentStatusView: View {
             }
         }
         .navigationTitle("Agents")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 8) {
+                    Picker("Project", selection: $selectedProjectForHealth) {
+                        Text("Select project").tag(nil as UUID?)
+                        ForEach(projects) { project in
+                            Text(project.name).tag(project.id as UUID?)
+                        }
+                    }
+                    .frame(maxWidth: 180)
+
+                    Button {
+                        triggerHealthCheck()
+                    } label: {
+                        Label(
+                            healthCheckTriggered ? "Queued" : "Health Check",
+                            systemImage: healthCheckTriggered ? "checkmark.circle" : "heart.text.square"
+                        )
+                    }
+                    .disabled(selectedProjectForHealth == nil || healthCheckTriggered)
+                }
+            }
+        }
         .task {
             await observeActiveTasks()
+        }
+        .task {
+            await observeProjects()
         }
     }
 
@@ -119,6 +148,38 @@ struct AgentStatusView: View {
         }
         .padding(12)
         .forgeCard(cornerRadius: 8)
+    }
+
+    private func triggerHealthCheck() {
+        guard let db = appDatabase, let projectId = selectedProjectForHealth else { return }
+        try? db.dbQueue.write { dbConn in
+            var task = AgentTask(
+                projectId: projectId,
+                agentType: .monitor,
+                title: "Health Check",
+                description: "Run a health check on the project: verify services, check logs for errors, and report status.",
+                priority: 5
+            )
+            try task.insert(dbConn)
+        }
+        healthCheckTriggered = true
+        // Reset after 3 seconds
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            healthCheckTriggered = false
+        }
+    }
+
+    private func observeProjects() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try Project.order(Column("name").asc).fetchAll(db)
+        }
+        do {
+            for try await value in observation.values(in: db.dbQueue) {
+                projects = value
+            }
+        } catch {}
     }
 
     private func observeActiveTasks() async {

@@ -23,10 +23,6 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
             path: "Sources/CodeForge",
-            resources: [
-                .copy("Resources/AgentPrompts"),
-                .copy("Resources/JSONSchemas"),
-            ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(

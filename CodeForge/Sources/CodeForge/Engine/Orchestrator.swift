@@ -12,6 +12,7 @@ final class Orchestrator {
     private let gitHubService: GitHubService
     private let projectDirService: ProjectDirectoryService
     private let retryPolicy: RetryPolicy
+    private let telegramService: TelegramBotService?
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: ClaudeAgentRunner] = [:]
@@ -20,7 +21,8 @@ final class Orchestrator {
     init(
         dbQueue: DatabaseQueue,
         maxConcurrency: Int = 3,
-        claudePath: String? = nil
+        claudePath: String? = nil,
+        telegramService: TelegramBotService? = nil
     ) {
         self.dbQueue = dbQueue
         self.taskQueue = TaskQueue(dbQueue: dbQueue)
@@ -36,6 +38,7 @@ final class Orchestrator {
         self.gitHubService = GitHubService()
         self.projectDirService = ProjectDirectoryService()
         self.retryPolicy = .default
+        self.telegramService = telegramService
     }
 
     /// Try to find the claude CLI binary
@@ -126,6 +129,11 @@ final class Orchestrator {
 
                 // Post-completion pipeline
                 await self.handleTaskCompletion(task: task, result: result)
+
+                // Telegram notification: task completed
+                await self.sendTelegramNotification(for: task) { telegram, project in
+                    await telegram.notifyTaskCompleted(task: task, project: project)
+                }
             } catch {
                 // Handle retry
                 if self.retryPolicy.shouldRetry(task: task, error: error) {
@@ -134,6 +142,11 @@ final class Orchestrator {
                     try? await self.taskQueue.requeue(task)
                 } else {
                     try? await self.taskQueue.fail(task, error: error.localizedDescription)
+
+                    // Telegram notification: task failed (no more retries)
+                    await self.sendTelegramNotification(for: task) { telegram, project in
+                        await telegram.notifyTaskFailed(task: task, project: project)
+                    }
                 }
             }
         }
@@ -421,6 +434,16 @@ final class Orchestrator {
             try? await logInfo(taskId: task.id, agent: .reviewer,
                              message: "Review completed: score=\(parsed.score), verdict=\(verdict.rawValue)")
 
+            // Telegram notification: review completed
+            let reviewForNotification = Review(
+                taskId: task.id, score: parsed.score, verdict: verdict,
+                summary: parsed.summary, issues: parsed.issues,
+                suggestions: parsed.suggestions, securityNotes: parsed.securityNotes
+            )
+            await sendTelegramNotification(for: task) { telegram, project in
+                await telegram.notifyReviewCompleted(review: reviewForNotification, task: task, project: project)
+            }
+
         } catch {
             try? await logError(taskId: task.id, agent: .reviewer,
                               message: "Failed to parse reviewer output: \(error.localizedDescription)")
@@ -497,5 +520,20 @@ final class Orchestrator {
             .filter { $0.isLetter || $0.isNumber || $0 == "-" }
             .prefix(30)
             .description
+    }
+
+    // MARK: - Telegram Notifications
+
+    private func sendTelegramNotification(
+        for task: AgentTask,
+        action: @escaping (TelegramBotService, Project) async -> Void
+    ) async {
+        guard let telegram = telegramService else { return }
+        guard let project = try? await dbQueue.read({ db in
+            try Project.fetchOne(db, id: task.projectId)
+        }) else { return }
+        // Only send if project has a telegram chat configured
+        guard project.telegramChatId != nil else { return }
+        await action(telegram, project)
     }
 }

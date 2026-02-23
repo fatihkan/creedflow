@@ -5,6 +5,7 @@ struct DeployView: View {
     let appDatabase: AppDatabase?
     @State private var deployments: [Deployment] = []
     @State private var errorMessage: String?
+    @State private var showDeploySheet = false
 
     var body: some View {
         ZStack {
@@ -30,6 +31,18 @@ struct DeployView: View {
             }
         }
         .navigationTitle("Deployments")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showDeploySheet = true
+                } label: {
+                    Label("New Deployment", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showDeploySheet) {
+            DeployTriggerSheet(appDatabase: appDatabase)
+        }
         .task {
             await observeDeployments()
         }
@@ -97,5 +110,102 @@ struct DeployView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+// MARK: - Deploy Trigger Sheet
+
+private struct DeployTriggerSheet: View {
+    let appDatabase: AppDatabase?
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var projects: [Project] = []
+    @State private var selectedProjectId: UUID?
+    @State private var environment: Deployment.Environment = .staging
+    @State private var version = ""
+    @State private var branch = "main"
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Form {
+                Section("Project") {
+                    Picker("Project", selection: $selectedProjectId) {
+                        Text("Select a project").tag(nil as UUID?)
+                        ForEach(projects) { project in
+                            Text(project.name).tag(project.id as UUID?)
+                        }
+                    }
+                }
+
+                Section("Configuration") {
+                    Picker("Environment", selection: $environment) {
+                        ForEach(Deployment.Environment.allCases, id: \.self) { env in
+                            Text(env.rawValue.capitalized).tag(env)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    TextField("Version (e.g. v1.0.0)", text: $version)
+                        .textFieldStyle(.roundedBorder)
+
+                    TextField("Branch", text: $branch)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+            .formStyle(.grouped)
+
+            Divider()
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                if environment == .production {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+                }
+                Button("Deploy") { triggerDeploy() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(selectedProjectId == nil || version.isEmpty)
+            }
+            .padding()
+        }
+        .frame(width: 420, height: 340)
+        .task {
+            await loadProjects()
+        }
+    }
+
+    private func loadProjects() async {
+        guard let db = appDatabase else { return }
+        projects = (try? await db.dbQueue.read { db in
+            try Project.order(Column("name").asc).fetchAll(db)
+        }) ?? []
+    }
+
+    private func triggerDeploy() {
+        guard let db = appDatabase, let projectId = selectedProjectId else { return }
+        try? db.dbQueue.write { dbConn in
+            // Create deployment record
+            var deployment = Deployment(
+                projectId: projectId,
+                environment: environment,
+                version: version,
+                commitHash: nil,
+                deployedBy: "user"
+            )
+            try deployment.insert(dbConn)
+
+            // Create a devops agent task for deployment
+            var task = AgentTask(
+                projectId: projectId,
+                agentType: .devops,
+                title: "Deploy \(version) to \(environment.rawValue)",
+                description: "Deploy version \(version) from branch \(branch) to \(environment.rawValue) environment.",
+                priority: 10
+            )
+            try task.insert(dbConn)
+        }
+        dismiss()
     }
 }

@@ -68,6 +68,7 @@ extension ClaudeStreamEvent {
     static func parse(from jsonString: String) -> ClaudeStreamEvent? {
         guard let data = jsonString.data(using: .utf8) else { return nil }
         let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let raw = try? decoder.decode(RawClaudeEvent.self, from: data) else {
             return .unknown(jsonString)
         }
