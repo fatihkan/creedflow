@@ -11,6 +11,7 @@ struct AgentStatusView: View {
     @State private var projects: [Project] = []
     @State private var selectedProjectForHealth: UUID?
     @State private var healthCheckTriggered = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -37,6 +38,12 @@ struct AgentStatusView: View {
                 }
             }
             Divider()
+
+            if let errorMessage {
+                ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
 
             if let orchestrator {
                 // Orchestrator status header
@@ -155,7 +162,8 @@ struct AgentStatusView: View {
 
     private func triggerHealthCheck() {
         guard let db = appDatabase, let projectId = selectedProjectForHealth else { return }
-        try? db.dbQueue.write { dbConn in
+        do {
+        try db.dbQueue.write { dbConn in
             var task = AgentTask(
                 projectId: projectId,
                 agentType: .monitor,
@@ -164,6 +172,9 @@ struct AgentStatusView: View {
                 priority: 5
             )
             try task.insert(dbConn)
+        }
+        } catch {
+            errorMessage = error.localizedDescription
         }
         healthCheckTriggered = true
         // Reset after 3 seconds
@@ -182,7 +193,7 @@ struct AgentStatusView: View {
             for try await value in observation.values(in: db.dbQueue) {
                 projects = value
             }
-        } catch {}
+        } catch { errorMessage = error.localizedDescription }
     }
 
     private func observeActiveTasks() async {
@@ -198,6 +209,6 @@ struct AgentStatusView: View {
                 for t in tasks { map[t.id] = t }
                 taskMap = map
             }
-        } catch {}
+        } catch { errorMessage = error.localizedDescription }
     }
 }

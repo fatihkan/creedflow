@@ -208,7 +208,7 @@ struct SidebarView: View {
             for try await value in observation.values(in: db.dbQueue) {
                 projects = value
             }
-        } catch {}
+        } catch { /* observation error — sidebar badges may be stale */ }
     }
 
     private func observeReviewCount() async {
@@ -222,7 +222,7 @@ struct SidebarView: View {
             for try await count in observation.values(in: db.dbQueue) {
                 pendingReviewCount = count
             }
-        } catch {}
+        } catch { /* observation error — sidebar badges may be stale */ }
     }
 
     private func observeActiveTaskCount() async {
@@ -236,7 +236,7 @@ struct SidebarView: View {
             for try await count in observation.values(in: db.dbQueue) {
                 activeTaskCount = count
             }
-        } catch {}
+        } catch { /* observation error — sidebar badges may be stale */ }
     }
 
     private func observePendingDeployCount() async {
@@ -250,6 +250,6 @@ struct SidebarView: View {
             for try await count in observation.values(in: db.dbQueue) {
                 pendingDeployCount = count
             }
-        } catch {}
+        } catch { /* observation error — sidebar badges may be stale */ }
     }
 }

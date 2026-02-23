@@ -6,19 +6,53 @@ struct DeployView: View {
     @State private var deployments: [Deployment] = []
     @State private var errorMessage: String?
     @State private var showDeploySheet = false
+    @State private var isLoading = true
+    @State private var filterEnvironment: Deployment.Environment?
+    @State private var filterStatus: Deployment.Status?
+
+    private var filteredDeployments: [Deployment] {
+        deployments.filter { d in
+            if let env = filterEnvironment, d.environment != env { return false }
+            if let status = filterStatus, d.status != status { return false }
+            return true
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             ForgeToolbar(title: "Deployments") {
-                Button {
-                    showDeploySheet = true
-                } label: {
-                    Label("New Deployment", systemImage: "plus")
+                HStack(spacing: 8) {
+                    Picker("Environment", selection: $filterEnvironment) {
+                        Text("All Envs").tag(nil as Deployment.Environment?)
+                        ForEach(Deployment.Environment.allCases, id: \.self) { env in
+                            Text(env.rawValue.capitalized).tag(env as Deployment.Environment?)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 120)
+
+                    Picker("Status", selection: $filterStatus) {
+                        Text("All Status").tag(nil as Deployment.Status?)
+                        ForEach(Deployment.Status.allCases, id: \.self) { status in
+                            Text(status.rawValue.capitalized).tag(status as Deployment.Status?)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 120)
+
+                    Button {
+                        showDeploySheet = true
+                    } label: {
+                        Label("New Deployment", systemImage: "plus")
+                    }
                 }
             }
             Divider()
 
-            if deployments.isEmpty && errorMessage == nil {
+            if isLoading && deployments.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if filteredDeployments.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "arrow.up.circle",
                     title: "No Deployments",
@@ -33,7 +67,7 @@ struct DeployView: View {
                             ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                         }
 
-                        ForEach(deployments) { deployment in
+                        ForEach(filteredDeployments) { deployment in
                             deploymentCard(deployment)
                         }
                     }
@@ -107,6 +141,7 @@ struct DeployView: View {
         do {
             for try await value in observation.values(in: db.dbQueue) {
                 deployments = value
+                isLoading = false
             }
         } catch {
             errorMessage = error.localizedDescription

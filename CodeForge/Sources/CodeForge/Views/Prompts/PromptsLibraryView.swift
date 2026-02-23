@@ -77,6 +77,17 @@ struct PromptsLibraryView: View {
 
     private var filterBar: some View {
         HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search prompts...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .frame(width: 140)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+
             Picker(selection: $selectedSource) {
                 Text("All Sources").tag(nil as Prompt.Source?)
                 Text("User").tag(Prompt.Source.user as Prompt.Source?)

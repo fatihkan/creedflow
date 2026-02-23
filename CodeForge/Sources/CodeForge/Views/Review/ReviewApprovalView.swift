@@ -6,13 +6,17 @@ struct ReviewApprovalView: View {
     @State private var pendingReviews: [(review: Review, task: AgentTask, project: Project)] = []
     @State private var errorMessage: String?
     @State private var taskToReject: AgentTask?
+    @State private var isLoading = true
 
     var body: some View {
         VStack(spacing: 0) {
             ForgeToolbar(title: "Reviews")
             Divider()
 
-            if pendingReviews.isEmpty && errorMessage == nil {
+            if isLoading && pendingReviews.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if pendingReviews.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "checkmark.shield",
                     title: "All Clear",
@@ -119,6 +123,7 @@ struct ReviewApprovalView: View {
         do {
             for try await value in observation.values(in: db.dbQueue) {
                 pendingReviews = value
+                isLoading = false
             }
         } catch {
             errorMessage = error.localizedDescription

@@ -8,12 +8,17 @@ struct CostDashboardView: View {
     @State private var totalCost: Double = 0
     @State private var costByAgent: [AgentTask.AgentType: Double] = [:]
     @State private var errorMessage: String?
+    @State private var isLoading = true
 
     var body: some View {
         VStack(spacing: 0) {
             ForgeToolbar(title: "Costs")
             Divider()
 
+            if isLoading && costEntries.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                 // Summary header
@@ -134,6 +139,7 @@ struct CostDashboardView: View {
             }
             .padding(16)
             }
+            } // else
         }
         .task {
             await observeCosts()
@@ -153,6 +159,7 @@ struct CostDashboardView: View {
                 totalCost = entries.reduce(0) { $0 + $1.costUSD }
                 costByAgent = Dictionary(grouping: entries, by: \.agentType)
                     .mapValues { $0.reduce(0) { $0 + $1.costUSD } }
+                isLoading = false
             }
         } catch {
             errorMessage = error.localizedDescription
