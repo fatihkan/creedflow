@@ -320,6 +320,32 @@ struct MetricCard: View {
     }
 }
 
+/// Persistent top bar for content views — ensures consistent layout height across all sections
+struct ForgeToolbar<Actions: View>: View {
+    let title: String
+    @ViewBuilder let actions: () -> Actions
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(.title3, weight: .semibold))
+            Spacer()
+            actions()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(minHeight: 44)
+        .background(.background)
+    }
+}
+
+extension ForgeToolbar where Actions == EmptyView {
+    init(title: String) {
+        self.title = title
+        self.actions = { EmptyView() }
+    }
+}
+
 /// Duration formatter
 struct ForgeDuration {
     static func format(ms: Int64) -> String {

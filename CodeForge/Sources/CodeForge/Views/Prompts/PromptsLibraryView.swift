@@ -18,33 +18,32 @@ struct PromptsLibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ForgeToolbar(title: "Prompts") {
+                HStack(spacing: 8) {
+                    if let result = importResult {
+                        Text(result)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        importCommunityPrompts()
+                    } label: {
+                        Label("Import Community", systemImage: "arrow.down.circle")
+                    }
+                    .disabled(isImporting)
+
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        Label("New Prompt", systemImage: "plus")
+                    }
+                }
+            }
+            Divider()
             filterBar
             Divider()
             promptList
-        }
-        .navigationTitle("Prompts")
-        .searchable(text: $searchText, prompt: "Search prompts...")
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                if let result = importResult {
-                    Text(result)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Button {
-                    importCommunityPrompts()
-                } label: {
-                    Label("Import Community", systemImage: "arrow.down.circle")
-                }
-                .disabled(isImporting)
-
-                Button {
-                    showEditSheet = true
-                } label: {
-                    Label("New Prompt", systemImage: "plus")
-                }
-            }
         }
         .onAppear {
             if let db = appDatabase {

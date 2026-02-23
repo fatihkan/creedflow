@@ -14,6 +14,30 @@ struct AgentStatusView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            ForgeToolbar(title: "Agents") {
+                HStack(spacing: 8) {
+                    Picker("Project", selection: $selectedProjectForHealth) {
+                        Text("Select project").tag(nil as UUID?)
+                        ForEach(projects) { project in
+                            Text(project.name).tag(project.id as UUID?)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 180)
+
+                    Button {
+                        triggerHealthCheck()
+                    } label: {
+                        Label(
+                            healthCheckTriggered ? "Queued" : "Health Check",
+                            systemImage: healthCheckTriggered ? "checkmark.circle" : "heart.text.square"
+                        )
+                    }
+                    .disabled(selectedProjectForHealth == nil || healthCheckTriggered)
+                }
+            }
+            Divider()
+
             if let orchestrator {
                 // Orchestrator status header
                 HStack(spacing: 10) {
@@ -71,30 +95,6 @@ struct AgentStatusView: View {
                     title: "Not Initialized",
                     subtitle: "The orchestrator needs a database connection"
                 )
-            }
-        }
-        .navigationTitle("Agents")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 8) {
-                    Picker("Project", selection: $selectedProjectForHealth) {
-                        Text("Select project").tag(nil as UUID?)
-                        ForEach(projects) { project in
-                            Text(project.name).tag(project.id as UUID?)
-                        }
-                    }
-                    .frame(maxWidth: 180)
-
-                    Button {
-                        triggerHealthCheck()
-                    } label: {
-                        Label(
-                            healthCheckTriggered ? "Queued" : "Health Check",
-                            systemImage: healthCheckTriggered ? "checkmark.circle" : "heart.text.square"
-                        )
-                    }
-                    .disabled(selectedProjectForHealth == nil || healthCheckTriggered)
-                }
             }
         }
         .task {

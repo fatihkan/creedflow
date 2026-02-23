@@ -7,7 +7,10 @@ struct ReviewApprovalView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        ZStack {
+        VStack(spacing: 0) {
+            ForgeToolbar(title: "Reviews")
+            Divider()
+
             if pendingReviews.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "checkmark.shield",
@@ -29,7 +32,6 @@ struct ReviewApprovalView: View {
                 }
             }
         }
-        .navigationTitle("Reviews")
         .task {
             await observeReviews()
         }

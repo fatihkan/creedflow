@@ -8,7 +8,16 @@ struct DeployView: View {
     @State private var showDeploySheet = false
 
     var body: some View {
-        ZStack {
+        VStack(spacing: 0) {
+            ForgeToolbar(title: "Deployments") {
+                Button {
+                    showDeploySheet = true
+                } label: {
+                    Label("New Deployment", systemImage: "plus")
+                }
+            }
+            Divider()
+
             if deployments.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "arrow.up.circle",
@@ -29,16 +38,6 @@ struct DeployView: View {
                         }
                     }
                     .padding(16)
-                }
-            }
-        }
-        .navigationTitle("Deployments")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showDeploySheet = true
-                } label: {
-                    Label("New Deployment", systemImage: "plus")
                 }
             }
         }

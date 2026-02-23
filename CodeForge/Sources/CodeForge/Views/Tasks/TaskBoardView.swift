@@ -23,6 +23,15 @@ struct TaskBoardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ForgeToolbar(title: "Task Board") {
+                Button {
+                    showNewTask = true
+                } label: {
+                    Label("New Task", systemImage: "plus")
+                }
+            }
+            Divider()
+
             if let errorMessage {
                 ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                     .padding(.horizontal, 16)
@@ -41,16 +50,6 @@ struct TaskBoardView: View {
                     }
                 }
                 .padding(16)
-            }
-        }
-        .navigationTitle("Task Board")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showNewTask = true
-                } label: {
-                    Label("New Task", systemImage: "plus")
-                }
             }
         }
         .sheet(isPresented: $showNewTask) {

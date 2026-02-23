@@ -10,8 +10,12 @@ struct CostDashboardView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            ForgeToolbar(title: "Costs")
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
                 // Summary header
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -129,8 +133,8 @@ struct CostDashboardView: View {
                 .forgeCard(cornerRadius: 8)
             }
             .padding(16)
+            }
         }
-        .navigationTitle("Costs")
         .task {
             await observeCosts()
         }

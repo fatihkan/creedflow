@@ -10,12 +10,17 @@ struct MCPSettingsView: View {
     @State private var setupTemplate: MCPServerTemplate?
 
     var body: some View {
-        Form {
-            templateSection
-            configuredServersSection
-            manualAddSection
+        VStack(spacing: 0) {
+            ForgeToolbar(title: "Settings")
+            Divider()
+
+            Form {
+                templateSection
+                configuredServersSection
+                manualAddSection
+            }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
         .onAppear {
             if let db = appDatabase {
                 store.observe(in: db.dbQueue)

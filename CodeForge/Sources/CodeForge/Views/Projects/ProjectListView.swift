@@ -22,7 +22,29 @@ struct ProjectListView: View {
     }
 
     var body: some View {
-        ZStack {
+        VStack(spacing: 0) {
+            ForgeToolbar(title: "Projects") {
+                HStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Search...", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .frame(width: 140)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+
+                    Button {
+                        showNewProject = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            Divider()
+
             if projects.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "folder.badge.plus",
@@ -91,17 +113,6 @@ struct ProjectListView: View {
                         }
                     }
                     .padding(.vertical, 8)
-                }
-            }
-        }
-        .navigationTitle("Projects")
-        .searchable(text: $searchText, prompt: "Search projects...")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showNewProject = true
-                } label: {
-                    Image(systemName: "plus")
                 }
             }
         }

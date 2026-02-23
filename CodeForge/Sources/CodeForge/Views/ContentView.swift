@@ -22,21 +22,19 @@ public struct ContentView: View {
             )
             .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
 
-            NavigationStack {
-                VStack(spacing: 0) {
-                    contentPanel
-                        .frame(maxHeight: .infinity)
+            VStack(spacing: 0) {
+                contentPanel
+                    .frame(maxHeight: .infinity)
 
-                    if showDetailPanel {
-                        Divider()
-                        detailPanel
-                            .frame(minHeight: 150, idealHeight: 280, maxHeight: 350)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+                if showDetailPanel {
+                    Divider()
+                    detailPanel
+                        .frame(minHeight: 150, idealHeight: 280, maxHeight: 350)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
         }
         .frame(minWidth: 960, minHeight: 640)
         .task {
