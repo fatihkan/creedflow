@@ -8,6 +8,7 @@ public struct SettingsView: View {
     @AppStorage("telegramChatId") private var telegramChatId = ""
     @AppStorage("defaultMaxBudgetUSD") private var defaultMaxBudgetUSD = 5.0
     @AppStorage("projectsBaseDir") private var projectsBaseDir = ""
+    @AppStorage("hasCompletedSetup") private var hasCompletedSetup = true
 
     @State private var claudeVersion = "Checking..."
     @State private var ghVersion = "Checking..."
@@ -64,6 +65,15 @@ public struct SettingsView: View {
                     TextField("USD", value: $defaultMaxBudgetUSD, format: .currency(code: "USD"))
                         .frame(width: 100)
                 }
+            }
+
+            Section("Setup") {
+                Button("Re-run Setup Wizard") {
+                    hasCompletedSetup = false
+                }
+                Text("Reset and walk through the initial setup wizard again")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

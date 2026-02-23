@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct CodeForgeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
     @State private var appDatabase: AppDatabase
 
     init() {
@@ -42,8 +43,13 @@ struct CodeForgeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.appDatabase, appDatabase)
+            if hasCompletedSetup {
+                ContentView()
+                    .environment(\.appDatabase, appDatabase)
+            } else {
+                SetupWizardView()
+                    .environment(\.appDatabase, appDatabase)
+            }
         }
         .defaultSize(width: 1200, height: 800)
 

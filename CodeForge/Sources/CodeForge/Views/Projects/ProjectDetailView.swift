@@ -9,7 +9,9 @@ struct ProjectDetailView: View {
 
     @State private var project: Project?
     @State private var tasks: [AgentTask] = []
+    @State private var features: [Feature] = []
     @State private var showAnalyze = false
+    @State private var showRevisionSheet = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -82,6 +84,17 @@ struct ProjectDetailView: View {
                         .tint(.forgeAmber)
                         .disabled(analyzerRunning)
 
+                        if !features.isEmpty {
+                            Button {
+                                showRevisionSheet = true
+                            } label: {
+                                Label("Add Features", systemImage: "plus.rectangle.on.rectangle")
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.forgeInfo)
+                            .disabled(analyzerRunning)
+                        }
+
                         Button {
                             NSWorkspace.shared.open(URL(fileURLWithPath: project.directoryPath))
                         } label: {
@@ -138,6 +151,16 @@ struct ProjectDetailView: View {
         } message: {
             Text("This will use Claude to analyze the project and create a task breakdown.")
         }
+        .sheet(isPresented: $showRevisionSheet) {
+            if let project {
+                ProjectRevisionSheet(
+                    project: project,
+                    features: features,
+                    appDatabase: appDatabase,
+                    orchestrator: orchestrator
+                )
+            }
+        }
     }
 
     private var analyzerRunning: Bool {
@@ -146,19 +169,24 @@ struct ProjectDetailView: View {
 
     private func observeData() async {
         guard let db = appDatabase else { return }
-        // Observe project + tasks together
-        let observation = ValueObservation.tracking { db -> (Project?, [AgentTask]) in
+        // Observe project + tasks + features together
+        let observation = ValueObservation.tracking { db -> (Project?, [AgentTask], [Feature]) in
             let project = try Project.fetchOne(db, id: projectId)
             let tasks = try AgentTask
                 .filter(Column("projectId") == projectId)
                 .order(Column("priority").desc, Column("createdAt").asc)
                 .fetchAll(db)
-            return (project, tasks)
+            let features = try Feature
+                .filter(Column("projectId") == projectId)
+                .order(Column("priority").desc, Column("name").asc)
+                .fetchAll(db)
+            return (project, tasks, features)
         }
         do {
-            for try await (proj, taskList) in observation.values(in: db.dbQueue) {
+            for try await (proj, taskList, featureList) in observation.values(in: db.dbQueue) {
                 project = proj
                 tasks = taskList
+                features = featureList
             }
         } catch {
             errorMessage = error.localizedDescription

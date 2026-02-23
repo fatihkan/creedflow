@@ -28,6 +28,11 @@ struct AnalyzerAgent: AgentProtocol {
     func buildPrompt(for task: AgentTask) -> String {
         let projectType = extractProjectType(from: task.description)
         let cleanDescription = removeProjectTypeTag(from: task.description)
+
+        if isRevision(cleanDescription) {
+            return buildRevisionPrompt(cleanDescription, projectType: projectType)
+        }
+
         let strategy = decompositionStrategy(for: projectType)
         let agentTypes = allowedAgentTypes(for: projectType)
 
@@ -44,6 +49,46 @@ struct AnalyzerAgent: AgentProtocol {
 
         Project description:
         \(cleanDescription)
+        """
+    }
+
+    // MARK: - Revision Support
+
+    private func isRevision(_ description: String) -> Bool {
+        description.contains("[REVISION]")
+    }
+
+    private func buildRevisionPrompt(_ description: String, projectType: Project.ProjectType) -> String {
+        let strategy = decompositionStrategy(for: projectType)
+        let agentTypes = allowedAgentTypes(for: projectType)
+
+        // Parse existing features and new requirements from the description
+        let parts = description.components(separatedBy: "NEW REQUIREMENTS:")
+        let existingContext = parts.first?.replacingOccurrences(of: "[REVISION]", with: "").trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let newRequirements = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : description
+
+        return """
+        You are adding NEW features to an existing project. Do NOT duplicate any existing features.
+
+        \(existingContext)
+
+        IMPORTANT RULES:
+        - Only create NEW features and tasks for the new requirements below
+        - Do NOT recreate or duplicate any of the existing features listed above
+        - New tasks may reference existing features as dependencies if needed
+        - Keep the same JSON format as a fresh analysis
+
+        Respond with ONLY a JSON object (no markdown, no explanation) in this exact format:
+
+        {"projectName":"...","techStack":"...","features":[{"name":"...","description":"...","priority":1-10,"tasks":[{"title":"...","description":"...","agentType":"\(agentTypes)","priority":1-10,"dependsOn":["other task title"]}]}]}
+
+        Keep it concise: max 5 features, max 4 tasks per feature.
+        Priority 10 = highest. No circular dependencies.
+
+        \(strategy)
+
+        New requirements to add:
+        \(newRequirements)
         """
     }
 
