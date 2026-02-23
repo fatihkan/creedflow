@@ -223,6 +223,12 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v6_project_type") { db in
+            try db.alter(table: "project") { t in
+                t.add(column: "projectType", .text).notNull().defaults(to: "software")
+            }
+        }
+
         return migrator
     }
 }

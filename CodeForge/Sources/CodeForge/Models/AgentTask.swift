@@ -32,6 +32,10 @@ package struct AgentTask: Codable, Identifiable, Equatable {
         case tester
         case devops
         case monitor
+        case contentWriter
+        case designer
+        case imageGenerator
+        case videoEditor
     }
 
     package enum Status: String, Codable, CaseIterable, DatabaseValueConvertible {

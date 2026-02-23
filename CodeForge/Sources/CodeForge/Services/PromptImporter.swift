@@ -1,51 +1,52 @@
 import Foundation
 import GRDB
 
-/// Imports prompts from the awesome-chatgpt-prompts CSV repository.
+/// Imports community prompts from the prompts.chat REST API.
 struct PromptImporter: Sendable {
     private let dbQueue: DatabaseQueue
-
-    static let csvURL = URL(string: "https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv")!
+    private static let baseURL = "https://prompts.chat/api/prompts"
+    private static let perPage = 50
 
     init(dbQueue: DatabaseQueue) {
         self.dbQueue = dbQueue
     }
 
-    /// Fetches and imports community prompts from CSV. Returns count of newly imported prompts.
-    func importFromCSV() async throws -> Int {
-        let (data, _) = try await URLSession.shared.data(from: Self.csvURL)
-        guard let csvString = String(data: data, encoding: .utf8) else {
-            throw ImportError.invalidData
+    /// Fetches all community prompts from prompts.chat, replaces existing community prompts.
+    /// Returns count of newly imported prompts.
+    func importCommunityPrompts() async throws -> Int {
+        // Fetch all pages
+        var allPrompts: [APIPrompt] = []
+        var page = 1
+        var totalPages = 1
+
+        while page <= totalPages {
+            let response = try await fetchPage(page)
+            allPrompts.append(contentsOf: response.prompts)
+            totalPages = response.totalPages
+            page += 1
         }
 
-        let rows = parseCSV(csvString)
-
+        // Delete old + insert new in a single transaction
         let count = try await dbQueue.write { db -> Int in
+            try Prompt
+                .filter(Column("source") == Prompt.Source.community.rawValue)
+                .deleteAll(db)
+
             var imported = 0
-            for row in rows {
-                guard let title = row["act"], let content = row["prompt"],
-                      !title.isEmpty, !content.isEmpty else { continue }
+            for apiPrompt in allPrompts {
+                let title = apiPrompt.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                let content = apiPrompt.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !title.isEmpty, !content.isEmpty else { continue }
 
-                // Skip duplicates (title + source=community)
-                let exists = try Prompt
-                    .filter(Column("title") == title)
-                    .filter(Column("source") == Prompt.Source.community.rawValue)
-                    .fetchCount(db) > 0
-                guard !exists else { continue }
-
-                let category: String
-                if let type = row["type"], !type.isEmpty {
-                    category = type
-                } else {
-                    category = "general"
-                }
+                let category = apiPrompt.category?.name ?? "general"
+                let contributor = apiPrompt.author?.name
 
                 var prompt = Prompt(
                     title: title,
                     content: content,
                     source: .community,
                     category: category,
-                    contributor: row["contributor"],
+                    contributor: contributor,
                     isBuiltIn: false
                 )
                 try prompt.insert(db)
@@ -57,56 +58,71 @@ struct PromptImporter: Sendable {
         return count
     }
 
-    /// Simple CSV parser that handles quoted fields
-    private func parseCSV(_ csv: String) -> [[String: String]] {
-        let lines = csv.components(separatedBy: .newlines).filter { !$0.isEmpty }
-        guard lines.count > 1 else { return [] }
+    // MARK: - API
 
-        let headers = parseCSVLine(lines[0])
-        var result: [[String: String]] = []
-
-        for i in 1..<lines.count {
-            let values = parseCSVLine(lines[i])
-            var row: [String: String] = [:]
-            for (j, header) in headers.enumerated() {
-                let key = header.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .replacingOccurrences(of: "\"", with: "")
-                if j < values.count {
-                    row[key] = values[j].trimmingCharacters(in: .whitespacesAndNewlines)
-                        .replacingOccurrences(of: "\"", with: "")
-                }
-            }
-            result.append(row)
+    private func fetchPage(_ page: Int) async throws -> APIResponse {
+        guard var components = URLComponents(string: Self.baseURL) else {
+            throw ImportError.invalidData
+        }
+        components.queryItems = [
+            URLQueryItem(name: "perPage", value: "\(Self.perPage)"),
+            URLQueryItem(name: "page", value: "\(page)")
+        ]
+        guard let url = components.url else {
+            throw ImportError.invalidData
         }
 
-        return result
-    }
+        let (data, response) = try await URLSession.shared.data(from: url)
 
-    private func parseCSVLine(_ line: String) -> [String] {
-        var fields: [String] = []
-        var current = ""
-        var inQuotes = false
-
-        for char in line {
-            if char == "\"" {
-                inQuotes.toggle()
-            } else if char == "," && !inQuotes {
-                fields.append(current)
-                current = ""
-            } else {
-                current.append(char)
-            }
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            throw ImportError.httpError(statusCode: httpResponse.statusCode)
         }
-        fields.append(current)
-        return fields
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(APIResponse.self, from: data)
     }
+
+    // MARK: - API Response Models
+
+    private struct APIResponse: Decodable {
+        let prompts: [APIPrompt]
+        let total: Int
+        let page: Int
+        let perPage: Int
+        let totalPages: Int
+    }
+
+    private struct APIPrompt: Decodable {
+        let title: String
+        let content: String
+        let type: String?
+        let category: APICategory?
+        let author: APIAuthor?
+    }
+
+    private struct APICategory: Decodable {
+        let name: String
+        let slug: String
+    }
+
+    private struct APIAuthor: Decodable {
+        let name: String?
+        let username: String?
+    }
+
+    // MARK: - Errors
 
     enum ImportError: LocalizedError {
         case invalidData
+        case httpError(statusCode: Int)
 
         var errorDescription: String? {
             switch self {
-            case .invalidData: return "Could not decode CSV data"
+            case .invalidData:
+                return "Could not decode prompt data"
+            case .httpError(let code):
+                return "Server returned HTTP \(code)"
             }
         }
     }

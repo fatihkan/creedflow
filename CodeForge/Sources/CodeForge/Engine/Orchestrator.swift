@@ -162,6 +162,10 @@ final class Orchestrator {
         case .tester: return TesterAgent()
         case .devops: return DevOpsAgent()
         case .monitor: return MonitorAgent()
+        case .contentWriter: return ContentWriterAgent()
+        case .designer: return DesignerAgent()
+        case .imageGenerator: return ImageGeneratorAgent()
+        case .videoEditor: return VideoEditorAgent()
         }
     }
 
@@ -343,6 +347,10 @@ final class Orchestrator {
                         case "devops": agentType = .devops
                         case "tester": agentType = .tester
                         case "reviewer": agentType = .reviewer
+                        case "contentwriter": agentType = .contentWriter
+                        case "designer": agentType = .designer
+                        case "imagegenerator": agentType = .imageGenerator
+                        case "videoeditor": agentType = .videoEditor
                         default: agentType = .coder
                         }
 

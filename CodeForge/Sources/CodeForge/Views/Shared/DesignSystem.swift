@@ -105,6 +105,10 @@ extension AgentTask.AgentType {
         case .tester: return .agentTester
         case .devops: return .agentDevops
         case .monitor: return .agentMonitor
+        case .contentWriter: return .blue
+        case .designer: return .pink
+        case .imageGenerator: return .indigo
+        case .videoEditor: return .teal
         }
     }
 
@@ -116,6 +120,10 @@ extension AgentTask.AgentType {
         case .tester: return "testtube.2"
         case .devops: return "server.rack"
         case .monitor: return "waveform.path.ecg"
+        case .contentWriter: return "doc.text"
+        case .designer: return "paintbrush"
+        case .imageGenerator: return "photo"
+        case .videoEditor: return "film"
         }
     }
 }

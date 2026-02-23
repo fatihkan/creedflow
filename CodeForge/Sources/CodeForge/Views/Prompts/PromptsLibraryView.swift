@@ -155,7 +155,7 @@ struct PromptsLibraryView: View {
         Task {
             do {
                 let importer = PromptImporter(dbQueue: db.dbQueue)
-                let count = try await importer.importFromCSV()
+                let count = try await importer.importCommunityPrompts()
                 importResult = "Imported \(count) prompts"
             } catch {
                 importResult = "Import failed: \(error.localizedDescription)"

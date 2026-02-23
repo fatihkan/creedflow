@@ -7,8 +7,10 @@ struct NewProjectSheet: View {
     @State private var name = ""
     @State private var description = ""
     @State private var techStack = ""
+    @State private var projectType: Project.ProjectType = .software
     @State private var isCreating = false
     @State private var errorMessage: String?
+    @State private var showPromptPicker = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,9 +42,28 @@ struct NewProjectSheet: View {
                 Section("Project Info") {
                     TextField("Project Name", text: $name)
                         .textFieldStyle(.roundedBorder)
+
+                    Picker("Project Type", selection: $projectType) {
+                        ForEach(Project.ProjectType.allCases, id: \.self) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
                 }
 
-                Section("Description") {
+                Section {
+                    HStack {
+                        Text("Description")
+                        Spacer()
+                        Button {
+                            showPromptPicker = true
+                        } label: {
+                            Label("Use Prompt", systemImage: "text.book.closed")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+
                     TextEditor(text: $description)
                         .frame(minHeight: 100)
                         .font(.body)
@@ -85,7 +106,13 @@ struct NewProjectSheet: View {
             }
             .padding(16)
         }
-        .frame(width: 500, height: 480)
+        .frame(width: 500, height: 540)
+        .sheet(isPresented: $showPromptPicker) {
+            PromptPickerSheet(appDatabase: appDatabase) { prompt in
+                description = prompt.content
+                projectType = Self.detectProjectType(from: prompt.category)
+            }
+        }
     }
 
     private func createProject() async {
@@ -101,21 +128,25 @@ struct NewProjectSheet: View {
             let dirService = ProjectDirectoryService()
             let path = try await dirService.createProjectDirectory(name: name)
 
+            // Prepend project type tag so the analyzer knows the context
+            let analyzerDescription = "[ProjectType: \(projectType.rawValue)] \(description)"
+
             try await db.dbQueue.write { dbConn in
                 var project = Project(
                     name: name,
                     description: description,
                     techStack: techStack,
-                    directoryPath: path
+                    directoryPath: path,
+                    projectType: projectType
                 )
                 try project.insert(dbConn)
 
-                // Auto-queue analyzer task for the new project (#44)
+                // Auto-queue analyzer task for the new project
                 let analyzerTask = AgentTask(
                     projectId: project.id,
                     agentType: .analyzer,
                     title: "Analyze: \(name)",
-                    description: description,
+                    description: analyzerDescription,
                     priority: 10
                 )
                 try analyzerTask.insert(dbConn)
@@ -124,6 +155,41 @@ struct NewProjectSheet: View {
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Auto-Detection
+
+    /// Maps prompt category to project type
+    static func detectProjectType(from category: String) -> Project.ProjectType {
+        switch category.lowercased() {
+        case "web development", "coding", "vibe coding", "data science",
+             "programming", "software", "software engineering", "development":
+            return .software
+        case "image generation", "image", "ai art", "art":
+            return .image
+        case "video generation", "video", "video editing":
+            return .video
+        case "blog writing", "writing", "creative", "academic writing",
+             "content", "copywriting", "documentation", "blogging",
+             "creative writing", "academic":
+            return .content
+        default:
+            return .general
+        }
+    }
+}
+
+// MARK: - ProjectType Display
+
+extension Project.ProjectType {
+    var displayName: String {
+        switch self {
+        case .software: return "Software"
+        case .content: return "Content"
+        case .image: return "Image"
+        case .video: return "Video"
+        case .general: return "General"
         }
     }
 }

@@ -8,9 +8,18 @@ package struct Project: Codable, Identifiable, Equatable {
     package var techStack: String
     package var status: Status
     package var directoryPath: String
+    package var projectType: ProjectType
     package var telegramChatId: Int64?
     package var createdAt: Date
     package var updatedAt: Date
+
+    package enum ProjectType: String, Codable, CaseIterable, DatabaseValueConvertible {
+        case software
+        case content      // Blog, copywriting, documentation
+        case image        // Image generation, design
+        case video        // Video generation, editing
+        case general      // Other/mixed
+    }
 
     package enum Status: String, Codable, CaseIterable, DatabaseValueConvertible {
         case planning
@@ -30,6 +39,7 @@ package struct Project: Codable, Identifiable, Equatable {
         techStack: String = "",
         status: Status = .planning,
         directoryPath: String = "",
+        projectType: ProjectType = .software,
         telegramChatId: Int64? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -40,6 +50,7 @@ package struct Project: Codable, Identifiable, Equatable {
         self.techStack = techStack
         self.status = status
         self.directoryPath = directoryPath
+        self.projectType = projectType
         self.telegramChatId = telegramChatId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
