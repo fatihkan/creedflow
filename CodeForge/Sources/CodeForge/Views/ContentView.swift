@@ -13,30 +13,32 @@ public struct ContentView: View {
     public init() {}
 
     public var body: some View {
-        NavigationSplitView {
+        HSplitView {
             SidebarView(
                 selectedSection: $selectedSection,
                 selectedProjectId: $selectedProjectId,
                 orchestrator: orchestrator,
                 appDatabase: appDatabase
             )
-        } detail: {
-            VStack(spacing: 0) {
-                contentPanel
-                    .frame(maxHeight: .infinity)
+            .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
 
-                if showDetailPanel {
-                    Divider()
-                    detailPanel
-                        .frame(minHeight: 150, idealHeight: 280, maxHeight: 350)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+            NavigationStack {
+                VStack(spacing: 0) {
+                    contentPanel
+                        .frame(maxHeight: .infinity)
+
+                    if showDetailPanel {
+                        Divider()
+                        detailPanel
+                            .frame(minHeight: 150, idealHeight: 280, maxHeight: 350)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
+                .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
             }
-            .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationSplitViewStyle(.prominentDetail)
         .frame(minWidth: 960, minHeight: 640)
-        .toolbar(removing: .sidebarToggle)
         .task {
             if let db = appDatabase {
                 let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)

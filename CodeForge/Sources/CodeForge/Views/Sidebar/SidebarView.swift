@@ -13,20 +13,29 @@ struct SidebarView: View {
     @State private var pendingDeployCount: Int = 0
 
     var body: some View {
-        List(selection: $selectedSection) {
-            workspaceSection
-            projectShortcuts
-            pipelineSection
-            monitorSection
-            promptsSection
-            settingsSection
-        }
-        .listStyle(.sidebar)
-        .navigationTitle("CodeForge")
-        .toolbar {
-            ToolbarItem {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("CodeForge")
+                    .font(.system(.headline, design: .default, weight: .bold))
+                Spacer()
                 orchestratorButton
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            // Sidebar list
+            List(selection: $selectedSection) {
+                workspaceSection
+                projectShortcuts
+                pipelineSection
+                monitorSection
+                promptsSection
+                settingsSection
+            }
+            .listStyle(.sidebar)
         }
         .task {
             await observeProjects()
@@ -177,6 +186,7 @@ struct SidebarView: View {
                 .foregroundStyle(isRunning ? Color.forgeDanger : Color.forgeSuccess)
                 .font(.body)
         }
+        .buttonStyle(.plain)
         .help(orchestrator?.isRunning == true ? "Stop Orchestrator" : "Start Orchestrator")
     }
 
