@@ -10,6 +10,7 @@ struct TaskBoardView: View {
     let orchestrator: Orchestrator?
 
     @State private var tasks: [AgentTask] = []
+    @State private var projectName: String = ""
     @State private var errorMessage: String?
     @State private var showNewTask = false
 
@@ -24,7 +25,7 @@ struct TaskBoardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForgeToolbar(title: "Task Board") {
+            ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
                 Button {
                     showNewTask = true
                 } label: {
@@ -66,6 +67,10 @@ struct TaskBoardView: View {
 
     private func observeTasks() async {
         guard let db = appDatabase else { return }
+        // Fetch project name
+        if let project = try? await db.dbQueue.read({ db in try Project.fetchOne(db, id: projectId) }) {
+            projectName = project.name
+        }
         let pid = projectId
         let observation = ValueObservation.tracking { db in
             try AgentTask
@@ -120,9 +125,19 @@ private struct NewTaskSheet: View {
                 Section("Task Info") {
                     TextField("Title", text: $title)
                         .textFieldStyle(.roundedBorder)
-                    TextEditor(text: $description)
-                        .font(.body)
-                        .frame(minHeight: 60)
+                    ZStack(alignment: .topLeading) {
+                        if description.isEmpty {
+                            Text("Describe the task...")
+                                .foregroundStyle(.tertiary)
+                                .padding(.top, 8)
+                                .padding(.leading, 5)
+                        }
+                        TextEditor(text: $description)
+                            .font(.body)
+                            .scrollContentBackground(.hidden)
+                    }
+                    .frame(minHeight: 60)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary))
                 }
                 Section("Configuration") {
                     Picker("Agent Type", selection: $agentType) {
@@ -232,7 +247,7 @@ struct KanbanColumnView: View {
                 }
             }
         }
-        .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
+        .frame(minWidth: 200, idealWidth: 240, maxWidth: 280, maxHeight: .infinity)
         .dropDestination(for: String.self) { items, _ in
             guard let idString = items.first, let taskId = UUID(uuidString: idString) else { return false }
             onMoveTask(taskId, column.status)

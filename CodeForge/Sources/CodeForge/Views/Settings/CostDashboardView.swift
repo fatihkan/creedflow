@@ -9,6 +9,7 @@ struct CostDashboardView: View {
     @State private var costByAgent: [AgentTask.AgentType: Double] = [:]
     @State private var errorMessage: String?
     @State private var isLoading = true
+    @State private var visibleCount: Int = 20
 
     var body: some View {
         VStack(spacing: 0) {
@@ -104,7 +105,13 @@ struct CostDashboardView: View {
                         )
                         .frame(height: 120)
                     } else {
-                        ForEach(costEntries.prefix(20)) { entry in
+                        if costEntries.count > visibleCount {
+                            Text("Showing \(visibleCount) of \(costEntries.count) entries")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        ForEach(costEntries.prefix(visibleCount)) { entry in
                             HStack(spacing: 8) {
                                 AgentTypeBadge(type: entry.agentType)
 
@@ -128,9 +135,21 @@ struct CostDashboardView: View {
                             }
                             .padding(.vertical, 3)
 
-                            if entry.id != costEntries.prefix(20).last?.id {
+                            if entry.id != costEntries.prefix(visibleCount).last?.id {
                                 Divider()
                             }
+                        }
+
+                        if costEntries.count > visibleCount {
+                            Button {
+                                visibleCount += 20
+                            } label: {
+                                Text("Load more...")
+                                    .font(.caption)
+                                    .foregroundStyle(.forgeAmber)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, 4)
                         }
                     }
                 }

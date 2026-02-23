@@ -103,6 +103,16 @@ struct TaskDetailView: View {
                         .font(.subheadline.bold())
                     } else if !logs.isEmpty {
                         DisclosureGroup("Agent Logs (\(logs.count))", isExpanded: $showTerminal) {
+                            if logs.count >= 200 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "exclamationmark.circle")
+                                        .font(.caption2)
+                                    Text("Showing last 200 entries. Older logs may be truncated.")
+                                        .font(.caption2)
+                                }
+                                .foregroundStyle(.forgeWarning)
+                                .padding(.bottom, 4)
+                            }
                             LogOutputView(logs: logs)
                                 .frame(minHeight: 150)
                         }

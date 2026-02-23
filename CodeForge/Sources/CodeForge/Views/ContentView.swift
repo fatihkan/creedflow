@@ -46,6 +46,15 @@ public struct ContentView: View {
         }
         .onAppear {
             keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                // Escape — dismiss detail panel
+                if event.keyCode == 53 {
+                    if selectedTaskId != nil {
+                        selectedTaskId = nil
+                        return nil
+                    }
+                    return event
+                }
+
                 guard event.modifierFlags.contains(.command),
                       !event.modifierFlags.contains(.shift),
                       !event.modifierFlags.contains(.option) else { return event }
