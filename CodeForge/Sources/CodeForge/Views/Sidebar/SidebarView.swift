@@ -14,21 +14,6 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack(spacing: 8) {
-                Image(systemName: "hammer.fill")
-                    .foregroundStyle(.forgeAmber)
-                    .font(.subheadline)
-                Text("CodeForge")
-                    .font(.system(.headline, design: .default, weight: .bold))
-                Spacer()
-                orchestratorButton
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-
-            Divider()
-
             // Sidebar list
             List(selection: $selectedSection) {
                 workspaceSection
@@ -41,6 +26,22 @@ struct SidebarView: View {
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
             .background(Color(nsColor: .windowBackgroundColor))
+
+            Divider()
+
+            // Bottom bar — orchestrator control
+            HStack(spacing: 8) {
+                Image(systemName: "hammer.fill")
+                    .foregroundStyle(.forgeAmber)
+                    .font(.caption)
+                Text("CodeForge")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                orchestratorButton
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .task {
