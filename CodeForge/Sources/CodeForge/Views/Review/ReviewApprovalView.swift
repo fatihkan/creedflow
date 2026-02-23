@@ -108,6 +108,7 @@ struct ReviewApprovalView: View {
         guard let db = appDatabase else { return }
         let observation = ValueObservation.tracking { db in
             let reviews = try Review
+                .filter(Column("isApproved") == false)
                 .filter(Column("verdict") != Review.Verdict.pass.rawValue)
                 .order(Column("createdAt").desc)
                 .fetchAll(db)
@@ -134,6 +135,15 @@ struct ReviewApprovalView: View {
         guard let db = appDatabase else { return }
         do {
             try await db.dbQueue.write { dbConn in
+                // Mark the review as approved
+                let reviews = try Review
+                    .filter(Column("taskId") == task.id)
+                    .fetchAll(dbConn)
+                for var review in reviews {
+                    review.isApproved = true
+                    try review.update(dbConn)
+                }
+
                 var updated = task
                 updated.status = .passed
                 updated.updatedAt = Date()
@@ -148,6 +158,15 @@ struct ReviewApprovalView: View {
         guard let db = appDatabase else { return }
         do {
             try await db.dbQueue.write { dbConn in
+                // Mark the review as approved (processed)
+                let reviews = try Review
+                    .filter(Column("taskId") == task.id)
+                    .fetchAll(dbConn)
+                for var review in reviews {
+                    review.isApproved = true
+                    try review.update(dbConn)
+                }
+
                 var updated = task
                 updated.status = .failed
                 updated.errorMessage = "Rejected by reviewer"

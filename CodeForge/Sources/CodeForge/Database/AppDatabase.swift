@@ -199,6 +199,21 @@ public struct AppDatabase {
             )
         }
 
+        migrator.registerMigration("v4_review_approval_and_indices") { db in
+            // #29: Add isApproved column to reviews
+            try db.alter(table: "review") { t in
+                t.add(column: "isApproved", .boolean).notNull().defaults(to: false)
+            }
+
+            // #36: Missing indices on frequently queried columns
+            try db.create(index: "review_on_taskId", on: "review", columns: ["taskId"])
+            try db.create(index: "review_on_isApproved", on: "review", columns: ["isApproved"])
+            try db.create(index: "deployment_on_projectId", on: "deployment", columns: ["projectId"])
+            try db.create(index: "costTracking_on_createdAt", on: "costTracking", columns: ["createdAt"])
+            try db.create(index: "agentTask_on_status", on: "agentTask", columns: ["status"])
+            try db.create(index: "feature_on_projectId", on: "feature", columns: ["projectId"])
+        }
+
         return migrator
     }
 }

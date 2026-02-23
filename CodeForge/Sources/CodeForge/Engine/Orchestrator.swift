@@ -285,14 +285,45 @@ final class Orchestrator {
                 }
             }
 
-            // Create features and tasks
-            // First pass: create all features and tasks, collect title → id mapping
+            // Build title → UUID mapping (pre-generate to avoid duplicates)
             var titleToTaskId: [String: UUID] = [:]
+            for featureOutput in parsed.features {
+                for taskOutput in featureOutput.tasks {
+                    // Use first occurrence to handle duplicate titles (#41)
+                    if titleToTaskId[taskOutput.title] == nil {
+                        titleToTaskId[taskOutput.title] = UUID()
+                    }
+                }
+            }
 
+            // Validate dependency graph for cycles (#35)
+            var depGraph = DependencyGraph()
+            for (_, taskId) in titleToTaskId {
+                depGraph.addNode(taskId)
+            }
+            for featureOutput in parsed.features {
+                for taskOutput in featureOutput.tasks {
+                    guard let deps = taskOutput.dependsOn, !deps.isEmpty else { continue }
+                    guard let taskId = titleToTaskId[taskOutput.title] else { continue }
+                    for depTitle in deps {
+                        if let depId = titleToTaskId[depTitle] {
+                            depGraph.addDependency(task: taskId, dependsOn: depId)
+                        }
+                    }
+                }
+            }
+            // Cycle detection — log warning but don't block task creation
+            do {
+                _ = try depGraph.topologicalSort()
+            } catch {
+                try? await logError(taskId: task.id, agent: .analyzer,
+                                   message: "Dependency cycle detected: \(error.localizedDescription)")
+            }
+
+            // Create features and tasks in DB
             try await dbQueue.write { db in
                 for featureOutput in parsed.features {
-                    // Create feature
-                    var feature = Feature(
+                    let feature = Feature(
                         projectId: task.projectId,
                         name: featureOutput.name,
                         description: featureOutput.description,
@@ -300,8 +331,8 @@ final class Orchestrator {
                     )
                     try feature.insert(db)
 
-                    // Create tasks for this feature
                     for taskOutput in featureOutput.tasks {
+                        guard let pregenId = titleToTaskId[taskOutput.title] else { continue }
                         let agentType: AgentTask.AgentType
                         switch taskOutput.agentType.lowercased() {
                         case "coder": agentType = .coder
@@ -311,7 +342,8 @@ final class Orchestrator {
                         default: agentType = .coder
                         }
 
-                        var newTask = AgentTask(
+                        let newTask = AgentTask(
+                            id: pregenId,
                             projectId: task.projectId,
                             featureId: feature.id,
                             agentType: agentType,
@@ -320,11 +352,10 @@ final class Orchestrator {
                             priority: taskOutput.priority
                         )
                         try newTask.insert(db)
-                        titleToTaskId[taskOutput.title] = newTask.id
                     }
                 }
 
-                // Second pass: create dependency edges
+                // Create dependency edges
                 for featureOutput in parsed.features {
                     for taskOutput in featureOutput.tasks {
                         guard let deps = taskOutput.dependsOn, !deps.isEmpty else { continue }
@@ -352,14 +383,14 @@ final class Orchestrator {
 
     private func logError(taskId: UUID, agent: AgentTask.AgentType, message: String) async throws {
         try await dbQueue.write { db in
-            var log = AgentLog(taskId: taskId, agentType: agent, level: .error, message: message)
+            let log = AgentLog(taskId: taskId, agentType: agent, level: .error, message: message)
             try log.insert(db)
         }
     }
 
     private func logInfo(taskId: UUID, agent: AgentTask.AgentType, message: String) async throws {
         try await dbQueue.write { db in
-            var log = AgentLog(taskId: taskId, agentType: agent, level: .info, message: message)
+            let log = AgentLog(taskId: taskId, agentType: agent, level: .info, message: message)
             try log.insert(db)
         }
     }
@@ -380,9 +411,25 @@ final class Orchestrator {
             let score: Double
             let verdict: String
             let summary: String
-            let issues: String?
-            let suggestions: String?
-            let securityNotes: String?
+            let issues: FlexibleStringField?
+            let suggestions: FlexibleStringField?
+            let securityNotes: FlexibleStringField?
+        }
+
+        /// Decodes either a String or [String] into a single joined String
+        struct FlexibleStringField: Decodable {
+            let value: String
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                if let str = try? container.decode(String.self) {
+                    value = str
+                } else if let arr = try? container.decode([String].self) {
+                    value = arr.joined(separator: "\n")
+                } else {
+                    value = ""
+                }
+            }
         }
 
         do {
@@ -397,14 +444,14 @@ final class Orchestrator {
 
             // Insert review record
             try await dbQueue.write { db in
-                var review = Review(
+                let review = Review(
                     taskId: task.id,
                     score: parsed.score,
                     verdict: verdict,
                     summary: parsed.summary,
-                    issues: parsed.issues,
-                    suggestions: parsed.suggestions,
-                    securityNotes: parsed.securityNotes,
+                    issues: parsed.issues?.value,
+                    suggestions: parsed.suggestions?.value,
+                    securityNotes: parsed.securityNotes?.value,
                     sessionId: result.sessionId,
                     costUSD: result.costUSD
                 )
@@ -437,8 +484,8 @@ final class Orchestrator {
             // Telegram notification: review completed
             let reviewForNotification = Review(
                 taskId: task.id, score: parsed.score, verdict: verdict,
-                summary: parsed.summary, issues: parsed.issues,
-                suggestions: parsed.suggestions, securityNotes: parsed.securityNotes
+                summary: parsed.summary, issues: parsed.issues?.value,
+                suggestions: parsed.suggestions?.value, securityNotes: parsed.securityNotes?.value
             )
             await sendTelegramNotification(for: task) { telegram, project in
                 await telegram.notifyReviewCompleted(review: reviewForNotification, task: task, project: project)
@@ -459,8 +506,17 @@ final class Orchestrator {
         guard let project else { return }
 
         do {
-            // Stage, commit, push
+            // Stage all changes first
             try await gitService.addAll(in: project.directoryPath)
+
+            // Check for empty diff before committing (#34)
+            let status = try await gitService.status(in: project.directoryPath)
+            guard !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                try? await logInfo(taskId: task.id, agent: .coder,
+                                  message: "No changes to commit — skipping PR and review")
+                return
+            }
+
             try await gitService.commit(
                 message: "feat: \(task.title)\n\nTask: \(task.id)",
                 in: project.directoryPath
@@ -485,7 +541,7 @@ final class Orchestrator {
 
             // Queue reviewer task
             try await dbQueue.write { db in
-                var reviewTask = AgentTask(
+                let reviewTask = AgentTask(
                     projectId: task.projectId,
                     featureId: task.featureId,
                     agentType: .reviewer,
@@ -503,7 +559,7 @@ final class Orchestrator {
         } catch {
             // Log git/PR errors but don't fail the task
             try? await dbQueue.write { db in
-                var log = AgentLog(
+                let log = AgentLog(
                     taskId: task.id,
                     agentType: .coder,
                     level: .error,

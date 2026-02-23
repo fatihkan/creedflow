@@ -38,6 +38,14 @@ actor ClaudeProcessManager {
 
         activeProcesses[processId] = process
 
+        // Launch the process BEFORE creating the stream so no early output is lost
+        do {
+            try process.run()
+        } catch {
+            activeProcesses.removeValue(forKey: processId)
+            return (processId, AsyncThrowingStream { $0.finish(throwing: error) })
+        }
+
         let stream = AsyncThrowingStream<ClaudeStreamEvent, Error> { continuation in
             // Read stdout in a background task
             let readTask = Task.detached { [stdoutPipe, stderrPipe] in
@@ -99,14 +107,6 @@ actor ClaudeProcessManager {
                     process.interrupt()
                 }
             }
-        }
-
-        // Launch the process
-        do {
-            try process.run()
-        } catch {
-            activeProcesses.removeValue(forKey: processId)
-            return (processId, AsyncThrowingStream { $0.finish(throwing: error) })
         }
 
         return (processId, stream)

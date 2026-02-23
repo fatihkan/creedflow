@@ -12,6 +12,7 @@ struct Review: Codable, Identifiable, Equatable {
     var securityNotes: String?
     var sessionId: String?
     var costUSD: Double?
+    var isApproved: Bool
     var createdAt: Date
 
     enum Verdict: String, Codable, CaseIterable, DatabaseValueConvertible {
@@ -31,6 +32,7 @@ struct Review: Codable, Identifiable, Equatable {
         securityNotes: String? = nil,
         sessionId: String? = nil,
         costUSD: Double? = nil,
+        isApproved: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -43,6 +45,7 @@ struct Review: Codable, Identifiable, Equatable {
         self.securityNotes = securityNotes
         self.sessionId = sessionId
         self.costUSD = costUSD
+        self.isApproved = isApproved
         self.createdAt = createdAt
     }
 }
