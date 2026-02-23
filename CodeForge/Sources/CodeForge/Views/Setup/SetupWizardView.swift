@@ -3,6 +3,8 @@ import SwiftUI
 public struct SetupWizardView: View {
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
     @AppStorage("claudePath") private var storedClaudePath = ""
+    @AppStorage("codexPath") private var storedCodexPath = ""
+    @AppStorage("geminiPath") private var storedGeminiPath = ""
     @AppStorage("projectsBaseDir") private var storedProjectsBaseDir = ""
     @AppStorage("maxConcurrency") private var storedMaxConcurrency = 3
     @AppStorage("defaultMaxBudgetUSD") private var storedDefaultBudget = 5.0
@@ -14,6 +16,8 @@ public struct SetupWizardView: View {
 
     // Local wizard state (written to AppStorage on completion)
     @State private var claudePathOverride = ""
+    @State private var codexPathOverride = ""
+    @State private var geminiPathOverride = ""
     @State private var projectsBaseDir = ""
     @State private var maxConcurrency = 3
     @State private var defaultBudget = 5.0
@@ -66,7 +70,9 @@ public struct SetupWizardView: View {
                 case 0:
                     WizardEnvironmentStep(
                         detector: detector,
-                        claudePathOverride: $claudePathOverride
+                        claudePathOverride: $claudePathOverride,
+                        codexPathOverride: $codexPathOverride,
+                        geminiPathOverride: $geminiPathOverride
                     )
                 case 1:
                     WizardProjectsStep(
@@ -83,6 +89,8 @@ public struct SetupWizardView: View {
                     WizardSummaryStep(
                         detector: detector,
                         claudePathOverride: claudePathOverride,
+                        codexPathOverride: codexPathOverride,
+                        geminiPathOverride: geminiPathOverride,
                         projectsBaseDir: projectsBaseDir,
                         maxConcurrency: maxConcurrency,
                         defaultBudget: defaultBudget,
@@ -137,11 +145,23 @@ public struct SetupWizardView: View {
     }
 
     private func applySettings() {
-        // Write claude path
+        // Write AI CLI paths
         if !claudePathOverride.isEmpty {
             storedClaudePath = claudePathOverride
         } else if detector.claudeFound {
             storedClaudePath = detector.claudePath
+        }
+
+        if !codexPathOverride.isEmpty {
+            storedCodexPath = codexPathOverride
+        } else if detector.codexFound {
+            storedCodexPath = detector.codexPath
+        }
+
+        if !geminiPathOverride.isEmpty {
+            storedGeminiPath = geminiPathOverride
+        } else if detector.geminiFound {
+            storedGeminiPath = detector.geminiPath
         }
 
         // Write projects settings

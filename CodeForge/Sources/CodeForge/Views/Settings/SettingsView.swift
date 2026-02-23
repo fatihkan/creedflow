@@ -3,6 +3,8 @@ import SwiftUI
 public struct SettingsView: View {
     @Environment(\.appDatabase) private var appDatabase
     @AppStorage("claudePath") private var claudePath = ""
+    @AppStorage("codexPath") private var codexPath = ""
+    @AppStorage("geminiPath") private var geminiPath = ""
     @AppStorage("maxConcurrency") private var maxConcurrency = 3
     @AppStorage("telegramBotToken") private var telegramBotToken = ""
     @AppStorage("telegramChatId") private var telegramChatId = ""
@@ -11,6 +13,8 @@ public struct SettingsView: View {
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = true
 
     @State private var claudeVersion = "Checking..."
+    @State private var codexVersion = "Checking..."
+    @State private var geminiVersion = "Checking..."
     @State private var ghVersion = "Checking..."
 
     public init() {}
@@ -20,8 +24,8 @@ public struct SettingsView: View {
             generalTab
                 .tabItem { Label("General", systemImage: "gear") }
 
-            claudeTab
-                .tabItem { Label("Claude", systemImage: "brain") }
+            aiCLIsTab
+                .tabItem { Label("AI CLIs", systemImage: "brain") }
 
             telegramTab
                 .tabItem { Label("Telegram", systemImage: "paperplane") }
@@ -79,26 +83,32 @@ public struct SettingsView: View {
         .formStyle(.grouped)
     }
 
-    private var claudeTab: some View {
+    private var aiCLIsTab: some View {
         Form {
             Section("Claude CLI") {
-                HStack {
-                    TextField("Claude CLI Path", text: $claudePath)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Browse") {
-                        let panel = NSOpenPanel()
-                        panel.canChooseFiles = true
-                        panel.canChooseDirectories = false
-                        if panel.runModal() == .OK, let url = panel.url {
-                            claudePath = url.path
-                        }
-                    }
-                }
+                CLISettingsRow(label: "Claude CLI Path", path: $claudePath, version: claudeVersion)
+            }
 
-                LabeledContent("Claude Version", value: claudeVersion)
+            Section("Codex CLI") {
+                CLISettingsRow(label: "Codex CLI Path", path: $codexPath, version: codexVersion)
+                Text("Install: npm install -g @openai/codex")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Gemini CLI") {
+                CLISettingsRow(label: "Gemini CLI Path", path: $geminiPath, version: geminiVersion)
+                Text("Install: npm install -g @anthropic-ai/gemini-cli")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Dev Tools") {
                 LabeledContent("gh CLI Version", value: ghVersion)
+            }
 
-                Button("Verify Installation") {
+            Section {
+                Button("Verify All Installations") {
                     Task { await checkToolVersions() }
                 }
             }
@@ -122,25 +132,55 @@ public struct SettingsView: View {
     }
 
     private func checkToolVersions() async {
-        // Resolve claude path
-        let resolvedClaudePath = claudePath.isEmpty
-            ? "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/claude"
-            : claudePath
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
 
-        // Check claude
-        do {
-            let output = try await Process.run(resolvedClaudePath, arguments: ["--version"])
-            claudeVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        } catch {
-            claudeVersion = "Not found at \(resolvedClaudePath)"
-        }
+        // Check Claude
+        let resolvedClaudePath = claudePath.isEmpty ? "\(home)/.local/bin/claude" : claudePath
+        claudeVersion = await Self.checkCLIVersion(at: resolvedClaudePath)
+
+        // Check Codex
+        let resolvedCodexPath = codexPath.isEmpty ? "/usr/local/bin/codex" : codexPath
+        codexVersion = await Self.checkCLIVersion(at: resolvedCodexPath)
+
+        // Check Gemini
+        let resolvedGeminiPath = geminiPath.isEmpty ? "/usr/local/bin/gemini" : geminiPath
+        geminiVersion = await Self.checkCLIVersion(at: resolvedGeminiPath)
 
         // Check gh
+        ghVersion = await Self.checkCLIVersion(at: "/usr/local/bin/gh")
+    }
+
+    private static func checkCLIVersion(at path: String) async -> String {
         do {
-            let output = try await Process.run("/usr/local/bin/gh", arguments: ["--version"])
-            ghVersion = output.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n").first ?? ""
+            let output = try await Process.run(path, arguments: ["--version"])
+            return output.trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: "\n").first ?? ""
         } catch {
-            ghVersion = "Not found"
+            return "Not found"
         }
+    }
+}
+
+// MARK: - CLI Settings Row
+
+private struct CLISettingsRow: View {
+    let label: String
+    @Binding var path: String
+    let version: String
+
+    var body: some View {
+        HStack {
+            TextField(label, text: $path)
+                .textFieldStyle(.roundedBorder)
+            Button("Browse") {
+                let panel = NSOpenPanel()
+                panel.canChooseFiles = true
+                panel.canChooseDirectories = false
+                if panel.runModal() == .OK, let url = panel.url {
+                    path = url.path
+                }
+            }
+        }
+        LabeledContent("Version", value: version)
     }
 }

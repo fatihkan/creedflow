@@ -5,10 +5,12 @@ import SwiftUI
 struct WizardEnvironmentStep: View {
     let detector: EnvironmentDetector
     @Binding var claudePathOverride: String
+    @Binding var codexPathOverride: String
+    @Binding var geminiPathOverride: String
 
     var body: some View {
         Form {
-            Section("Claude CLI") {
+            Section("AI CLIs") {
                 DetectionRow(
                     label: "Claude CLI",
                     found: detector.claudeFound,
@@ -16,23 +18,29 @@ struct WizardEnvironmentStep: View {
                         ? "\(detector.claudePath) (v\(detector.claudeVersion))"
                         : "Not found in common locations"
                 )
+                CLIPathOverrideRow(path: $claudePathOverride, placeholder: "Claude CLI custom path")
 
-                HStack {
-                    TextField("Custom path", text: $claudePathOverride)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Browse") {
-                        let panel = NSOpenPanel()
-                        panel.canChooseFiles = true
-                        panel.canChooseDirectories = false
-                        panel.allowedContentTypes = [.unixExecutable]
-                        if panel.runModal() == .OK, let url = panel.url {
-                            claudePathOverride = url.path
-                        }
-                    }
-                }
-                Text("Override if Claude CLI is installed at a non-standard location")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Divider()
+
+                DetectionRow(
+                    label: "Codex CLI",
+                    found: detector.codexFound,
+                    detail: detector.codexFound
+                        ? "\(detector.codexPath) (v\(detector.codexVersion))"
+                        : "Not found — optional (npm i -g @openai/codex)"
+                )
+                CLIPathOverrideRow(path: $codexPathOverride, placeholder: "Codex CLI custom path")
+
+                Divider()
+
+                DetectionRow(
+                    label: "Gemini CLI",
+                    found: detector.geminiFound,
+                    detail: detector.geminiFound
+                        ? "\(detector.geminiPath) (v\(detector.geminiVersion))"
+                        : "Not found — optional (npm i -g @anthropic-ai/gemini-cli)"
+                )
+                CLIPathOverrideRow(path: $geminiPathOverride, placeholder: "Gemini CLI custom path")
             }
 
             Section("GitHub CLI") {
@@ -142,6 +150,8 @@ struct WizardIntegrationsStep: View {
 struct WizardSummaryStep: View {
     let detector: EnvironmentDetector
     let claudePathOverride: String
+    let codexPathOverride: String
+    let geminiPathOverride: String
     let projectsBaseDir: String
     let maxConcurrency: Int
     let defaultBudget: Double
@@ -153,10 +163,27 @@ struct WizardSummaryStep: View {
         return "Not configured"
     }
 
+    private var effectiveCodexPath: String {
+        if !codexPathOverride.isEmpty { return codexPathOverride }
+        if detector.codexFound { return detector.codexPath }
+        return "Not found"
+    }
+
+    private var effectiveGeminiPath: String {
+        if !geminiPathOverride.isEmpty { return geminiPathOverride }
+        if detector.geminiFound { return detector.geminiPath }
+        return "Not found"
+    }
+
     var body: some View {
         Form {
-            Section("Environment") {
+            Section("AI CLIs") {
                 SummaryRow(label: "Claude CLI", value: effectiveClaudePath, ok: detector.claudeFound || !claudePathOverride.isEmpty)
+                SummaryRow(label: "Codex CLI", value: effectiveCodexPath, ok: detector.codexFound || !codexPathOverride.isEmpty)
+                SummaryRow(label: "Gemini CLI", value: effectiveGeminiPath, ok: detector.geminiFound || !geminiPathOverride.isEmpty)
+            }
+
+            Section("Dev Tools") {
                 SummaryRow(label: "gh CLI", value: detector.ghFound ? detector.ghPath : "Not found", ok: detector.ghFound)
                 SummaryRow(label: "Git user", value: detector.gitConfigured ? "\(detector.gitUserName) <\(detector.gitUserEmail)>" : "Not configured", ok: detector.gitConfigured)
             }
@@ -176,6 +203,28 @@ struct WizardSummaryStep: View {
 }
 
 // MARK: - Helper Views
+
+private struct CLIPathOverrideRow: View {
+    @Binding var path: String
+    let placeholder: String
+
+    var body: some View {
+        HStack {
+            TextField(placeholder, text: $path)
+                .textFieldStyle(.roundedBorder)
+                .font(.caption)
+            Button("Browse") {
+                let panel = NSOpenPanel()
+                panel.canChooseFiles = true
+                panel.canChooseDirectories = false
+                if panel.runModal() == .OK, let url = panel.url {
+                    path = url.path
+                }
+            }
+            .controlSize(.small)
+        }
+    }
+}
 
 private struct DetectionRow: View {
     let label: String

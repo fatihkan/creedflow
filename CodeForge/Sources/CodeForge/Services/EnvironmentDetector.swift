@@ -1,11 +1,18 @@
 import Foundation
 
-/// Auto-detects installed developer tools (Claude CLI, gh CLI, git config)
+/// Auto-detects installed developer tools (AI CLIs, gh CLI, git config)
 /// for the setup wizard and settings display.
 @Observable
 final class EnvironmentDetector {
+    // AI CLIs
     var claudePath: String = ""
     var claudeVersion: String = ""
+    var codexPath: String = ""
+    var codexVersion: String = ""
+    var geminiPath: String = ""
+    var geminiVersion: String = ""
+
+    // Dev tools
     var ghPath: String = ""
     var ghVersion: String = ""
     var gitUserName: String = ""
@@ -13,13 +20,31 @@ final class EnvironmentDetector {
     var isDetecting = false
 
     var claudeFound: Bool { !claudePath.isEmpty && !claudeVersion.isEmpty }
+    var codexFound: Bool { !codexPath.isEmpty && !codexVersion.isEmpty }
+    var geminiFound: Bool { !geminiPath.isEmpty && !geminiVersion.isEmpty }
     var ghFound: Bool { !ghPath.isEmpty && !ghVersion.isEmpty }
     var gitConfigured: Bool { !gitUserName.isEmpty && !gitUserEmail.isEmpty }
 
+    private static let home = FileManager.default.homeDirectoryForCurrentUser.path
+
     private static let claudeCandidates = [
-        "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/claude",
+        "\(home)/.local/bin/claude",
         "/usr/local/bin/claude",
         "/opt/homebrew/bin/claude",
+    ]
+
+    private static let codexCandidates = [
+        "\(home)/.local/bin/codex",
+        "/usr/local/bin/codex",
+        "/opt/homebrew/bin/codex",
+        "\(home)/.npm-global/bin/codex",
+    ]
+
+    private static let geminiCandidates = [
+        "\(home)/.local/bin/gemini",
+        "/usr/local/bin/gemini",
+        "/opt/homebrew/bin/gemini",
+        "\(home)/.npm-global/bin/gemini",
     ]
 
     private static let ghCandidates = [
@@ -33,6 +58,8 @@ final class EnvironmentDetector {
 
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.detectClaude() }
+            group.addTask { await self.detectCodex() }
+            group.addTask { await self.detectGemini() }
             group.addTask { await self.detectGh() }
             group.addTask { await self.detectGit() }
         }
@@ -55,6 +82,48 @@ final class EnvironmentDetector {
             claudeVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
         } catch {
             claudeVersion = ""
+        }
+    }
+
+    // MARK: - Codex CLI
+
+    private func detectCodex() async {
+        for candidate in Self.codexCandidates {
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                codexPath = candidate
+                break
+            }
+        }
+
+        guard !codexPath.isEmpty else { return }
+
+        do {
+            let output = try await Process.run(codexPath, arguments: ["--version"])
+            codexVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: "\n").first ?? ""
+        } catch {
+            codexVersion = ""
+        }
+    }
+
+    // MARK: - Gemini CLI
+
+    private func detectGemini() async {
+        for candidate in Self.geminiCandidates {
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                geminiPath = candidate
+                break
+            }
+        }
+
+        guard !geminiPath.isEmpty else { return }
+
+        do {
+            let output = try await Process.run(geminiPath, arguments: ["--version"])
+            geminiVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: "\n").first ?? ""
+        } catch {
+            geminiVersion = ""
         }
     }
 
