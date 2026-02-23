@@ -67,14 +67,19 @@ struct MCPResourceRegistrar {
 
     // MARK: - Resource Handlers
 
+    private let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.outputFormatting = .sortedKeys
+        return e
+    }()
+
     private func readProjects() throws -> ReadResource.Result {
         let projects = try bridge.getAllProjects()
-        let json = projects.map { p in
-            """
-            {"id":"\(p.id)","name":"\(p.name)","status":"\(p.status.rawValue)","techStack":"\(p.techStack)"}
-            """
+        let items: [[String: Any]] = projects.map { p in
+            ["id": p.id.uuidString, "name": p.name, "status": p.status.rawValue, "techStack": p.techStack]
         }
-        let content = "[\(json.joined(separator: ","))]"
+        let data = try JSONSerialization.data(withJSONObject: items)
+        let content = String(data: data, encoding: .utf8) ?? "[]"
         return ReadResource.Result(contents: [
             .text(content, uri: "codeforge://projects", mimeType: "application/json")
         ])
@@ -84,12 +89,15 @@ struct MCPResourceRegistrar {
         guard let info = try bridge.getProjectStatus(id: id) else {
             throw MCPError.invalidRequest("Project not found: \(id)")
         }
-        let content = """
-            {"id":"\(info.project.id)","name":"\(info.project.name)","status":"\(info.project.status.rawValue)",\
-            "totalTasks":\(info.totalTasks),"completedTasks":\(info.completedTasks),\
-            "failedTasks":\(info.failedTasks),"inProgressTasks":\(info.inProgressTasks),\
-            "totalCostUSD":\(info.totalCostUSD)}
-            """
+        let dict: [String: Any] = [
+            "id": info.project.id.uuidString, "name": info.project.name,
+            "status": info.project.status.rawValue,
+            "totalTasks": info.totalTasks, "completedTasks": info.completedTasks,
+            "failedTasks": info.failedTasks, "inProgressTasks": info.inProgressTasks,
+            "totalCostUSD": info.totalCostUSD
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
             .text(content, uri: "codeforge://projects/\(id)", mimeType: "application/json")
         ])
@@ -97,16 +105,16 @@ struct MCPResourceRegistrar {
 
     private func readTaskQueue() throws -> ReadResource.Result {
         let queue = try bridge.getQueueStatus()
-        let format: (AgentTask) -> String = { t in
-            """
-            {"id":"\(t.id)","title":"\(t.title)","agent":"\(t.agentType.rawValue)","status":"\(t.status.rawValue)","priority":\(t.priority)}
-            """
+        let format: (AgentTask) -> [String: Any] = { t in
+            ["id": t.id.uuidString, "title": t.title, "agent": t.agentType.rawValue,
+             "status": t.status.rawValue, "priority": t.priority]
         }
-        let queuedJSON = queue.queuedTasks.map(format)
-        let activeJSON = queue.inProgressTasks.map(format)
-        let content = """
-            {"queued":[\(queuedJSON.joined(separator: ","))],"inProgress":[\(activeJSON.joined(separator: ","))]}
-            """
+        let dict: [String: Any] = [
+            "queued": queue.queuedTasks.map(format),
+            "inProgress": queue.inProgressTasks.map(format)
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
             .text(content, uri: "codeforge://tasks/queue", mimeType: "application/json")
         ])
@@ -114,10 +122,12 @@ struct MCPResourceRegistrar {
 
     private func readCostSummary() throws -> ReadResource.Result {
         let summary = try bridge.getCostSummary()
-        let content = """
-            {"totalCostUSD":\(summary.totalCostUSD),"totalInputTokens":\(summary.totalInputTokens),\
-            "totalOutputTokens":\(summary.totalOutputTokens),"totalInvocations":\(summary.totalInvocations)}
-            """
+        let dict: [String: Any] = [
+            "totalCostUSD": summary.totalCostUSD, "totalInputTokens": summary.totalInputTokens,
+            "totalOutputTokens": summary.totalOutputTokens, "totalInvocations": summary.totalInvocations
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
             .text(content, uri: "codeforge://costs/summary", mimeType: "application/json")
         ])

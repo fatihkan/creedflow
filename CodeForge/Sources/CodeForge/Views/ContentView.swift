@@ -42,6 +42,16 @@ public struct ContentView: View {
                 let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)
                 orchestrator = orch
                 await orch.start()
+
+                // Start Telegram polling if configured (#32)
+                let token = UserDefaults.standard.string(forKey: "telegramBotToken") ?? ""
+                if !token.isEmpty {
+                    let chatId = UserDefaults.standard.object(forKey: "telegramChatId") as? Int64
+                    telegramService.configure(token: token, chatId: chatId)
+                    telegramService.startPolling { command in
+                        await handleTelegramCommand(command)
+                    }
+                }
             }
         }
         .onAppear {
@@ -74,6 +84,11 @@ public struct ContentView: View {
             if let monitor = keyboardMonitor {
                 NSEvent.removeMonitor(monitor)
                 keyboardMonitor = nil
+            }
+            // Stop orchestrator and telegram polling on window close (#45)
+            telegramService.stopPolling()
+            Task {
+                await orchestrator?.stop()
             }
         }
     }
@@ -168,6 +183,41 @@ public struct ContentView: View {
                 onViewAllTasks: {
                     selectedSection = .projectTasks(projectId)
                 }
+            )
+        }
+    }
+}
+
+// MARK: - Telegram Command Handling
+
+extension ContentView {
+    func handleTelegramCommand(_ command: TelegramCommand) async {
+        guard let db = appDatabase else { return }
+
+        switch command.command {
+        case "status":
+            let counts = try? await db.dbQueue.read { dbConn -> (Int, Int, Int) in
+                let queued = try AgentTask.filter(Column("status") == "queued").fetchCount(dbConn)
+                let active = try AgentTask.filter(Column("status") == "inProgress").fetchCount(dbConn)
+                let done = try AgentTask.filter(Column("status") == "passed").fetchCount(dbConn)
+                return (queued, active, done)
+            }
+            if let (q, a, d) = counts {
+                try? await telegramService.sendMessage(
+                    "Queued: \(q) | Active: \(a) | Done: \(d)",
+                    chatId: command.chatId
+                )
+            }
+        case "projects":
+            let projects = try? await db.dbQueue.read { dbConn in
+                try Project.order(Column("name")).fetchAll(dbConn)
+            }
+            let list = projects?.map { "- \($0.name) (\($0.status.rawValue))" }.joined(separator: "\n") ?? "No projects"
+            try? await telegramService.sendMessage(list, chatId: command.chatId)
+        default:
+            try? await telegramService.sendMessage(
+                "Unknown command: /\(command.command)\nAvailable: /status, /projects",
+                chatId: command.chatId
             )
         }
     }

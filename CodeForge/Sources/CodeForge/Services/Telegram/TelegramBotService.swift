@@ -17,7 +17,8 @@ final class TelegramBotService {
         self.defaultChatId = chatId
     }
 
-    /// Send a text message to a chat
+    /// Send a text message to a chat.
+    /// Falls back to plain text if Markdown parsing fails.
     func sendMessage(_ text: String, chatId: Int64? = nil) async throws {
         guard let token = botToken else { return }
         guard let targetChat = chatId ?? defaultChatId else { return }
@@ -27,16 +28,29 @@ final class TelegramBotService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        // Try with Markdown first
+        let bodyMD: [String: Any] = [
             "chat_id": targetChat,
             "text": text,
             "parse_mode": "Markdown"
         ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try JSONSerialization.data(withJSONObject: bodyMD)
 
         let (_, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              200..<300 ~= httpResponse.statusCode else {
+        if let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode {
+            return
+        }
+
+        // Fallback: send as plain text (no parse_mode) to avoid silent failures
+        let bodyPlain: [String: Any] = [
+            "chat_id": targetChat,
+            "text": text
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: bodyPlain)
+
+        let (_, fallbackResponse) = try await session.data(for: request)
+        guard let httpFallback = fallbackResponse as? HTTPURLResponse,
+              200..<300 ~= httpFallback.statusCode else {
             throw TelegramError.sendFailed
         }
     }

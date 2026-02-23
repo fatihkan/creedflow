@@ -204,6 +204,8 @@ final class Orchestrator {
             await handleCoderCompletion(task: task)
         case .reviewer:
             await handleReviewerCompletion(task: task, result: result)
+        case .devops:
+            await handleDevOpsCompletion(task: task, result: result)
         default:
             break
         }
@@ -567,6 +569,37 @@ final class Orchestrator {
                 )
                 try log.insert(db)
             }
+        }
+    }
+
+    /// Update deployment status after devops task completes (#30)
+    private func handleDevOpsCompletion(task: AgentTask, result: AgentResult) async {
+        // Find deployment matching this task's description pattern "Deploy <version> to <env>"
+        do {
+            try await dbQueue.write { db in
+                // Find pending deployments for this project
+                let deployments = try Deployment
+                    .filter(Column("projectId") == task.projectId)
+                    .filter(Column("status") == Deployment.Status.pending.rawValue)
+                    .order(Column("createdAt").desc)
+                    .fetchAll(db)
+
+                guard var deployment = deployments.first else { return }
+
+                if task.status == .passed {
+                    deployment.status = .success
+                    deployment.completedAt = Date()
+                    deployment.logs = result.output
+                } else {
+                    deployment.status = .failed
+                    deployment.completedAt = Date()
+                    deployment.logs = task.errorMessage ?? result.output
+                }
+                try deployment.update(db)
+            }
+        } catch {
+            try? await logError(taskId: task.id, agent: .devops,
+                              message: "Failed to update deployment: \(error.localizedDescription)")
         }
     }
 

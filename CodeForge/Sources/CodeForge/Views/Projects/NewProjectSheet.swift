@@ -109,6 +109,16 @@ struct NewProjectSheet: View {
                     directoryPath: path
                 )
                 try project.insert(dbConn)
+
+                // Auto-queue analyzer task for the new project (#44)
+                let analyzerTask = AgentTask(
+                    projectId: project.id,
+                    agentType: .analyzer,
+                    title: "Analyze: \(name)",
+                    description: description,
+                    priority: 10
+                )
+                try analyzerTask.insert(dbConn)
             }
 
             dismiss()
