@@ -14,45 +14,57 @@ struct TaskDetailView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            // Fixed header bar (outside ScrollView so close button always works)
             if let task {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Header bar
-                    HStack(spacing: 8) {
-                        HStack(spacing: 3) {
-                            Image(systemName: task.agentType.icon)
-                            Text(task.agentType.rawValue.capitalized)
-                        }
-                        .forgeBadge(color: task.agentType.themeColor)
-
-                        Text(task.status.displayName)
-                            .forgeBadge(color: task.status.themeColor)
-
-                        if task.priority > 0 {
-                            Text("P\(task.priority)")
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundStyle(.forgeAmber)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(.forgeAmber.opacity(0.12))
-                                .clipShape(Capsule())
-                        }
-
-                        Spacer()
-
-                        if let onDismiss {
-                            Button(action: onDismiss) {
-                                Image(systemName: "xmark")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                HStack(spacing: 8) {
+                    HStack(spacing: 3) {
+                        Image(systemName: task.agentType.icon)
+                        Text(task.agentType.rawValue.capitalized)
                     }
+                    .forgeBadge(color: task.agentType.themeColor)
+
+                    Text(task.status.displayName)
+                        .forgeBadge(color: task.status.themeColor)
+
+                    if task.priority > 0 {
+                        Text("P\(task.priority)")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(.forgeAmber)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.forgeAmber.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
 
                     Text(task.title)
                         .font(.headline)
+                        .lineLimit(1)
 
+                    Spacer()
+
+                    if let onDismiss {
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.background)
+
+                Divider()
+            }
+
+        ScrollView {
+            if let task {
+                VStack(alignment: .leading, spacing: 12) {
                     Text(task.description)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -162,6 +174,7 @@ struct TaskDetailView: View {
         .task(id: taskId) {
             await observeData()
         }
+        } // VStack
     }
 
     // MARK: - Metadata Item
