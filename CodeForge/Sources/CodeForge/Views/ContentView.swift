@@ -8,7 +8,6 @@ public struct ContentView: View {
     @State private var selectedTaskId: UUID?
     @State private var orchestrator: Orchestrator?
     @State private var telegramService = TelegramBotService()
-    @State private var detailHeight: CGFloat = 280
     @State private var keyboardMonitor: Any?
 
     public init() {}
@@ -22,17 +21,22 @@ public struct ContentView: View {
                 appDatabase: appDatabase
             )
         } detail: {
-            VSplitView {
+            VStack(spacing: 0) {
                 contentPanel
-                    .frame(minHeight: 200)
-                    .transition(.opacity.combined(with: .move(edge: .leading)))
+                    .frame(maxHeight: .infinity)
 
-                detailPanel
-                    .frame(minHeight: 120, idealHeight: detailHeight)
+                if showDetailPanel {
+                    Divider()
+                    detailPanel
+                        .frame(minHeight: 150, idealHeight: 280, maxHeight: 350)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
         }
-        .navigationSplitViewStyle(.balanced)
+        .navigationSplitViewStyle(.prominentDetail)
         .frame(minWidth: 960, minHeight: 640)
+        .toolbar(removing: .sidebarToggle)
         .task {
             if let db = appDatabase {
                 let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)
@@ -64,6 +68,14 @@ public struct ContentView: View {
             }
         }
     }
+
+    // MARK: - Detail Panel Visibility
+
+    private var showDetailPanel: Bool {
+        selectedTaskId != nil || (selectedProjectId != nil && selectedSection == .projects)
+    }
+
+    // MARK: - Content Panel
 
     @ViewBuilder
     private var contentPanel: some View {
@@ -126,6 +138,8 @@ public struct ContentView: View {
         }
     }
 
+    // MARK: - Detail Panel
+
     @ViewBuilder
     private var detailPanel: some View {
         if let taskId = selectedTaskId {
@@ -143,12 +157,6 @@ public struct ContentView: View {
                 onViewAllTasks: {
                     selectedSection = .projectTasks(projectId)
                 }
-            )
-        } else {
-            ForgeEmptyState(
-                icon: "rectangle.bottomhalf.filled",
-                title: "No Selection",
-                subtitle: "Select an item to view details"
             )
         }
     }

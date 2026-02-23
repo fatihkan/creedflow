@@ -18,9 +18,33 @@ struct PromptsLibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
+            filterBar
             Divider()
             promptList
+        }
+        .navigationTitle("Prompts")
+        .searchable(text: $searchText, prompt: "Search prompts...")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if let result = importResult {
+                    Text(result)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Button {
+                    importCommunityPrompts()
+                } label: {
+                    Label("Import Community", systemImage: "arrow.down.circle")
+                }
+                .disabled(isImporting)
+
+                Button {
+                    showEditSheet = true
+                } label: {
+                    Label("New Prompt", systemImage: "plus")
+                }
+            }
         }
         .onAppear {
             if let db = appDatabase {
@@ -35,59 +59,33 @@ struct PromptsLibraryView: View {
         }
     }
 
-    // MARK: - Toolbar
+    // MARK: - Filter Bar
 
-    private var toolbar: some View {
+    private var filterBar: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search prompts...", text: $searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(6)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-            .frame(maxWidth: 260)
-
-            Picker("Source", selection: $selectedSource) {
+            Picker(selection: $selectedSource) {
                 Text("All Sources").tag(nil as Prompt.Source?)
                 Text("User").tag(Prompt.Source.user as Prompt.Source?)
                 Text("Community").tag(Prompt.Source.community as Prompt.Source?)
+            } label: {
+                EmptyView()
             }
             .pickerStyle(.segmented)
             .frame(maxWidth: 240)
 
             if !store.categories.isEmpty {
-                Picker("Category", selection: $selectedCategory) {
+                Picker(selection: $selectedCategory) {
                     Text("All Categories").tag("all")
                     ForEach(store.categories, id: \.self) { cat in
                         Text(cat.capitalized).tag(cat)
                     }
+                } label: {
+                    EmptyView()
                 }
                 .frame(maxWidth: 160)
             }
 
             Spacer()
-
-            if let result = importResult {
-                Text(result)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .transition(.opacity)
-            }
-
-            Button {
-                importCommunityPrompts()
-            } label: {
-                Label("Import Community", systemImage: "arrow.down.circle")
-            }
-            .disabled(isImporting)
-
-            Button {
-                showEditSheet = true
-            } label: {
-                Label("New Prompt", systemImage: "plus")
-            }
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
