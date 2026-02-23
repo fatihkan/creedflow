@@ -135,12 +135,12 @@ private struct MCPTemplateCard: View {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: template.icon)
                         .font(.title2)
-                        .foregroundStyle(isConfigured ? .green : .accentColor)
+                        .foregroundStyle(isConfigured ? .forgeSuccess : .forgeAmber)
                         .frame(width: 36, height: 36)
                     if isConfigured {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(.forgeSuccess)
                             .offset(x: 4, y: -4)
                     }
                 }
@@ -157,7 +157,7 @@ private struct MCPTemplateCard: View {
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isConfigured ? .green.opacity(0.3) : .clear, lineWidth: 1)
+                    .strokeBorder(isConfigured ? Color.forgeSuccess.opacity(0.3) : .clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -177,7 +177,7 @@ private struct MCPTemplateSetupSheet: View {
             VStack(spacing: 8) {
                 Image(systemName: template.icon)
                     .font(.largeTitle)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Color.forgeAmber)
                 Text("Setup \(template.displayName)")
                     .font(.headline)
                 Text(template.description)

@@ -9,6 +9,7 @@ public struct ContentView: View {
     @State private var orchestrator: Orchestrator?
     @State private var telegramService = TelegramBotService()
     @State private var detailHeight: CGFloat = 280
+    @State private var keyboardMonitor: Any?
 
     public init() {}
 
@@ -24,6 +25,7 @@ public struct ContentView: View {
             VSplitView {
                 contentPanel
                     .frame(minHeight: 200)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
 
                 detailPanel
                     .frame(minHeight: 120, idealHeight: detailHeight)
@@ -38,6 +40,29 @@ public struct ContentView: View {
                 await orch.start()
             }
         }
+        .onAppear {
+            keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.modifierFlags.contains(.command),
+                      !event.modifierFlags.contains(.shift),
+                      !event.modifierFlags.contains(.option) else { return event }
+                switch event.charactersIgnoringModifiers {
+                case "1": selectedSection = .projects; return nil
+                case "2": selectedSection = .tasks; return nil
+                case "3": selectedSection = .agents; return nil
+                case "4": selectedSection = .reviews; return nil
+                case "5": selectedSection = .deploys; return nil
+                case "6": selectedSection = .costs; return nil
+                case "7": selectedSection = .prompts; return nil
+                default: return event
+                }
+            }
+        }
+        .onDisappear {
+            if let monitor = keyboardMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyboardMonitor = nil
+            }
+        }
     }
 
     @ViewBuilder
@@ -47,7 +72,10 @@ public struct ContentView: View {
             ProjectListView(
                 selectedProjectId: $selectedProjectId,
                 selectedTaskId: $selectedTaskId,
-                appDatabase: appDatabase
+                appDatabase: appDatabase,
+                onViewProjectTasks: { projectId in
+                    selectedSection = .projectTasks(projectId)
+                }
             )
         case .tasks:
             if let projectId = selectedProjectId {
@@ -68,7 +96,8 @@ public struct ContentView: View {
             AgentStatusView(
                 orchestrator: orchestrator,
                 selectedTaskId: $selectedTaskId,
-                appDatabase: appDatabase
+                appDatabase: appDatabase,
+                onNavigateToTasks: { selectedSection = .tasks }
             )
         case .costs:
             CostDashboardView(appDatabase: appDatabase)
@@ -86,7 +115,9 @@ public struct ContentView: View {
                 orchestrator: orchestrator
             )
             .onAppear { selectedProjectId = projectId }
-        case .settings, .none:
+        case .settings:
+            MCPSettingsView(appDatabase: appDatabase)
+        case .none:
             ForgeEmptyState(
                 icon: "hammer.fill",
                 title: "CodeForge",
@@ -108,7 +139,10 @@ public struct ContentView: View {
             ProjectDetailView(
                 projectId: projectId,
                 appDatabase: appDatabase,
-                orchestrator: orchestrator
+                orchestrator: orchestrator,
+                onViewAllTasks: {
+                    selectedSection = .projectTasks(projectId)
+                }
             )
         } else {
             ForgeEmptyState(

@@ -11,8 +11,8 @@ struct ReviewApprovalView: View {
             if pendingReviews.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "checkmark.shield",
-                    title: "No Pending Reviews",
-                    subtitle: "Reviews requiring approval will appear here"
+                    title: "All Clear",
+                    subtitle: "All reviews have been processed. New reviews will appear here when ready."
                 )
             } else {
                 ScrollView {

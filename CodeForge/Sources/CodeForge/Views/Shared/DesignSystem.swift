@@ -10,12 +10,15 @@ extension ShapeStyle where Self == Color {
     static var forgeAmberLight: Color { Color(red: 0.96, green: 0.78, blue: 0.28) }
     static var forgeAmberDim: Color { Color(red: 0.72, green: 0.50, blue: 0.08) }
 
-    // Status
+    // Status — forgeWarning is distinct bright yellow (not amber)
     static var forgeSuccess: Color { Color(red: 0.18, green: 0.75, blue: 0.48) }
     static var forgeDanger: Color { Color(red: 0.92, green: 0.28, blue: 0.30) }
-    static var forgeWarning: Color { Color(red: 0.95, green: 0.62, blue: 0.12) }
+    static var forgeWarning: Color { Color(red: 0.98, green: 0.78, blue: 0.20) }
     static var forgeInfo: Color { Color(red: 0.30, green: 0.55, blue: 0.96) }
     static var forgeNeutral: Color { Color(red: 0.50, green: 0.52, blue: 0.58) }
+
+    // Selection
+    static var forgeSelection: Color { Color(red: 0.91, green: 0.65, blue: 0.12).opacity(0.18) }
 
     // Surfaces
     static var forgeSurface: Color { Color(nsColor: .controlBackgroundColor) }
@@ -28,13 +31,37 @@ extension ShapeStyle where Self == Color {
     static var forgeTerminalRed: Color { Color(red: 0.95, green: 0.42, blue: 0.38) }
     static var forgeTerminalYellow: Color { Color(red: 0.92, green: 0.80, blue: 0.40) }
 
-    // Agent type colors
+    // Agent type colors — agentCoder is darker blue (distinct from forgeInfo)
     static var agentAnalyzer: Color { Color(red: 0.62, green: 0.40, blue: 0.90) }
-    static var agentCoder: Color { Color(red: 0.30, green: 0.55, blue: 0.96) }
+    static var agentCoder: Color { Color(red: 0.25, green: 0.48, blue: 0.88) }
     static var agentReviewer: Color { Color(red: 0.95, green: 0.55, blue: 0.15) }
     static var agentTester: Color { Color(red: 0.18, green: 0.75, blue: 0.48) }
     static var agentDevops: Color { Color(red: 0.35, green: 0.75, blue: 0.82) }
     static var agentMonitor: Color { Color(red: 0.88, green: 0.42, blue: 0.62) }
+}
+
+// MARK: - Typography Scale
+
+extension Font {
+    static let forgeTitle = Font.system(.title2, design: .default, weight: .bold)
+    static let forgeHeadline = Font.system(.headline, design: .default, weight: .semibold)
+    static let forgeBody = Font.system(.subheadline, design: .default)
+    static let forgeCaption = Font.system(.caption, design: .default)
+    static let forgeMono = Font.system(size: 11, design: .monospaced)
+    static let forgeMonoSmall = Font.system(size: 10, design: .monospaced)
+    static let forgeBadgeFont = Font.system(size: 10, weight: .semibold, design: .rounded)
+    static let forgeMetricValue = Font.system(.title3, design: .rounded, weight: .bold)
+    static let forgeMetricLabel = Font.system(size: 11)
+}
+
+// MARK: - Spacing Tokens
+
+enum ForgeSpacing {
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 24
 }
 
 // MARK: - Agent Color Helper
@@ -124,7 +151,7 @@ extension Project.Status {
 /// Card surface with subtle border and shadow
 struct ForgeCardModifier: ViewModifier {
     var isSelected: Bool = false
-    var cornerRadius: CGFloat = 10
+    var cornerRadius: CGFloat = 8
 
     func body(content: Content) -> some View {
         content
@@ -140,6 +167,7 @@ struct ForgeCardModifier: ViewModifier {
                         lineWidth: isSelected ? 1.5 : 0.5
                     )
             }
+            .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 
@@ -183,7 +211,7 @@ struct ForgeBadgeModifier: ViewModifier {
 }
 
 extension View {
-    func forgeCard(selected: Bool = false, cornerRadius: CGFloat = 10) -> some View {
+    func forgeCard(selected: Bool = false, cornerRadius: CGFloat = 8) -> some View {
         modifier(ForgeCardModifier(isSelected: selected, cornerRadius: cornerRadius))
     }
 
@@ -236,6 +264,8 @@ struct ForgeEmptyState: View {
     let icon: String
     let title: String
     let subtitle: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 12) {
@@ -249,9 +279,44 @@ struct ForgeEmptyState: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
+            if let actionTitle, let action {
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(.system(.caption, weight: .semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.forgeAmber)
+                .padding(.top, 4)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+}
+
+// MARK: - Metric Card
+
+struct MetricCard: View {
+    let label: String
+    let value: String
+    let icon: String
+    let accent: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(accent)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.forgeMetricValue)
+                Text(label)
+                    .font(.forgeMetricLabel)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .forgeMetricCard(accent: accent)
     }
 }
 

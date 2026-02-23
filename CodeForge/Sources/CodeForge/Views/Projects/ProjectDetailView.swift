@@ -5,6 +5,7 @@ struct ProjectDetailView: View {
     let projectId: UUID
     let appDatabase: AppDatabase?
     let orchestrator: Orchestrator?
+    var onViewAllTasks: (() -> Void)?
 
     @State private var project: Project?
     @State private var tasks: [AgentTask] = []
@@ -105,9 +106,14 @@ struct ProjectDetailView: View {
                                 TaskRowCompactView(task: task)
                             }
                             if tasks.count > 8 {
-                                Text("\(tasks.count - 8) more...")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
+                                Button {
+                                    onViewAllTasks?()
+                                } label: {
+                                    Text("View all \(tasks.count) tasks →")
+                                        .font(.caption)
+                                        .foregroundStyle(.forgeAmber)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -182,30 +188,4 @@ struct ProjectDetailView: View {
         }
     }
 
-}
-
-// MARK: - Metric Card
-
-struct MetricCard: View {
-    let label: String
-    let value: String
-    let icon: String
-    let accent: Color
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.caption)
-                .foregroundStyle(accent)
-                .frame(width: 20)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(value)
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                Text(label)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .forgeMetricCard(accent: accent)
-    }
 }

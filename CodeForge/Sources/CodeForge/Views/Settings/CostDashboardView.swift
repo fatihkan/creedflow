@@ -63,12 +63,12 @@ struct CostDashboardView: View {
                                 // Bar proportional to max cost
                                 let maxCost = costByAgent.values.max() ?? 1
                                 GeometryReader { geo in
-                                    RoundedRectangle(cornerRadius: 2)
+                                    RoundedRectangle(cornerRadius: 4)
                                         .fill(agentType.themeColor.opacity(0.3))
                                         .frame(width: geo.size.width * CGFloat(cost / maxCost))
                                         .frame(maxWidth: .infinity, alignment: .trailing)
                                 }
-                                .frame(width: 100, height: 6)
+                                .frame(width: 100, height: 8)
 
                                 Text(String(format: "$%.4f", cost))
                                     .font(.system(size: 12, design: .monospaced))
@@ -88,11 +88,12 @@ struct CostDashboardView: View {
                         .foregroundStyle(.secondary)
 
                     if costEntries.isEmpty {
-                        Text("No cost entries yet")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
+                        ForgeEmptyState(
+                            icon: "dollarsign.circle",
+                            title: "No Cost Entries",
+                            subtitle: "Cost data will appear here as agents process tasks"
+                        )
+                        .frame(height: 120)
                     } else {
                         ForEach(costEntries.prefix(20)) { entry in
                             HStack(spacing: 8) {

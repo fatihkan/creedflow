@@ -5,6 +5,7 @@ struct AgentStatusView: View {
     let orchestrator: Orchestrator?
     @Binding var selectedTaskId: UUID?
     let appDatabase: AppDatabase?
+    var onNavigateToTasks: (() -> Void)?
 
     @State private var taskMap: [UUID: AgentTask] = [:]
     @State private var projects: [Project] = []
@@ -48,7 +49,9 @@ struct AgentStatusView: View {
                     ForgeEmptyState(
                         icon: "cpu",
                         title: "No Active Agents",
-                        subtitle: "Agents will appear here when tasks are being processed"
+                        subtitle: "Agents will appear here when tasks are being processed",
+                        actionTitle: "View Tasks",
+                        action: onNavigateToTasks
                     )
                 } else {
                     ScrollView {

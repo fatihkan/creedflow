@@ -98,12 +98,14 @@ struct PromptsLibraryView: View {
     private var promptList: some View {
         Group {
             if filteredPrompts.isEmpty {
-                ContentUnavailableView(
-                    searchText.isEmpty ? "No Prompts" : "No Results",
-                    systemImage: "text.book.closed",
-                    description: Text(searchText.isEmpty
-                        ? "Create a prompt or import community prompts to get started"
-                        : "No prompts match \"\(searchText)\"")
+                ForgeEmptyState(
+                    icon: "text.book.closed",
+                    title: searchText.isEmpty ? "No Prompts" : "No Results",
+                    subtitle: searchText.isEmpty
+                        ? "Create a prompt or import community prompts"
+                        : "No prompts match \"\(searchText)\"",
+                    actionTitle: searchText.isEmpty ? "Import Community" : nil,
+                    action: searchText.isEmpty ? { importCommunityPrompts() } : nil
                 )
             } else {
                 List {

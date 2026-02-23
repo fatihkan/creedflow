@@ -9,6 +9,8 @@ struct SidebarView: View {
 
     @State private var projects: [Project] = []
     @State private var pendingReviewCount: Int = 0
+    @State private var activeTaskCount: Int = 0
+    @State private var pendingDeployCount: Int = 0
 
     var body: some View {
         List(selection: $selectedSection) {
@@ -32,6 +34,12 @@ struct SidebarView: View {
         .task {
             await observeReviewCount()
         }
+        .task {
+            await observeActiveTaskCount()
+        }
+        .task {
+            await observePendingDeployCount()
+        }
     }
 
     // MARK: - Sections
@@ -41,8 +49,19 @@ struct SidebarView: View {
             Label("Projects", systemImage: "folder.fill")
                 .tag(SidebarSection.projects)
 
-            Label("Tasks", systemImage: "checklist")
-                .tag(SidebarSection.tasks)
+            HStack {
+                Label("Tasks", systemImage: "checklist")
+                Spacer()
+                if activeTaskCount > 0 {
+                    Text("\(activeTaskCount)")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.forgeInfo, in: Capsule())
+                }
+            }
+            .tag(SidebarSection.tasks)
         }
     }
 
@@ -81,8 +100,19 @@ struct SidebarView: View {
             }
             .tag(SidebarSection.reviews)
 
-            Label("Deployments", systemImage: "arrow.up.circle")
-                .tag(SidebarSection.deploys)
+            HStack {
+                Label("Deployments", systemImage: "arrow.up.circle")
+                Spacer()
+                if pendingDeployCount > 0 {
+                    Text("\(pendingDeployCount)")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.forgeAmber, in: Capsule())
+                }
+            }
+            .tag(SidebarSection.deploys)
         }
     }
 
@@ -174,6 +204,34 @@ struct SidebarView: View {
         do {
             for try await count in observation.values(in: db.dbQueue) {
                 pendingReviewCount = count
+            }
+        } catch {}
+    }
+
+    private func observeActiveTaskCount() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try AgentTask
+                .filter(Column("status") == AgentTask.Status.inProgress.rawValue)
+                .fetchCount(db)
+        }
+        do {
+            for try await count in observation.values(in: db.dbQueue) {
+                activeTaskCount = count
+            }
+        } catch {}
+    }
+
+    private func observePendingDeployCount() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try Deployment
+                .filter(Column("status") == Deployment.Status.pending.rawValue)
+                .fetchCount(db)
+        }
+        do {
+            for try await count in observation.values(in: db.dbQueue) {
+                pendingDeployCount = count
             }
         } catch {}
     }

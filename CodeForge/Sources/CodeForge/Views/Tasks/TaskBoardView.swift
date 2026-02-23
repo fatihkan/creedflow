@@ -10,6 +10,7 @@ struct TaskBoardView: View {
 
     @State private var tasks: [AgentTask] = []
     @State private var errorMessage: String?
+    @State private var showNewTask = false
 
     private let columns: [KanbanColumn] = [
         KanbanColumn(title: "Queued", status: .queued, color: .forgeNeutral),
@@ -17,6 +18,7 @@ struct TaskBoardView: View {
         KanbanColumn(title: "Review", status: .needsRevision, color: .forgeWarning),
         KanbanColumn(title: "Done", status: .passed, color: .forgeSuccess),
         KanbanColumn(title: "Failed", status: .failed, color: .forgeDanger),
+        KanbanColumn(title: "Cancelled", status: .cancelled, color: .forgeNeutral),
     ]
 
     var body: some View {
@@ -42,6 +44,18 @@ struct TaskBoardView: View {
             }
         }
         .navigationTitle("Task Board")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showNewTask = true
+                } label: {
+                    Label("New Task", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showNewTask) {
+            NewTaskSheet(projectId: projectId, appDatabase: appDatabase)
+        }
         .task(id: projectId) {
             await observeTasks()
         }
@@ -63,6 +77,69 @@ struct TaskBoardView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+// MARK: - New Task Sheet
+
+private struct NewTaskSheet: View {
+    let projectId: UUID
+    let appDatabase: AppDatabase?
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title = ""
+    @State private var description = ""
+    @State private var agentType: AgentTask.AgentType = .coder
+    @State private var priority: Int = 5
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Form {
+                Section("Task Info") {
+                    TextField("Title", text: $title)
+                        .textFieldStyle(.roundedBorder)
+                    TextEditor(text: $description)
+                        .font(.body)
+                        .frame(minHeight: 60)
+                }
+                Section("Configuration") {
+                    Picker("Agent Type", selection: $agentType) {
+                        ForEach(AgentTask.AgentType.allCases, id: \.self) { type in
+                            Text(type.rawValue.capitalized).tag(type)
+                        }
+                    }
+                    Stepper("Priority: \(priority)", value: $priority, in: 1...10)
+                }
+            }
+            .formStyle(.grouped)
+
+            Divider()
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Create") { createTask() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(title.isEmpty)
+            }
+            .padding()
+        }
+        .frame(width: 420, height: 340)
+    }
+
+    private func createTask() {
+        guard let db = appDatabase else { return }
+        try? db.dbQueue.write { dbConn in
+            var task = AgentTask(
+                projectId: projectId,
+                agentType: agentType,
+                title: title,
+                description: description,
+                priority: priority
+            )
+            try task.insert(dbConn)
+        }
+        dismiss()
     }
 }
 
@@ -127,7 +204,7 @@ struct KanbanColumnView: View {
                 }
             }
         }
-        .frame(width: 240)
+        .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
     }
 }
 
@@ -135,6 +212,8 @@ struct TaskCardView: View {
     let task: AgentTask
     let isSelected: Bool
     var isRunning: Bool = false
+
+    @State private var isHovered = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -186,5 +265,9 @@ struct TaskCardView: View {
         }
         .padding(8)
         .forgeCard(selected: isSelected, cornerRadius: 8)
+        .scaleEffect(isHovered ? 1.02 : 1.0)
+        .shadow(color: isHovered ? .black.opacity(0.12) : .black.opacity(0.06), radius: isHovered ? 4 : 2)
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovered)
     }
 }

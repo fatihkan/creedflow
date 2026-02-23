@@ -5,10 +5,21 @@ struct ProjectListView: View {
     @Binding var selectedProjectId: UUID?
     @Binding var selectedTaskId: UUID?
     let appDatabase: AppDatabase?
+    var onViewProjectTasks: ((UUID) -> Void)?
 
     @State private var projects: [Project] = []
     @State private var showNewProject = false
     @State private var errorMessage: String?
+    @State private var searchText = ""
+
+    private var filteredProjects: [Project] {
+        if searchText.isEmpty { return projects }
+        return projects.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            $0.description.localizedCaseInsensitiveContains(searchText) ||
+            $0.techStack.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -16,7 +27,9 @@ struct ProjectListView: View {
                 ForgeEmptyState(
                     icon: "folder.badge.plus",
                     title: "No Projects",
-                    subtitle: "Create your first project to get started"
+                    subtitle: "Create your first project to get started",
+                    actionTitle: "New Project",
+                    action: { showNewProject = true }
                 )
             } else {
                 ScrollView {
@@ -27,7 +40,16 @@ struct ProjectListView: View {
                                 .padding(.top, 8)
                         }
 
-                        ForEach(projects) { project in
+                        if !projects.isEmpty && filteredProjects.isEmpty {
+                            ForgeEmptyState(
+                                icon: "magnifyingglass",
+                                title: "No Results",
+                                subtitle: "No projects match \"\(searchText)\""
+                            )
+                            .frame(height: 200)
+                        }
+
+                        ForEach(filteredProjects) { project in
                             ProjectRowView(
                                 project: project,
                                 isSelected: selectedProjectId == project.id
@@ -37,6 +59,35 @@ struct ProjectListView: View {
                                 selectedProjectId = project.id
                                 selectedTaskId = nil
                             }
+                            .contextMenu {
+                                Button {
+                                    onViewProjectTasks?(project.id)
+                                } label: {
+                                    Label("View Tasks", systemImage: "checklist")
+                                }
+
+                                Divider()
+
+                                Button {
+                                    NSWorkspace.shared.open(URL(fileURLWithPath: project.directoryPath))
+                                } label: {
+                                    Label("Open in Finder", systemImage: "folder")
+                                }
+
+                                Button {
+                                    openTerminal(at: project.directoryPath)
+                                } label: {
+                                    Label("Open in Terminal", systemImage: "terminal")
+                                }
+
+                                Divider()
+
+                                Button(role: .destructive) {
+                                    deleteProject(project)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                     .padding(.vertical, 8)
@@ -44,6 +95,7 @@ struct ProjectListView: View {
             }
         }
         .navigationTitle("Projects")
+        .searchable(text: $searchText, prompt: "Search projects...")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -73,6 +125,25 @@ struct ProjectListView: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func openTerminal(at path: String) {
+        let escapedPath = path.replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "tell application \"Terminal\" to do script \"cd \\\"\(escapedPath)\\\"\""
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
+        }
+    }
+
+    private func deleteProject(_ project: Project) {
+        guard let db = appDatabase else { return }
+        _ = try? db.dbQueue.write { dbConn in
+            try project.delete(dbConn)
+        }
+        if selectedProjectId == project.id {
+            selectedProjectId = nil
         }
     }
 }
@@ -115,7 +186,7 @@ struct ProjectRowView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(isSelected ? Color.forgeAmber.opacity(0.08) : Color.clear)
+        .background(isSelected ? Color.forgeSelection : Color.clear)
         .contentShape(Rectangle())
     }
 }

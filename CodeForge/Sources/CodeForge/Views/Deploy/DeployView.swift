@@ -13,7 +13,9 @@ struct DeployView: View {
                 ForgeEmptyState(
                     icon: "arrow.up.circle",
                     title: "No Deployments",
-                    subtitle: "Deployments will appear here after review approval"
+                    subtitle: "Deployments will appear here after review approval",
+                    actionTitle: "New Deployment",
+                    action: { showDeploySheet = true }
                 )
             } else {
                 ScrollView {
