@@ -283,26 +283,76 @@ struct TaskDetailView: View {
 struct ReviewRowView: View {
     let review: Review
 
+    @State private var isExpanded = false
+
     var body: some View {
-        HStack(spacing: 8) {
-            Text(review.verdict.rawValue.uppercased())
-                .forgeBadge(color: verdictColor)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text(review.verdict.rawValue.uppercased())
+                    .forgeBadge(color: verdictColor)
 
-            Text(String(format: "%.1f/10", review.score))
-                .font(.system(.caption, design: .monospaced, weight: .medium))
+                Text(String(format: "%.1f/10", review.score))
+                    .font(.system(.caption, design: .monospaced, weight: .medium))
 
-            Text(review.summary)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+                Text(review.summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(isExpanded ? nil : 1)
 
-            Spacer()
+                Spacer()
 
-            Text(review.createdAt, style: .relative)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                Text(review.createdAt, style: .relative)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    if !review.summary.isEmpty {
+                        Text(review.summary)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    if let issues = review.issues, !issues.isEmpty {
+                        reviewDetailSection(title: "Issues", text: issues, color: .forgeDanger)
+                    }
+                    if let suggestions = review.suggestions, !suggestions.isEmpty {
+                        reviewDetailSection(title: "Suggestions", text: suggestions, color: .forgeInfo)
+                    }
+                    if let securityNotes = review.securityNotes, !securityNotes.isEmpty {
+                        reviewDetailSection(title: "Security", text: securityNotes, color: .forgeWarning)
+                    }
+                }
+                .textSelection(.enabled)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.3))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
         }
         .padding(.vertical, 3)
+    }
+
+    private func reviewDetailSection(title: String, text: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(color)
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var verdictColor: Color {

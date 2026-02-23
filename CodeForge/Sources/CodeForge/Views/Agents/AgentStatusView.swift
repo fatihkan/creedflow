@@ -8,6 +8,7 @@ struct AgentStatusView: View {
     var onNavigateToTasks: (() -> Void)?
 
     @State private var taskMap: [UUID: AgentTask] = [:]
+    @State private var recentTasks: [AgentTask] = []
     @State private var projects: [Project] = []
     @State private var selectedProjectForHealth: UUID?
     @State private var healthCheckTriggered = false
@@ -75,26 +76,43 @@ struct AgentStatusView: View {
                 .padding(.vertical, 12)
                 .background(.quaternary.opacity(0.3))
 
-                // Active runners
-                if orchestrator.activeRunners.isEmpty {
-                    ForgeEmptyState(
-                        icon: "cpu",
-                        title: "No Active Agents",
-                        subtitle: "Agents will appear here when tasks are being processed",
-                        actionTitle: "View Tasks",
-                        action: onNavigateToTasks
-                    )
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
+                // Active runners + recent history
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        if orchestrator.activeRunners.isEmpty && recentTasks.isEmpty {
+                            ForgeEmptyState(
+                                icon: "cpu",
+                                title: "No Active Agents",
+                                subtitle: "Agents will appear here when tasks are being processed",
+                                actionTitle: "View Tasks",
+                                action: onNavigateToTasks
+                            )
+                        }
+
+                        if !orchestrator.activeRunners.isEmpty {
                             ForEach(Array(orchestrator.activeRunners.keys), id: \.self) { taskId in
                                 if let runner = orchestrator.activeRunners[taskId] {
                                     activeRunnerCard(taskId: taskId, runner: runner)
                                 }
                             }
                         }
-                        .padding(16)
+
+                        // Recent completed/failed/cancelled tasks
+                        if !recentTasks.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Recent")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, orchestrator.activeRunners.isEmpty ? 0 : 8)
+
+                                ForEach(recentTasks) { task in
+                                    recentTaskRow(task)
+                                        .onTapGesture { selectedTaskId = task.id }
+                                }
+                            }
+                        }
                     }
+                    .padding(16)
                 }
             } else {
                 ForgeEmptyState(
@@ -106,6 +124,9 @@ struct AgentStatusView: View {
         }
         .task {
             await observeActiveTasks()
+        }
+        .task {
+            await observeRecentTasks()
         }
         .task {
             await observeProjects()
@@ -160,6 +181,38 @@ struct AgentStatusView: View {
         .forgeCard(cornerRadius: 8)
     }
 
+    private func recentTaskRow(_ task: AgentTask) -> some View {
+        HStack(spacing: 8) {
+            AgentTypeBadge(type: task.agentType)
+
+            Text(task.title)
+                .font(.system(.caption, weight: .medium))
+                .lineLimit(1)
+
+            Spacer()
+
+            Text(task.status.displayName)
+                .forgeBadge(color: task.status.themeColor)
+
+            if let duration = task.durationMs {
+                Text(ForgeDuration.format(ms: duration))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+
+            if let completedAt = task.completedAt {
+                Text(completedAt, style: .relative)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 60, alignment: .trailing)
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(.quaternary.opacity(0.2))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
     private func triggerHealthCheck() {
         guard let db = appDatabase, let projectId = selectedProjectForHealth else { return }
         do {
@@ -208,6 +261,26 @@ struct AgentStatusView: View {
                 var map: [UUID: AgentTask] = [:]
                 for t in tasks { map[t.id] = t }
                 taskMap = map
+            }
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func observeRecentTasks() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try AgentTask
+                .filter([
+                    AgentTask.Status.passed.rawValue,
+                    AgentTask.Status.failed.rawValue,
+                    AgentTask.Status.cancelled.rawValue
+                ].contains(Column("status")))
+                .order(Column("completedAt").desc)
+                .limit(10)
+                .fetchAll(db)
+        }
+        do {
+            for try await tasks in observation.values(in: db.dbQueue) {
+                recentTasks = tasks
             }
         } catch { errorMessage = error.localizedDescription }
     }

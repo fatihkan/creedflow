@@ -8,6 +8,7 @@ struct SidebarView: View {
     let appDatabase: AppDatabase?
 
     @State private var projects: [Project] = []
+    @State private var totalProjectCount: Int = 0
     @State private var pendingReviewCount: Int = 0
     @State private var activeTaskCount: Int = 0
     @State private var pendingDeployCount: Int = 0
@@ -95,6 +96,16 @@ struct SidebarView: View {
                             .lineLimit(1)
                     }
                     .tag(SidebarSection.projectTasks(project.id))
+                }
+                if totalProjectCount > 5 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "ellipsis")
+                            .font(.caption2)
+                        Text("View All Projects")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.forgeAmber)
+                    .tag(SidebarSection.projects)
                 }
             }
         }
@@ -201,12 +212,15 @@ struct SidebarView: View {
 
     private func observeProjects() async {
         guard let db = appDatabase else { return }
-        let observation = ValueObservation.tracking { db in
-            try Project.order(Column("updatedAt").desc).limit(5).fetchAll(db)
+        let observation = ValueObservation.tracking { db -> ([Project], Int) in
+            let recent = try Project.order(Column("updatedAt").desc).limit(5).fetchAll(db)
+            let count = try Project.fetchCount(db)
+            return (recent, count)
         }
         do {
-            for try await value in observation.values(in: db.dbQueue) {
+            for try await (value, count) in observation.values(in: db.dbQueue) {
                 projects = value
+                totalProjectCount = count
             }
         } catch { /* observation error — sidebar badges may be stale */ }
     }

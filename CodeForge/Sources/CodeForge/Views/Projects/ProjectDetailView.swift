@@ -76,10 +76,11 @@ struct ProjectDetailView: View {
                         Button {
                             showAnalyze = true
                         } label: {
-                            Label("Analyze Project", systemImage: "magnifyingglass")
+                            Label(analyzerRunning ? "Analysis Running..." : "Analyze Project", systemImage: "magnifyingglass")
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.forgeAmber)
+                        .disabled(analyzerRunning)
 
                         Button {
                             NSWorkspace.shared.open(URL(fileURLWithPath: project.directoryPath))
@@ -87,6 +88,7 @@ struct ProjectDetailView: View {
                             Label("Finder", systemImage: "folder")
                         }
                         .buttonStyle(.bordered)
+                        .disabled(!FileManager.default.fileExists(atPath: project.directoryPath))
 
                         Button {
                             openTerminal(at: project.directoryPath)
@@ -94,6 +96,7 @@ struct ProjectDetailView: View {
                             Label("Terminal", systemImage: "terminal")
                         }
                         .buttonStyle(.bordered)
+                        .disabled(!FileManager.default.fileExists(atPath: project.directoryPath))
                     }
 
                     // Recent tasks
@@ -135,6 +138,10 @@ struct ProjectDetailView: View {
         } message: {
             Text("This will use Claude to analyze the project and create a task breakdown.")
         }
+    }
+
+    private var analyzerRunning: Bool {
+        tasks.contains { $0.agentType == .analyzer && ($0.status == .queued || $0.status == .inProgress) }
     }
 
     private func observeData() async {
