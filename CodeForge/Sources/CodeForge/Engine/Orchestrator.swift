@@ -92,11 +92,11 @@ final class Orchestrator {
         // Try to dequeue a task
         guard let task = try? await taskQueue.dequeue() else { return }
 
-        // Check if scheduler has a slot
-        let acquired = await scheduler.acquire(task: task)
+        // Check if scheduler has a slot (non-blocking)
+        let acquired = await scheduler.tryAcquire(task: task)
         guard acquired else {
-            // Can't schedule now (e.g., coder conflict), requeue
-            try? await taskQueue.requeue(task)
+            // Can't schedule now (no slot or coder conflict), defer without incrementing retryCount
+            try? await taskQueue.deferTask(task)
             return
         }
 

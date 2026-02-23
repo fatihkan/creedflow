@@ -37,16 +37,7 @@ final class ClaudeAgentRunner {
         liveOutput = []
         defer { isRunning = false }
 
-        let startTime = Date()
-
-        // Mark task as in-progress
-        try await dbQueue.write { db in
-            var updatedTask = task
-            updatedTask.status = .inProgress
-            updatedTask.startedAt = startTime
-            updatedTask.updatedAt = Date()
-            try updatedTask.update(db)
-        }
+        // Task is already marked in-progress by TaskQueue.dequeue() — no duplicate write needed
 
         addOutputLine("Starting \(agent.agentType.rawValue) agent for: \(task.title)", type: .system)
 
@@ -76,67 +67,97 @@ final class ClaudeAgentRunner {
         let (processId, stream) = await processManager.run(invocation)
 
         var sessionId: String?
+        var capturedModel: String?
         var resultText: String?
         var totalCost: Double?
         var durationMs: Int?
         var inputTokens = 0
         var outputTokens = 0
 
-        // Set up timeout
-        let timeoutTask = Task {
-            try await Task.sleep(for: .seconds(agent.timeoutSeconds))
-            await processManager.cancel(processId)
-            throw ClaudeError.timeout
-        }
+        // Consume stream with timeout — if timeout fires first, it cancels the process
+        // and throws ClaudeError.timeout directly (not lost in a detached Task)
+        let timeoutSeconds = agent.timeoutSeconds
+        let pmRef = processManager
 
         do {
-            // Consume the event stream
-            for try await event in stream {
-                switch event {
-                case .system(let sysEvent):
-                    sessionId = sysEvent.sessionId
-                    addOutputLine("Session: \(sysEvent.sessionId)", type: .system)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                // Stream consumer task
+                group.addTask {
+                    for try await event in stream {
+                        switch event {
+                        case .system(let sysEvent):
+                            await MainActor.run { [self] in
+                                sessionId = sysEvent.sessionId
+                                capturedModel = sysEvent.model
+                                self.addOutputLine("Session: \(sysEvent.sessionId)", type: .system)
+                            }
 
-                case .assistant(let assistantEvent):
-                    for content in assistantEvent.message.content {
-                        if let text = content.text {
-                            addOutputLine(text, type: .text)
-                        }
-                        if let toolName = content.name {
-                            addOutputLine("Tool: \(toolName)", type: .toolUse)
+                        case .assistant(let assistantEvent):
+                            for content in assistantEvent.message.content {
+                                if let text = content.text {
+                                    await MainActor.run { [self] in self.addOutputLine(text, type: .text) }
+                                }
+                                if let toolName = content.name {
+                                    await MainActor.run { [self] in self.addOutputLine("Tool: \(toolName)", type: .toolUse) }
+                                }
+                            }
+
+                        case .result(let res):
+                            await MainActor.run { [self] in
+                                resultText = res.result
+                                totalCost = res.totalCostUsd ?? res.cost?.totalUsd
+                                durationMs = res.durationMs
+                                inputTokens = res.cost?.inputTokens ?? 0
+                                outputTokens = res.cost?.outputTokens ?? 0
+
+                                if res.isError == true {
+                                    self.addOutputLine("Error: \(res.result ?? "unknown")", type: .error)
+                                } else {
+                                    self.addOutputLine("Completed successfully", type: .system)
+                                }
+                            }
+
+                        case .ignored, .unknown:
+                            break
                         }
                     }
-
-                case .result(let res):
-                    resultText = res.result
-                    totalCost = res.totalCostUsd ?? res.cost?.totalUsd
-                    durationMs = res.durationMs
-                    inputTokens = res.cost?.inputTokens ?? 0
-                    outputTokens = res.cost?.outputTokens ?? 0
-
-                    if res.isError == true {
-                        addOutputLine("Error: \(res.result ?? "unknown")", type: .error)
-                    } else {
-                        addOutputLine("Completed successfully", type: .system)
-                    }
-
-                case .ignored:
-                    break
-                case .unknown:
-                    break
                 }
+
+                // Timeout task
+                group.addTask {
+                    try await Task.sleep(for: .seconds(timeoutSeconds))
+                    await pmRef.cancel(processId)
+                    throw ClaudeError.timeout
+                }
+
+                // Wait for stream to finish (first task), then cancel timeout
+                try await group.next()
+                group.cancelAll()
             }
+        } catch is CancellationError {
+            // TaskGroup cancellation from group.cancelAll() — not a real error
+        } catch let error as ClaudeError where error.localizedDescription.contains("timed out") {
+            let errorMsg = "Task timed out after \(timeoutSeconds)s"
+            addOutputLine("Error: \(errorMsg)", type: .error)
 
-            timeoutTask.cancel()
-        } catch {
-            timeoutTask.cancel()
-            addOutputLine("Error: \(error.localizedDescription)", type: .error)
-
-            // Update task as failed
             try await dbQueue.write { db in
                 var updatedTask = task
                 updatedTask.status = .failed
-                updatedTask.errorMessage = error.localizedDescription
+                updatedTask.errorMessage = errorMsg
+                updatedTask.updatedAt = Date()
+                updatedTask.completedAt = Date()
+                try updatedTask.update(db)
+            }
+
+            throw ClaudeError.timeout
+        } catch {
+            let errorMsg = error.localizedDescription
+            addOutputLine("Error: \(errorMsg)", type: .error)
+
+            try await dbQueue.write { db in
+                var updatedTask = task
+                updatedTask.status = .failed
+                updatedTask.errorMessage = errorMsg
                 updatedTask.updatedAt = Date()
                 updatedTask.completedAt = Date()
                 try updatedTask.update(db)
@@ -147,6 +168,7 @@ final class ClaudeAgentRunner {
 
         // Capture final values for Sendable closure safety
         let finalSessionId = sessionId
+        let finalCapturedModel = capturedModel
         let finalResultText = resultText
         let finalTotalCost = totalCost
         let finalDurationMs = durationMs
@@ -185,6 +207,7 @@ final class ClaudeAgentRunner {
                     inputTokens: finalInputTokens,
                     outputTokens: finalOutputTokens,
                     costUSD: cost,
+                    model: finalCapturedModel ?? "claude-sonnet-4-20250514",
                     sessionId: finalSessionId
                 )
                 try costRecord.insert(db)

@@ -41,12 +41,24 @@ actor TaskQueue {
         }
     }
 
-    /// Re-queue a failed task for retry
+    /// Re-queue a failed task for retry (increments retryCount)
     func requeue(_ task: AgentTask) async throws {
         try await dbQueue.write { db in
             var updated = task
             updated.status = .queued
             updated.retryCount += 1
+            updated.updatedAt = Date()
+            updated.startedAt = nil
+            try updated.update(db)
+        }
+    }
+
+    /// Defer a task back to the queue without incrementing retryCount.
+    /// Used when a task can't be scheduled now (no slot available) but hasn't actually failed.
+    func deferTask(_ task: AgentTask) async throws {
+        try await dbQueue.write { db in
+            var updated = task
+            updated.status = .queued
             updated.updatedAt = Date()
             updated.startedAt = nil
             try updated.update(db)

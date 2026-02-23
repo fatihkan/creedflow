@@ -32,6 +32,25 @@ actor AgentScheduler {
         return true
     }
 
+    /// Try to acquire a slot without blocking. Returns false if no slot available or conflict.
+    func tryAcquire(task: AgentTask) async -> Bool {
+        if task.agentType == .coder {
+            if activeProjectCoders.contains(task.projectId) {
+                return false
+            }
+        }
+
+        guard await semaphore.tryWait() else {
+            return false
+        }
+
+        if task.agentType == .coder {
+            activeProjectCoders.insert(task.projectId)
+        }
+
+        return true
+    }
+
     /// Release a slot after task completion
     func release(task: AgentTask) async {
         if task.agentType == .coder {

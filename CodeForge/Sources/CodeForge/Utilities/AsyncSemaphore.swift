@@ -30,6 +30,15 @@ actor AsyncSemaphore {
         }
     }
 
+    /// Try to acquire a slot without blocking. Returns true if acquired.
+    func tryWait() -> Bool {
+        if count > 0 {
+            count -= 1
+            return true
+        }
+        return false
+    }
+
     /// Current number of available slots
     var availableSlots: Int { count }
 

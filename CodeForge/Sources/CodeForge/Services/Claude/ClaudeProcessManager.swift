@@ -139,12 +139,22 @@ actor ClaudeProcessManager {
         return activeProcesses.count
     }
 
-    /// Cancel all running processes
-    func cancelAll() {
-        for (_, process) in activeProcesses where process.isRunning {
+    /// Cancel all running processes with graceful shutdown
+    func cancelAll() async {
+        let processesToKill = activeProcesses
+        activeProcesses.removeAll()
+
+        for (_, process) in processesToKill where process.isRunning {
             process.interrupt()
         }
-        activeProcesses.removeAll()
+
+        // Wait for graceful shutdown
+        try? await Task.sleep(for: .seconds(3))
+
+        // Force kill any that didn't exit
+        for (_, process) in processesToKill where process.isRunning {
+            process.terminate()
+        }
     }
 }
 
