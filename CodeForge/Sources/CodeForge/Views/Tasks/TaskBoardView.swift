@@ -1,5 +1,6 @@
 import SwiftUI
 import GRDB
+import UniformTypeIdentifiers
 
 /// Kanban-style board showing tasks grouped by status with real-time updates.
 struct TaskBoardView: View {
@@ -45,7 +46,10 @@ struct TaskBoardView: View {
                             column: column,
                             tasks: tasks.filter { $0.status == column.status },
                             selectedTaskId: $selectedTaskId,
-                            orchestrator: orchestrator
+                            orchestrator: orchestrator,
+                            onMoveTask: { taskId, newStatus in
+                                moveTask(taskId: taskId, to: newStatus)
+                            }
                         )
                     }
                 }
@@ -75,6 +79,25 @@ struct TaskBoardView: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func moveTask(taskId: UUID, to newStatus: AgentTask.Status) {
+        guard let db = appDatabase else { return }
+        try? db.dbQueue.write { dbConn in
+            guard var task = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
+            task.status = newStatus
+            task.updatedAt = Date()
+            if newStatus == .inProgress && task.startedAt == nil {
+                task.startedAt = Date()
+            }
+            if newStatus == .passed || newStatus == .failed || newStatus == .cancelled {
+                task.completedAt = Date()
+            }
+            if newStatus == .queued {
+                task.errorMessage = nil
+            }
+            try task.update(dbConn)
         }
     }
 }
@@ -153,6 +176,9 @@ struct KanbanColumnView: View {
     let tasks: [AgentTask]
     @Binding var selectedTaskId: UUID?
     let orchestrator: Orchestrator?
+    let onMoveTask: (UUID, AgentTask.Status) -> Void
+
+    @State private var isDropTargeted = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -177,13 +203,14 @@ struct KanbanColumnView: View {
             // Task cards
             if tasks.isEmpty {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(.quaternary.opacity(0.3))
+                    .fill(isDropTargeted ? AnyShapeStyle(column.color.opacity(0.15)) : AnyShapeStyle(.quaternary.opacity(0.3)))
                     .frame(height: 60)
                     .overlay {
-                        Text("No tasks")
+                        Text(isDropTargeted ? "Drop here" : "No tasks")
                             .font(.caption)
-                            .foregroundStyle(.quaternary)
+                            .foregroundStyle(isDropTargeted ? AnyShapeStyle(column.color) : AnyShapeStyle(.quaternary))
                     }
+                    .animation(.easeOut(duration: 0.15), value: isDropTargeted)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 6) {
@@ -191,19 +218,28 @@ struct KanbanColumnView: View {
                             TaskCardView(
                                 task: task,
                                 isSelected: selectedTaskId == task.id,
-                                isRunning: orchestrator?.runner(for: task.id) != nil
+                                isRunning: orchestrator?.runner(for: task.id) != nil,
+                                onMoveTask: onMoveTask
                             )
                             .onTapGesture {
                                 withAnimation(.easeInOut(duration: 0.15)) {
                                     selectedTaskId = task.id
                                 }
                             }
+                            .draggable(task.id.uuidString)
                         }
                     }
                 }
             }
         }
         .frame(minWidth: 200, idealWidth: 240, maxWidth: 280)
+        .dropDestination(for: String.self) { items, _ in
+            guard let idString = items.first, let taskId = UUID(uuidString: idString) else { return false }
+            onMoveTask(taskId, column.status)
+            return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
     }
 }
 
@@ -211,6 +247,7 @@ struct TaskCardView: View {
     let task: AgentTask
     let isSelected: Bool
     var isRunning: Bool = false
+    let onMoveTask: (UUID, AgentTask.Status) -> Void
 
     @State private var isHovered = false
 
@@ -268,5 +305,64 @@ struct TaskCardView: View {
         .shadow(color: isHovered ? .black.opacity(0.12) : .black.opacity(0.06), radius: isHovered ? 4 : 2)
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.15), value: isHovered)
+        .contextMenu { taskContextMenu }
+    }
+
+    @ViewBuilder
+    private var taskContextMenu: some View {
+        // Status transitions
+        switch task.status {
+        case .queued:
+            Button { onMoveTask(task.id, .inProgress) } label: {
+                Label("Start", systemImage: "play.fill")
+            }
+            Button { onMoveTask(task.id, .cancelled) } label: {
+                Label("Cancel", systemImage: "xmark.circle")
+            }
+
+        case .inProgress:
+            Button { onMoveTask(task.id, .queued) } label: {
+                Label("Pause (Back to Queue)", systemImage: "pause.fill")
+            }
+            Button { onMoveTask(task.id, .passed) } label: {
+                Label("Mark as Done", systemImage: "checkmark.circle.fill")
+            }
+            Button { onMoveTask(task.id, .needsRevision) } label: {
+                Label("Send to Review", systemImage: "eye.fill")
+            }
+            Divider()
+            Button(role: .destructive) { onMoveTask(task.id, .cancelled) } label: {
+                Label("Cancel", systemImage: "xmark.circle")
+            }
+
+        case .needsRevision:
+            Button { onMoveTask(task.id, .inProgress) } label: {
+                Label("Resume Work", systemImage: "play.fill")
+            }
+            Button { onMoveTask(task.id, .passed) } label: {
+                Label("Approve", systemImage: "checkmark.circle.fill")
+            }
+            Button(role: .destructive) { onMoveTask(task.id, .failed) } label: {
+                Label("Reject", systemImage: "xmark.circle")
+            }
+
+        case .passed:
+            Button { onMoveTask(task.id, .inProgress) } label: {
+                Label("Reopen", systemImage: "arrow.counterclockwise")
+            }
+
+        case .failed:
+            Button { onMoveTask(task.id, .queued) } label: {
+                Label("Retry", systemImage: "arrow.counterclockwise")
+            }
+            Button(role: .destructive) { onMoveTask(task.id, .cancelled) } label: {
+                Label("Cancel", systemImage: "xmark.circle")
+            }
+
+        case .cancelled:
+            Button { onMoveTask(task.id, .queued) } label: {
+                Label("Requeue", systemImage: "arrow.counterclockwise")
+            }
+        }
     }
 }

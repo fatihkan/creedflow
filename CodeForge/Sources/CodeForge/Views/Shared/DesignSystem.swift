@@ -163,8 +163,8 @@ struct ForgeCardModifier: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(
-                        isSelected ? Color.forgeAmber : Color.primary.opacity(0.06),
-                        lineWidth: isSelected ? 1.5 : 0.5
+                        isSelected ? Color.forgeAmber.opacity(0.6) : Color.primary.opacity(0.06),
+                        lineWidth: isSelected ? 1 : 0.5
                     )
             }
             .animation(.easeInOut(duration: 0.15), value: isSelected)
