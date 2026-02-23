@@ -13,6 +13,7 @@ final class Orchestrator {
     private let projectDirService: ProjectDirectoryService
     private let retryPolicy: RetryPolicy
     private let telegramService: TelegramBotService?
+    private let localDeployService: LocalDeploymentService
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: ClaudeAgentRunner] = [:]
@@ -39,6 +40,7 @@ final class Orchestrator {
         self.projectDirService = ProjectDirectoryService()
         self.retryPolicy = .default
         self.telegramService = telegramService
+        self.localDeployService = LocalDeploymentService(dbQueue: dbQueue)
     }
 
     /// Try to find the claude CLI binary
@@ -572,34 +574,59 @@ final class Orchestrator {
         }
     }
 
-    /// Update deployment status after devops task completes (#30)
+    /// Update deployment status after devops task completes, then run actual deployment (#30)
     private func handleDevOpsCompletion(task: AgentTask, result: AgentResult) async {
-        // Find deployment matching this task's description pattern "Deploy <version> to <env>"
         do {
-            try await dbQueue.write { db in
-                // Find pending deployments for this project
-                let deployments = try Deployment
+            // Find the pending deployment for this project
+            let deployment = try await dbQueue.read { db in
+                try Deployment
                     .filter(Column("projectId") == task.projectId)
                     .filter(Column("status") == Deployment.Status.pending.rawValue)
                     .order(Column("createdAt").desc)
-                    .fetchAll(db)
-
-                guard var deployment = deployments.first else { return }
-
-                if task.status == .passed {
-                    deployment.status = .success
-                    deployment.completedAt = Date()
-                    deployment.logs = result.output
-                } else {
-                    deployment.status = .failed
-                    deployment.completedAt = Date()
-                    deployment.logs = task.errorMessage ?? result.output
-                }
-                try deployment.update(db)
+                    .fetchOne(db)
             }
+
+            guard var deployment else {
+                try? await logInfo(taskId: task.id, agent: .devops,
+                                  message: "No pending deployment found — skipping local deploy")
+                return
+            }
+
+            // If devops agent task failed, mark deployment as failed
+            guard task.status == .passed else {
+                deployment.status = .failed
+                deployment.completedAt = Date()
+                deployment.logs = task.errorMessage ?? result.output
+                let failedDeployment = deployment
+                try await dbQueue.write { db in
+                    var d = failedDeployment
+                    try d.update(db)
+                }
+                return
+            }
+
+            // Resolve project for directory path
+            let project = try await dbQueue.read { db in
+                try Project.fetchOne(db, id: task.projectId)
+            }
+            guard let project else { return }
+
+            let port = deployment.port ?? (deployment.environment == .production ? 3000 : 3001)
+            deployment.port = port
+
+            // Run actual local deployment
+            _ = try await localDeployService.deploy(
+                project: project,
+                deployment: deployment,
+                port: port
+            )
+
+            try? await logInfo(taskId: task.id, agent: .devops,
+                             message: "Local deployment completed on port \(port)")
+
         } catch {
             try? await logError(taskId: task.id, agent: .devops,
-                              message: "Failed to update deployment: \(error.localizedDescription)")
+                              message: "Failed to deploy: \(error.localizedDescription)")
         }
     }
 

@@ -214,6 +214,15 @@ public struct AppDatabase {
             try db.create(index: "feature_on_projectId", on: "feature", columns: ["projectId"])
         }
 
+        migrator.registerMigration("v5_deployment_runtime") { db in
+            try db.alter(table: "deployment") { t in
+                t.add(column: "deployMethod", .text)
+                t.add(column: "port", .integer)
+                t.add(column: "containerId", .text)
+                t.add(column: "processId", .integer)
+            }
+        }
+
         return migrator
     }
 }

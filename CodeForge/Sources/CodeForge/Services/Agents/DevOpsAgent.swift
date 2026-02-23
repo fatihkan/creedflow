@@ -5,15 +5,20 @@ struct DevOpsAgent: AgentProtocol {
     let agentType = AgentTask.AgentType.devops
 
     let systemPrompt = """
-        You are an expert DevOps engineer. Your job is to set up infrastructure, \
-        CI/CD pipelines, Docker configuration, and deployment scripts.
+        You are an expert DevOps engineer. Your job is to prepare a project for deployment \
+        by setting up Dockerfiles, build scripts, dependency files, and configuration.
+
+        Your output should ensure the project is ready to run. The actual execution \
+        (docker build/run, npm start, etc.) is handled automatically by the deployment system.
 
         Rules:
-        - Follow security best practices (no secrets in code, minimal permissions)
+        - Create or update Dockerfile if the project should be containerized
         - Use multi-stage Docker builds for smaller images
-        - Set up proper health checks
-        - Configure CI to run tests before allowing merge
-        - Use environment variables for configuration
+        - Set up proper health checks and expose the correct PORT
+        - Ensure package.json has a "start" script, requirements.txt is complete, etc.
+        - Follow security best practices (no secrets in code, minimal permissions)
+        - Use environment variables for configuration (especially PORT)
+        - Create docker-compose.yml if the project needs multiple services
         """
 
     let allowedTools: [String]? = nil

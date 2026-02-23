@@ -11,6 +11,10 @@ struct Deployment: Codable, Identifiable, Equatable {
     var deployedBy: String
     var rollbackFrom: UUID?
     var logs: String?
+    var deployMethod: String?
+    var port: Int?
+    var containerId: String?
+    var processId: Int?
     var createdAt: Date
     var completedAt: Date?
 
@@ -37,6 +41,10 @@ struct Deployment: Codable, Identifiable, Equatable {
         deployedBy: String = "system",
         rollbackFrom: UUID? = nil,
         logs: String? = nil,
+        deployMethod: String? = nil,
+        port: Int? = nil,
+        containerId: String? = nil,
+        processId: Int? = nil,
         createdAt: Date = Date(),
         completedAt: Date? = nil
     ) {
@@ -49,6 +57,10 @@ struct Deployment: Codable, Identifiable, Equatable {
         self.deployedBy = deployedBy
         self.rollbackFrom = rollbackFrom
         self.logs = logs
+        self.deployMethod = deployMethod
+        self.port = port
+        self.containerId = containerId
+        self.processId = processId
         self.createdAt = createdAt
         self.completedAt = completedAt
     }

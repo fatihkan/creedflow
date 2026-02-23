@@ -99,7 +99,20 @@ struct DeployView: View {
                 HStack {
                     Text(deployment.version)
                         .font(.system(.subheadline, weight: .semibold))
+
+                    if let method = deployment.deployMethod {
+                        Text(method.capitalized)
+                            .forgeBadge(color: method == "docker" ? .forgeInfo : .forgeNeutral)
+                    }
+
+                    if let port = deployment.port {
+                        Text(":\(port)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+
                     Spacer()
+
                     Text(deployment.status.rawValue.capitalized)
                         .forgeBadge(color: deployStatusColor(deployment.status))
                 }
@@ -112,7 +125,33 @@ struct DeployView: View {
                             .textSelection(.enabled)
                             .help(hash)
                     }
+
                     Spacer()
+
+                    // Runtime controls for successful (running) deployments
+                    if deployment.status == .success {
+                        if let port = deployment.port {
+                            Button {
+                                if let url = URL(string: "http://localhost:\(port)") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            } label: {
+                                Label("Open", systemImage: "globe")
+                                    .font(.caption2)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+
+                        Button {
+                            stopDeployment(deployment)
+                        } label: {
+                            Label("Stop", systemImage: "stop.fill")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.forgeDanger)
+                    }
+
                     Text(deployment.createdAt, style: .relative)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
@@ -121,6 +160,14 @@ struct DeployView: View {
         }
         .padding(12)
         .forgeCard(cornerRadius: 8)
+    }
+
+    private func stopDeployment(_ deployment: Deployment) {
+        guard let db = appDatabase else { return }
+        Task {
+            let service = LocalDeploymentService(dbQueue: db.dbQueue)
+            try? await service.stop(deployment: deployment)
+        }
     }
 
     private func deployStatusColor(_ status: Deployment.Status) -> Color {
@@ -162,7 +209,12 @@ private struct DeployTriggerSheet: View {
     @State private var environment: Deployment.Environment = .staging
     @State private var version = ""
     @State private var branch = "main"
+    @State private var port: Int = 3001
     @State private var showProductionConfirm = false
+
+    private var defaultPort: Int {
+        environment == .production ? 3000 : 3001
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -183,12 +235,22 @@ private struct DeployTriggerSheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .onChange(of: environment) { _, newValue in
+                        port = newValue == .production ? 3000 : 3001
+                    }
 
                     TextField("Version (e.g. v1.0.0)", text: $version)
                         .textFieldStyle(.roundedBorder)
 
                     TextField("Branch", text: $branch)
                         .textFieldStyle(.roundedBorder)
+
+                    HStack {
+                        Text("Port")
+                        TextField("Port", value: $port, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -215,7 +277,7 @@ private struct DeployTriggerSheet: View {
             }
             .padding()
         }
-        .frame(width: 420, height: 340)
+        .frame(width: 420, height: 380)
         .task {
             await loadProjects()
         }
@@ -238,22 +300,23 @@ private struct DeployTriggerSheet: View {
     private func triggerDeploy() {
         guard let db = appDatabase, let projectId = selectedProjectId else { return }
         try? db.dbQueue.write { dbConn in
-            // Create deployment record
-            var deployment = Deployment(
+            // Create deployment record with port
+            let deployment = Deployment(
                 projectId: projectId,
                 environment: environment,
                 version: version,
                 commitHash: nil,
-                deployedBy: "user"
+                deployedBy: "user",
+                port: port
             )
             try deployment.insert(dbConn)
 
             // Create a devops agent task for deployment
-            var task = AgentTask(
+            let task = AgentTask(
                 projectId: projectId,
                 agentType: .devops,
                 title: "Deploy \(version) to \(environment.rawValue)",
-                description: "Deploy version \(version) from branch \(branch) to \(environment.rawValue) environment.",
+                description: "Deploy version \(version) from branch \(branch) to \(environment.rawValue) environment. Port: \(port)",
                 priority: 10
             )
             try task.insert(dbConn)
