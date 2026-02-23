@@ -14,6 +14,9 @@ protocol AgentProtocol: Sendable {
     /// MCP server names this agent needs (looked up from DB at runtime)
     var mcpServers: [String]? { get }
 
+    /// Which CLI backends this agent can run on
+    var backendPreferences: BackendPreferences { get }
+
     /// Build a prompt for the given task
     func buildPrompt(for task: AgentTask) -> String
 
@@ -25,6 +28,7 @@ extension AgentProtocol {
     var jsonSchema: String? { nil }
     var streamOutput: Bool { true }
     var mcpServers: [String]? { nil }
+    var backendPreferences: BackendPreferences { .default }
 
     func buildInvocation(for task: AgentTask) -> ClaudeInvocation {
         ClaudeInvocation(

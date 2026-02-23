@@ -11,6 +11,7 @@ package struct CostTracking: Codable, Identifiable, Equatable {
     package var costUSD: Double
     package var model: String
     package var sessionId: String?
+    package var backend: String?
     package var createdAt: Date
 
     package init(
@@ -23,6 +24,7 @@ package struct CostTracking: Codable, Identifiable, Equatable {
         costUSD: Double = 0,
         model: String = "claude-sonnet-4-20250514",
         sessionId: String? = nil,
+        backend: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -34,6 +36,7 @@ package struct CostTracking: Codable, Identifiable, Equatable {
         self.costUSD = costUSD
         self.model = model
         self.sessionId = sessionId
+        self.backend = backend
         self.createdAt = createdAt
     }
 }

@@ -8,6 +8,7 @@ final class Orchestrator {
     private let taskQueue: TaskQueue
     private let scheduler: AgentScheduler
     private let processManager: ClaudeProcessManager
+    private let backendRouter: BackendRouter
     private let gitService: GitService
     private let gitHubService: GitHubService
     private let projectDirService: ProjectDirectoryService
@@ -16,7 +17,7 @@ final class Orchestrator {
     private let localDeployService: LocalDeploymentService
 
     private(set) var isRunning = false
-    private(set) var activeRunners: [UUID: ClaudeAgentRunner] = [:]
+    private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
     private var pollingTask: Task<Void, Never>?
 
     init(
@@ -35,12 +36,24 @@ final class Orchestrator {
             ?? Self.findClaudeCLI()
         self.processManager = ClaudeProcessManager(claudePath: resolvedPath)
 
+        // Set up backend router with all available backends
+        let router = BackendRouter()
+        self.backendRouter = router
+
         self.gitService = GitService()
         self.gitHubService = GitHubService()
         self.projectDirService = ProjectDirectoryService()
         self.retryPolicy = .default
         self.telegramService = telegramService
         self.localDeployService = LocalDeploymentService(dbQueue: dbQueue)
+
+        // Register backends (done after init to avoid capturing self before init completes)
+        let pm = self.processManager
+        Task {
+            await router.register(ClaudeBackend(processManager: pm))
+            await router.register(CodexBackend())
+            await router.register(GeminiBackend())
+        }
     }
 
     /// Try to find the claude CLI binary
@@ -79,12 +92,15 @@ final class Orchestrator {
         pollingTask?.cancel()
         pollingTask = nil
         isRunning = false
-        await processManager.cancelAll()
+        // Cancel all backends
+        for backend in await backendRouter.allBackends {
+            await backend.cancelAll()
+        }
         activeRunners.removeAll()
     }
 
     /// Get a runner for a specific task (for UI display of live output)
-    func runner(for taskId: UUID) -> ClaudeAgentRunner? {
+    func runner(for taskId: UUID) -> MultiBackendRunner? {
         activeRunners[taskId]
     }
 
@@ -102,12 +118,14 @@ final class Orchestrator {
             return
         }
 
-        // Create a runner for this task
-        let runner = ClaudeAgentRunner(processManager: processManager, dbQueue: dbQueue)
+        // Select backend and create a runner for this task
+        let agent = resolveAgent(for: task.agentType)
+        let backend = await backendRouter.selectBackend(agent: agent, task: task)
+        let runner = MultiBackendRunner(backend: backend, dbQueue: dbQueue)
         activeRunners[task.id] = runner
 
         // Dispatch in a Swift Task
-        Task { [weak self] in
+        Task { [weak self, agent] in
             defer {
                 Task { [weak self] in
                     await self?.scheduler.release(task: task)
@@ -115,8 +133,7 @@ final class Orchestrator {
                 }
             }
 
-            let agent = self?.resolveAgent(for: task.agentType)
-            guard let agent, let self else { return }
+            guard let self else { return }
 
             do {
                 // For coder tasks, set up git branch first

@@ -20,6 +20,7 @@ struct MonitorAgent: AgentProtocol {
     let maxBudgetUSD: Double = 1.0
     let timeoutSeconds = 300 // 5 minutes
     let streamOutput = false
+    let backendPreferences: BackendPreferences = .default
 
     var jsonSchema: String? {
         """

@@ -28,6 +28,7 @@ struct CoderAgent: AgentProtocol {
     let maxBudgetUSD: Double = 5.0
     let timeoutSeconds = 900 // 15 minutes
     let mcpServers: [String]? = ["codeforge"]
+    let backendPreferences: BackendPreferences = .claudeOnly
 
     func buildPrompt(for task: AgentTask) -> String {
         """

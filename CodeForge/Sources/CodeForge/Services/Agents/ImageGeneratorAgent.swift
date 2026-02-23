@@ -22,6 +22,7 @@ struct ImageGeneratorAgent: AgentProtocol {
     let maxBudgetUSD: Double = 1.0
     let timeoutSeconds = 300 // 5 minutes
     let streamOutput = true
+    let backendPreferences: BackendPreferences = .anyBackend
 
     func buildPrompt(for task: AgentTask) -> String {
         """

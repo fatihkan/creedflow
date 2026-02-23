@@ -133,7 +133,7 @@ struct AgentStatusView: View {
         }
     }
 
-    private func activeRunnerCard(taskId: UUID, runner: ClaudeAgentRunner) -> some View {
+    private func activeRunnerCard(taskId: UUID, runner: MultiBackendRunner) -> some View {
         let task = taskMap[taskId]
 
         return VStack(alignment: .leading, spacing: 8) {
@@ -150,6 +150,7 @@ struct AgentStatusView: View {
                         .font(.system(size: 13, weight: .medium, design: .monospaced))
                 }
                 Spacer()
+                BackendBadge(type: runner.backendType)
                 Text("\(runner.liveOutput.count) lines")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)

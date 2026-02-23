@@ -1,10 +1,10 @@
 import SwiftUI
 import AppKit
 
-/// Terminal-style view displaying live Claude agent output.
+/// Terminal-style view displaying live agent output from any CLI backend.
 /// Dark background with monospace font, auto-scrolling to latest output.
 struct TerminalOutputView: View {
-    let runner: ClaudeAgentRunner
+    let runner: MultiBackendRunner
 
     @State private var autoScroll = true
 
@@ -83,7 +83,7 @@ struct TerminalOutputView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private func colorForType(_ type: ClaudeAgentRunner.OutputLine.LineType) -> Color {
+    private func colorForType(_ type: MultiBackendRunner.OutputLine.LineType) -> Color {
         switch type {
         case .text: return .forgeTerminalText
         case .toolUse: return .forgeTerminalCyan

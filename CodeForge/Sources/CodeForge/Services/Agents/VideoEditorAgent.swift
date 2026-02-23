@@ -22,6 +22,7 @@ struct VideoEditorAgent: AgentProtocol {
     let maxBudgetUSD: Double = 2.0
     let timeoutSeconds = 600 // 10 minutes
     let streamOutput = true
+    let backendPreferences: BackendPreferences = .anyBackend
 
     func buildPrompt(for task: AgentTask) -> String {
         """

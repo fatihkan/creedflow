@@ -90,6 +90,9 @@ struct TaskDetailView: View {
                         if let duration = task.durationMs {
                             metadataItem(label: "Duration", value: ForgeDuration.format(ms: duration), icon: "clock")
                         }
+                        if let backend = task.backend {
+                            metadataItem(label: "Backend", value: backend.capitalized, icon: "cpu")
+                        }
                         metadataItem(label: "Retries", value: "\(task.retryCount)/\(task.maxRetries)", icon: "arrow.counterclockwise")
                         if let sessionId = task.sessionId {
                             metadataItem(label: "Session", value: String(sessionId.prefix(8)), icon: "link")

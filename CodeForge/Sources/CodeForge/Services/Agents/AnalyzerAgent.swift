@@ -24,6 +24,7 @@ struct AnalyzerAgent: AgentProtocol {
     let maxBudgetUSD: Double = 1.0
     let timeoutSeconds = 120 // 2 minutes is enough
     let streamOutput = true  // Show live progress in UI
+    let backendPreferences: BackendPreferences = .anyBackend
 
     func buildPrompt(for task: AgentTask) -> String {
         let projectType = extractProjectType(from: task.description)

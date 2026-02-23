@@ -33,6 +33,7 @@ struct ReviewerAgent: AgentProtocol {
     let timeoutSeconds = 300 // 5 minutes
     let streamOutput = false
     let mcpServers: [String]? = ["codeforge"]
+    let backendPreferences: BackendPreferences = .claudeOnly
 
     var jsonSchema: String? {
         """

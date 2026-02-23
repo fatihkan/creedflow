@@ -44,6 +44,28 @@ struct AgentTypeBadge: View {
     }
 }
 
+struct BackendBadge: View {
+    let type: CLIBackendType
+
+    var body: some View {
+        Text(type.rawValue.capitalized)
+            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .foregroundStyle(color)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.12))
+            .clipShape(Capsule())
+    }
+
+    private var color: Color {
+        switch type {
+        case .claude: return .forgeInfo
+        case .codex: return .forgeSuccess
+        case .gemini: return .forgeAmber
+        }
+    }
+}
+
 struct TaskRowCompactView: View {
     let task: AgentTask
 

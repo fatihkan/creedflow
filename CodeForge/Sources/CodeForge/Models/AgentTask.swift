@@ -24,6 +24,7 @@ package struct AgentTask: Codable, Identifiable, Equatable {
     package var updatedAt: Date
     package var startedAt: Date?
     package var completedAt: Date?
+    package var backend: String?
 
     package enum AgentType: String, Codable, CaseIterable, DatabaseValueConvertible {
         case analyzer
@@ -68,7 +69,8 @@ package struct AgentTask: Codable, Identifiable, Equatable {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         startedAt: Date? = nil,
-        completedAt: Date? = nil
+        completedAt: Date? = nil,
+        backend: String? = nil
     ) {
         self.id = id
         self.projectId = projectId
@@ -91,6 +93,7 @@ package struct AgentTask: Codable, Identifiable, Equatable {
         self.updatedAt = updatedAt
         self.startedAt = startedAt
         self.completedAt = completedAt
+        self.backend = backend
     }
 }
 

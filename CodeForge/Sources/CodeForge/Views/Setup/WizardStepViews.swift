@@ -43,6 +43,30 @@ struct WizardEnvironmentStep: View {
                 CLIPathOverrideRow(path: $geminiPathOverride, placeholder: "Gemini CLI custom path")
             }
 
+            Section {
+                Button {
+                    Task {
+                        await detector.detectAll(
+                            claudeOverride: claudePathOverride,
+                            codexOverride: codexPathOverride,
+                            geminiOverride: geminiPathOverride
+                        )
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        if detector.isDetecting {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(width: 14, height: 14)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text("Refresh")
+                    }
+                }
+                .disabled(detector.isDetecting)
+            }
+
             Section("GitHub CLI") {
                 DetectionRow(
                     label: "gh CLI",

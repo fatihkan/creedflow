@@ -229,6 +229,15 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v7_backend_tracking") { db in
+            try db.alter(table: "agentTask") { t in
+                t.add(column: "backend", .text)
+            }
+            try db.alter(table: "costTracking") { t in
+                t.add(column: "backend", .text)
+            }
+        }
+
         return migrator
     }
 }

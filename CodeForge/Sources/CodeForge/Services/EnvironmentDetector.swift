@@ -52,99 +52,75 @@ final class EnvironmentDetector {
         "/opt/homebrew/bin/gh",
     ]
 
+    /// Auto-detect all tools using candidate paths
     func detectAll() async {
+        await detectAll(claudeOverride: "", codexOverride: "", geminiOverride: "")
+    }
+
+    /// Detect all tools, preferring user-provided override paths when non-empty
+    func detectAll(claudeOverride: String, codexOverride: String, geminiOverride: String) async {
         isDetecting = true
         defer { isDetecting = false }
 
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.detectClaude() }
-            group.addTask { await self.detectCodex() }
-            group.addTask { await self.detectGemini() }
-            group.addTask { await self.detectGh() }
+            group.addTask { await self.detectCLI(override: claudeOverride, candidates: Self.claudeCandidates) { path, version in
+                self.claudePath = path; self.claudeVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: codexOverride, candidates: Self.codexCandidates) { path, version in
+                self.codexPath = path; self.codexVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: geminiOverride, candidates: Self.geminiCandidates) { path, version in
+                self.geminiPath = path; self.geminiVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: "", candidates: Self.ghCandidates) { path, version in
+                self.ghPath = path; self.ghVersion = version
+            }}
             group.addTask { await self.detectGit() }
         }
     }
 
-    // MARK: - Claude CLI
+    // MARK: - Generic CLI Detection
 
-    private func detectClaude() async {
-        for candidate in Self.claudeCandidates {
-            if FileManager.default.isExecutableFile(atPath: candidate) {
-                claudePath = candidate
-                break
+    private func detectCLI(
+        override: String,
+        candidates: [String],
+        apply: (String, String) -> Void
+    ) async {
+        var resolved = ""
+
+        // Override path takes priority
+        if !override.isEmpty {
+            if FileManager.default.isExecutableFile(atPath: override) {
+                resolved = override
+            } else {
+                // User gave a path but it's not executable
+                apply(override, "")
+                return
             }
         }
 
-        guard !claudePath.isEmpty else { return }
-
-        do {
-            let output = try await Process.run(claudePath, arguments: ["--version"])
-            claudeVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        } catch {
-            claudeVersion = ""
-        }
-    }
-
-    // MARK: - Codex CLI
-
-    private func detectCodex() async {
-        for candidate in Self.codexCandidates {
-            if FileManager.default.isExecutableFile(atPath: candidate) {
-                codexPath = candidate
-                break
+        // Fall back to candidate scan
+        if resolved.isEmpty {
+            for candidate in candidates {
+                if FileManager.default.isExecutableFile(atPath: candidate) {
+                    resolved = candidate
+                    break
+                }
             }
         }
 
-        guard !codexPath.isEmpty else { return }
+        guard !resolved.isEmpty else {
+            apply("", "")
+            return
+        }
 
         do {
-            let output = try await Process.run(codexPath, arguments: ["--version"])
-            codexVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            let output = try await Process.run(resolved, arguments: ["--version"])
+            let version = output.trimmingCharacters(in: .whitespacesAndNewlines)
                 .components(separatedBy: "\n").first ?? ""
+            apply(resolved, version)
         } catch {
-            codexVersion = ""
-        }
-    }
-
-    // MARK: - Gemini CLI
-
-    private func detectGemini() async {
-        for candidate in Self.geminiCandidates {
-            if FileManager.default.isExecutableFile(atPath: candidate) {
-                geminiPath = candidate
-                break
-            }
-        }
-
-        guard !geminiPath.isEmpty else { return }
-
-        do {
-            let output = try await Process.run(geminiPath, arguments: ["--version"])
-            geminiVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: "\n").first ?? ""
-        } catch {
-            geminiVersion = ""
-        }
-    }
-
-    // MARK: - gh CLI
-
-    private func detectGh() async {
-        for candidate in Self.ghCandidates {
-            if FileManager.default.isExecutableFile(atPath: candidate) {
-                ghPath = candidate
-                break
-            }
-        }
-
-        guard !ghPath.isEmpty else { return }
-
-        do {
-            let output = try await Process.run(ghPath, arguments: ["--version"])
-            ghVersion = output.trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: "\n").first ?? ""
-        } catch {
-            ghVersion = ""
+            apply(resolved, "")
         }
     }
 

@@ -24,6 +24,8 @@ struct DevOpsAgent: AgentProtocol {
     let allowedTools: [String]? = nil
     let maxBudgetUSD: Double = 3.0
     let timeoutSeconds = 600 // 10 minutes
+    // Claude preferred for full tool access, but can fall back to others
+    let backendPreferences: BackendPreferences = .default
 
     func buildPrompt(for task: AgentTask) -> String {
         """
