@@ -1,5 +1,6 @@
 import SwiftUI
 import GRDB
+import AppKit
 
 struct CostDashboardView: View {
     let appDatabase: AppDatabase?
@@ -13,7 +14,15 @@ struct CostDashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForgeToolbar(title: "Costs")
+            ForgeToolbar(title: "Costs") {
+                Button {
+                    exportCSV()
+                } label: {
+                    Label("Export CSV", systemImage: "square.and.arrow.up")
+                }
+                .disabled(costEntries.isEmpty)
+                .help("Export cost data as CSV")
+            }
             Divider()
 
             if isLoading && costEntries.isEmpty {
@@ -182,6 +191,29 @@ struct CostDashboardView: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func exportCSV() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.nameFieldStringValue = "codeforge-costs.csv"
+        panel.title = "Export Cost Data"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let dateFormatter = ISO8601DateFormatter()
+        var csv = "Date,Agent Type,Model,Input Tokens,Output Tokens,Cost USD,Task ID\n"
+        for entry in costEntries {
+            let date = dateFormatter.string(from: entry.createdAt)
+            let taskId = entry.taskId?.uuidString ?? ""
+            csv += "\(date),\(entry.agentType.rawValue),\(entry.model),\(entry.inputTokens),\(entry.outputTokens),\(entry.costUSD),\(taskId)\n"
+        }
+
+        do {
+            try csv.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            errorMessage = "Export failed: \(error.localizedDescription)"
         }
     }
 

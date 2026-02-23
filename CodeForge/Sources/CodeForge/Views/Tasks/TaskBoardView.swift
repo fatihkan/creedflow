@@ -204,6 +204,7 @@ struct KanbanColumnView: View {
                     .frame(width: 8, height: 8)
                 Text(column.title)
                     .font(.system(.subheadline, weight: .semibold))
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Text("\(tasks.count)")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -214,6 +215,7 @@ struct KanbanColumnView: View {
                     .clipShape(Capsule())
             }
             .padding(.bottom, 4)
+            .help("\(column.title) — \(tasks.count) task(s)")
 
             // Task cards
             if tasks.isEmpty {
@@ -300,6 +302,7 @@ struct TaskCardView: View {
                     Text("P\(task.priority)")
                         .font(.system(size: 9, weight: .bold, design: .rounded))
                         .foregroundStyle(.forgeAmber)
+                        .help("Priority \(task.priority) (1=low, 10=critical)")
                 }
                 Spacer()
                 if let cost = task.costUSD {

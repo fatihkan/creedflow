@@ -54,6 +54,8 @@ struct TaskDetailView: View {
                         }
                         .buttonStyle(.plain)
                         .contentShape(Rectangle())
+                        .accessibilityLabel("Close detail panel")
+                        .help("Close (Esc)")
                     }
                 }
                 .padding(.horizontal, 16)

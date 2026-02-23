@@ -24,12 +24,42 @@ extension ShapeStyle where Self == Color {
     static var forgeSurface: Color { Color(nsColor: .controlBackgroundColor) }
     static var forgeSurfaceElevated: Color { Color(nsColor: .underPageBackgroundColor) }
 
-    // Terminal
-    static var forgeTerminalBg: Color { Color(red: 0.09, green: 0.09, blue: 0.11) }
-    static var forgeTerminalText: Color { Color(red: 0.72, green: 0.78, blue: 0.70) }
-    static var forgeTerminalCyan: Color { Color(red: 0.40, green: 0.85, blue: 0.82) }
-    static var forgeTerminalRed: Color { Color(red: 0.95, green: 0.42, blue: 0.38) }
-    static var forgeTerminalYellow: Color { Color(red: 0.92, green: 0.80, blue: 0.40) }
+    // Terminal — adaptive for light/dark mode
+    static var forgeTerminalBg: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0.09, green: 0.09, blue: 0.11, alpha: 1)
+                : NSColor(red: 0.95, green: 0.95, blue: 0.96, alpha: 1)
+        })
+    }
+    static var forgeTerminalText: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0.72, green: 0.78, blue: 0.70, alpha: 1)
+                : NSColor(red: 0.22, green: 0.26, blue: 0.20, alpha: 1)
+        })
+    }
+    static var forgeTerminalCyan: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0.40, green: 0.85, blue: 0.82, alpha: 1)
+                : NSColor(red: 0.10, green: 0.55, blue: 0.52, alpha: 1)
+        })
+    }
+    static var forgeTerminalRed: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0.95, green: 0.42, blue: 0.38, alpha: 1)
+                : NSColor(red: 0.80, green: 0.20, blue: 0.18, alpha: 1)
+        })
+    }
+    static var forgeTerminalYellow: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0.92, green: 0.80, blue: 0.40, alpha: 1)
+                : NSColor(red: 0.65, green: 0.52, blue: 0.10, alpha: 1)
+        })
+    }
 
     // Agent type colors — agentCoder is darker blue (distinct from forgeInfo)
     static var agentAnalyzer: Color { Color(red: 0.62, green: 0.40, blue: 0.90) }
@@ -329,6 +359,7 @@ struct ForgeToolbar<Actions: View>: View {
         HStack(spacing: 12) {
             Text(title)
                 .font(.system(.title3, weight: .semibold))
+                .accessibilityAddTraits(.isHeader)
             Spacer()
             actions()
         }

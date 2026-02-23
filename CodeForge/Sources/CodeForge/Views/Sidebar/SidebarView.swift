@@ -206,6 +206,7 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .help(orchestrator?.isRunning == true ? "Stop Orchestrator" : "Start Orchestrator")
+        .accessibilityLabel(orchestrator?.isRunning == true ? "Stop Orchestrator" : "Start Orchestrator")
     }
 
     // MARK: - Data Observation

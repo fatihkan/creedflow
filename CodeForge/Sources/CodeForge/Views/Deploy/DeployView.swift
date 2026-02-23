@@ -109,6 +109,8 @@ struct DeployView: View {
                         Text(String(hash.prefix(7)))
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundStyle(.tertiary)
+                            .textSelection(.enabled)
+                            .help(hash)
                     }
                     Spacer()
                     Text(deployment.createdAt, style: .relative)

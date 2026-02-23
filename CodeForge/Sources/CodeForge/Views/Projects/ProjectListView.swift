@@ -42,6 +42,8 @@ struct ProjectListView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("New Project")
+                    .help("Create a new project")
                 }
             }
             Divider()
