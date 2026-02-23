@@ -28,6 +28,7 @@ actor ClaudeProcessManager {
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
+        process.standardInput = FileHandle.nullDevice
 
         // Clean environment: remove CLAUDECODE to prevent nested session detection
         var env = ProcessInfo.processInfo.environment
