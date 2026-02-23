@@ -125,6 +125,7 @@ private struct DeployTriggerSheet: View {
     @State private var environment: Deployment.Environment = .staging
     @State private var version = ""
     @State private var branch = "main"
+    @State private var showProductionConfirm = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -165,7 +166,13 @@ private struct DeployTriggerSheet: View {
                         .foregroundStyle(.orange)
                         .font(.caption)
                 }
-                Button("Deploy") { triggerDeploy() }
+                Button("Deploy") {
+                    if environment == .production {
+                        showProductionConfirm = true
+                    } else {
+                        triggerDeploy()
+                    }
+                }
                     .keyboardShortcut(.defaultAction)
                     .disabled(selectedProjectId == nil || version.isEmpty)
             }
@@ -174,6 +181,13 @@ private struct DeployTriggerSheet: View {
         .frame(width: 420, height: 340)
         .task {
             await loadProjects()
+        }
+        .confirmationDialog("Production Deployment", isPresented: $showProductionConfirm) {
+            Button("Deploy to Production", role: .destructive) {
+                triggerDeploy()
+            }
+        } message: {
+            Text("You are deploying \(version) to PRODUCTION. This will affect live users. Are you sure?")
         }
     }
 

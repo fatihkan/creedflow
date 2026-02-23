@@ -12,6 +12,7 @@ struct TaskDetailView: View {
     @State private var logs: [AgentLog] = []
     @State private var showTerminal = true
     @State private var errorMessage: String?
+    @State private var showCancelConfirm = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -153,7 +154,7 @@ struct TaskDetailView: View {
                         }
                         if task.status == .inProgress || task.status == .queued {
                             Button(role: .destructive) {
-                                Task { await cancelTask() }
+                                showCancelConfirm = true
                             } label: {
                                 Label("Cancel", systemImage: "xmark.circle")
                             }
@@ -173,6 +174,13 @@ struct TaskDetailView: View {
         }
         .task(id: taskId) {
             await observeData()
+        }
+        .confirmationDialog("Cancel Task", isPresented: $showCancelConfirm) {
+            Button("Cancel Task", role: .destructive) {
+                Task { await cancelTask() }
+            }
+        } message: {
+            Text("This will stop the running agent and cancel the task. This cannot be undone.")
         }
         } // VStack
     }

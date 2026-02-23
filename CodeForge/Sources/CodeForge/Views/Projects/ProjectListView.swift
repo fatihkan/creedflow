@@ -11,6 +11,7 @@ struct ProjectListView: View {
     @State private var showNewProject = false
     @State private var errorMessage: String?
     @State private var searchText = ""
+    @State private var projectToDelete: Project?
 
     private var filteredProjects: [Project] {
         if searchText.isEmpty { return projects }
@@ -105,7 +106,7 @@ struct ProjectListView: View {
                                 Divider()
 
                                 Button(role: .destructive) {
-                                    deleteProject(project)
+                                    projectToDelete = project
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -118,6 +119,20 @@ struct ProjectListView: View {
         }
         .sheet(isPresented: $showNewProject) {
             NewProjectSheet(appDatabase: appDatabase)
+        }
+        .confirmationDialog(
+            "Delete Project",
+            isPresented: Binding(
+                get: { projectToDelete != nil },
+                set: { if !$0 { projectToDelete = nil } }
+            ),
+            presenting: projectToDelete
+        ) { project in
+            Button("Delete \"\(project.name)\"", role: .destructive) {
+                deleteProject(project)
+            }
+        } message: { project in
+            Text("This will permanently delete \"\(project.name)\" and all its tasks, reviews, logs, and deployments. This cannot be undone.")
         }
         .task {
             await observeProjects()

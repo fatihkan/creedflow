@@ -101,7 +101,9 @@ public struct ContentView: View {
                 ForgeEmptyState(
                     icon: "folder",
                     title: "Select a Project",
-                    subtitle: "Choose a project from the sidebar to see its task board"
+                    subtitle: "Choose a project from the sidebar to see its task board",
+                    actionTitle: "Go to Projects",
+                    action: { selectedSection = .projects }
                 )
             }
         case .agents:

@@ -5,6 +5,7 @@ struct ReviewApprovalView: View {
     let appDatabase: AppDatabase?
     @State private var pendingReviews: [(review: Review, task: AgentTask, project: Project)] = []
     @State private var errorMessage: String?
+    @State private var taskToReject: AgentTask?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +35,20 @@ struct ReviewApprovalView: View {
         }
         .task {
             await observeReviews()
+        }
+        .confirmationDialog(
+            "Reject Review",
+            isPresented: Binding(
+                get: { taskToReject != nil },
+                set: { if !$0 { taskToReject = nil } }
+            ),
+            presenting: taskToReject
+        ) { task in
+            Button("Reject \"\(task.title)\"", role: .destructive) {
+                Task { await reject(task) }
+            }
+        } message: { task in
+            Text("This will mark \"\(task.title)\" as failed. The task will need to be manually retried.")
         }
     }
 
@@ -65,7 +80,7 @@ struct ReviewApprovalView: View {
             HStack(spacing: 8) {
                 Spacer()
                 Button {
-                    Task { await reject(item.task) }
+                    taskToReject = item.task
                 } label: {
                     Label("Reject", systemImage: "xmark")
                 }

@@ -8,6 +8,7 @@ struct MCPSettingsView: View {
     @State private var showAddSheet = false
     @State private var editingConfig: MCPServerConfig?
     @State private var setupTemplate: MCPServerTemplate?
+    @State private var configToDelete: MCPServerConfig?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +35,20 @@ struct MCPSettingsView: View {
         }
         .sheet(item: $setupTemplate) { template in
             MCPTemplateSetupSheet(appDatabase: appDatabase, template: template)
+        }
+        .confirmationDialog(
+            "Delete Server",
+            isPresented: Binding(
+                get: { configToDelete != nil },
+                set: { if !$0 { configToDelete = nil } }
+            ),
+            presenting: configToDelete
+        ) { config in
+            Button("Delete \"\(config.name)\"", role: .destructive) {
+                delete(config)
+            }
+        } message: { config in
+            Text("This will remove the MCP server \"\(config.name)\". Agents using this server will lose access to its tools.")
         }
     }
 
@@ -80,7 +95,7 @@ struct MCPSettingsView: View {
                         config: config,
                         onToggle: { toggleEnabled(config) },
                         onEdit: { editingConfig = config },
-                        onDelete: { delete(config) }
+                        onDelete: { configToDelete = config }
                     )
                 }
             }

@@ -11,6 +11,7 @@ struct PromptsLibraryView: View {
     @State private var editingPrompt: Prompt?
     @State private var isImporting = false
     @State private var importResult: String?
+    @State private var promptToDelete: Prompt?
 
     private var filteredPrompts: [Prompt] {
         store.filtered(searchText: searchText, source: selectedSource, category: selectedCategory == "all" ? nil : selectedCategory)
@@ -55,6 +56,20 @@ struct PromptsLibraryView: View {
         }
         .sheet(item: $editingPrompt) { prompt in
             PromptEditSheet(appDatabase: appDatabase, existing: prompt)
+        }
+        .confirmationDialog(
+            "Delete Prompt",
+            isPresented: Binding(
+                get: { promptToDelete != nil },
+                set: { if !$0 { promptToDelete = nil } }
+            ),
+            presenting: promptToDelete
+        ) { prompt in
+            Button("Delete \"\(prompt.title)\"", role: .destructive) {
+                delete(prompt)
+            }
+        } message: { prompt in
+            Text("This will permanently delete the prompt \"\(prompt.title)\". This cannot be undone.")
         }
     }
 
@@ -111,7 +126,7 @@ struct PromptsLibraryView: View {
                             prompt: prompt,
                             onToggleFavorite: { toggleFavorite(prompt) },
                             onEdit: { editingPrompt = prompt },
-                            onDelete: { delete(prompt) }
+                            onDelete: { promptToDelete = prompt }
                         )
                     }
                 }
