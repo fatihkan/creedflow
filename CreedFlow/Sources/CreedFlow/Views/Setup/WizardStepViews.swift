@@ -1,4 +1,5 @@
 import SwiftUI
+import GRDB
 
 // MARK: - Step 1: Environment Detection
 
@@ -169,7 +170,252 @@ struct WizardIntegrationsStep: View {
     }
 }
 
-// MARK: - Step 4: Summary
+// MARK: - Step 4: MCP Servers (Optional)
+
+struct WizardMCPStep: View {
+    let appDatabase: AppDatabase?
+    let store: MCPServerConfigStore
+    @State private var setupTemplate: MCPServerTemplate?
+
+    /// Templates grouped by category for the wizard
+    private var essentialTemplates: [MCPServerTemplate] {
+        [.creedFlow, .filesystem, .github]
+    }
+
+    private var creativeTemplates: [MCPServerTemplate] {
+        [.dalle, .figma, .stability, .elevenlabs, .runway]
+    }
+
+    private var otherTemplates: [MCPServerTemplate] {
+        [.promptsChat]
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                Text("MCP servers extend agent capabilities with external tools. Configure the ones you need — you can always add more later in Settings.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Essential") {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ], spacing: 10) {
+                    ForEach(essentialTemplates) { template in
+                        wizardTemplateCard(template)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section("Creative Tools") {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ], spacing: 10) {
+                    ForEach(creativeTemplates) { template in
+                        wizardTemplateCard(template)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section("Other") {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ], spacing: 10) {
+                    ForEach(otherTemplates) { template in
+                        wizardTemplateCard(template)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            if !store.configs.isEmpty {
+                Section("Configured (\(store.configs.count))") {
+                    ForEach(store.configs) { config in
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.forgeSuccess)
+                                .font(.caption)
+                            Text(config.name)
+                                .font(.subheadline.weight(.medium))
+                            Spacer()
+                            Button(role: .destructive) {
+                                removeConfig(config)
+                            } label: {
+                                Image(systemName: "xmark.circle")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .sheet(item: $setupTemplate) { template in
+            WizardMCPTemplateSetupSheet(appDatabase: appDatabase, template: template)
+        }
+    }
+
+    private func wizardTemplateCard(_ template: MCPServerTemplate) -> some View {
+        let isConfigured = store.configs.contains { $0.name == template.id }
+        return Button {
+            if isConfigured { return }
+            if template.requiredInputs.isEmpty {
+                installDirectly(template)
+            } else {
+                setupTemplate = template
+            }
+        } label: {
+            VStack(spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: template.icon)
+                        .font(.title3)
+                        .foregroundStyle(isConfigured ? .forgeSuccess : .forgeAmber)
+                        .frame(width: 28, height: 28)
+                    if isConfigured {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.forgeSuccess)
+                            .offset(x: 4, y: -4)
+                    }
+                }
+                Text(template.displayName)
+                    .font(.caption.weight(.medium))
+                Text(template.description)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, minHeight: 80)
+            .padding(6)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isConfigured ? Color.forgeSuccess.opacity(0.3) : .clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .opacity(isConfigured ? 0.7 : 1.0)
+    }
+
+    private func installDirectly(_ template: MCPServerTemplate) {
+        guard let db = appDatabase else { return }
+        var config = template.buildConfig(inputs: [:])
+        try? db.dbQueue.write { dbConn in
+            try config.insert(dbConn)
+        }
+    }
+
+    private func removeConfig(_ config: MCPServerConfig) {
+        guard let db = appDatabase else { return }
+        _ = try? db.dbQueue.write { dbConn in
+            try config.delete(dbConn)
+        }
+    }
+}
+
+/// Setup sheet for MCP templates that require input (API keys, paths)
+private struct WizardMCPTemplateSetupSheet: View {
+    let appDatabase: AppDatabase?
+    let template: MCPServerTemplate
+    @Environment(\.dismiss) private var dismiss
+    @State private var inputValues: [String: String] = [:]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                Image(systemName: template.icon)
+                    .font(.largeTitle)
+                    .foregroundStyle(Color.forgeAmber)
+                Text("Setup \(template.displayName)")
+                    .font(.headline)
+                Text(template.description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+
+            Form {
+                ForEach(template.requiredInputs) { input in
+                    Section(input.label) {
+                        switch input.type {
+                        case .path:
+                            HStack {
+                                TextField(input.placeholder, text: binding(for: input.id))
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Browse") {
+                                    let panel = NSOpenPanel()
+                                    panel.canChooseDirectories = true
+                                    panel.canChooseFiles = true
+                                    panel.allowsMultipleSelection = false
+                                    if panel.runModal() == .OK, let url = panel.url {
+                                        inputValues[input.id] = url.path
+                                    }
+                                }
+                            }
+                        case .secret:
+                            SecureField(input.placeholder, text: binding(for: input.id))
+                                .textFieldStyle(.roundedBorder)
+                        case .text:
+                            TextField(input.placeholder, text: binding(for: input.id))
+                                .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                }
+            }
+            .formStyle(.grouped)
+
+            Divider()
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Install") { install() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.forgeAmber)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!allInputsFilled)
+            }
+            .padding()
+        }
+        .frame(width: 420, height: 320)
+    }
+
+    private var allInputsFilled: Bool {
+        template.requiredInputs.allSatisfy { input in
+            guard let value = inputValues[input.id] else { return false }
+            return !value.isEmpty
+        }
+    }
+
+    private func binding(for key: String) -> Binding<String> {
+        Binding(
+            get: { inputValues[key, default: ""] },
+            set: { inputValues[key] = $0 }
+        )
+    }
+
+    private func install() {
+        guard let db = appDatabase else { return }
+        var config = template.buildConfig(inputs: inputValues)
+        try? db.dbQueue.write { dbConn in
+            try config.insert(dbConn)
+        }
+        dismiss()
+    }
+}
+
+// MARK: - Step 5: Summary
 
 struct WizardSummaryStep: View {
     let detector: EnvironmentDetector
@@ -180,6 +426,7 @@ struct WizardSummaryStep: View {
     let maxConcurrency: Int
     let defaultBudget: Double
     let telegramConfigured: Bool
+    let mcpConfigs: [MCPServerConfig]
 
     private var effectiveClaudePath: String {
         if !claudePathOverride.isEmpty { return claudePathOverride }
@@ -220,6 +467,16 @@ struct WizardSummaryStep: View {
 
             Section("Integrations") {
                 SummaryRow(label: "Telegram", value: telegramConfigured ? "Configured" : "Skipped", ok: telegramConfigured)
+            }
+
+            Section("MCP Servers") {
+                if mcpConfigs.isEmpty {
+                    SummaryRow(label: "MCP Servers", value: "None configured", ok: false)
+                } else {
+                    ForEach(mcpConfigs) { config in
+                        SummaryRow(label: config.name, value: config.command, ok: true)
+                    }
+                }
             }
         }
         .formStyle(.grouped)

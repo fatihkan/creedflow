@@ -1,4 +1,5 @@
 import SwiftUI
+import GRDB
 
 public struct SetupWizardView: View {
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = false
@@ -11,8 +12,11 @@ public struct SetupWizardView: View {
     @AppStorage("telegramBotToken") private var storedTelegramToken = ""
     @AppStorage("telegramChatId") private var storedTelegramChatId = ""
 
+    @Environment(\.appDatabase) private var appDatabase
+
     @State private var currentStep = 0
     @State private var detector = EnvironmentDetector()
+    @State private var mcpStore = MCPServerConfigStore()
 
     // Local wizard state (written to AppStorage on completion)
     @State private var claudePathOverride = ""
@@ -24,8 +28,8 @@ public struct SetupWizardView: View {
     @State private var telegramBotToken = ""
     @State private var telegramChatId = ""
 
-    private let totalSteps = 4
-    private let stepTitles = ["Environment", "Projects & Budget", "Integrations", "Summary"]
+    private let totalSteps = 5
+    private let stepTitles = ["Environment", "Projects & Budget", "Integrations", "MCP Servers", "Summary"]
 
     public init() {}
 
@@ -86,6 +90,11 @@ public struct SetupWizardView: View {
                         telegramChatId: $telegramChatId
                     )
                 case 3:
+                    WizardMCPStep(
+                        appDatabase: appDatabase,
+                        store: mcpStore
+                    )
+                case 4:
                     WizardSummaryStep(
                         detector: detector,
                         claudePathOverride: claudePathOverride,
@@ -94,7 +103,8 @@ public struct SetupWizardView: View {
                         projectsBaseDir: projectsBaseDir,
                         maxConcurrency: maxConcurrency,
                         defaultBudget: defaultBudget,
-                        telegramConfigured: !telegramBotToken.isEmpty
+                        telegramConfigured: !telegramBotToken.isEmpty,
+                        mcpConfigs: mcpStore.configs
                     )
                 default:
                     EmptyView()
@@ -114,7 +124,7 @@ public struct SetupWizardView: View {
 
                 Spacer()
 
-                if currentStep == 2 {
+                if currentStep == 2 || currentStep == 3 {
                     Button("Skip") {
                         withAnimation { currentStep += 1 }
                     }
@@ -138,9 +148,14 @@ public struct SetupWizardView: View {
             }
             .padding(16)
         }
-        .frame(width: 600, height: 580)
+        .frame(width: 640, height: 620)
         .task {
             await detector.detectAll()
+        }
+        .onAppear {
+            if let db = appDatabase {
+                mcpStore.observe(in: db.dbQueue)
+            }
         }
     }
 
