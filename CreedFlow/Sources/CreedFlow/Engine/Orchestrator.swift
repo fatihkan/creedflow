@@ -133,8 +133,15 @@ final class Orchestrator {
             try t.update(db)
         }
 
+        // [Feature 3] Build template values from project + task context
+        let templateValues = await buildTemplateValues(for: task)
+
+        // [Feature 1] Get prompt recommendation based on effectiveness metrics
+        let recommender = PromptRecommender(dbQueue: dbQueue)
+        let recommendation = recommender.recommend(for: task.agentType)
+
         // Dispatch in a Swift Task
-        Task { [weak self, agent] in
+        Task { [weak self, agent, templateValues, recommendation] in
             defer {
                 Task { [weak self] in
                     await self?.scheduler.release(task: task)
@@ -153,7 +160,46 @@ final class Orchestrator {
                 // Resolve working directory from project
                 let workingDir = try await self.resolveWorkingDirectory(for: task)
 
-                let result = try await runner.execute(task: task, agent: agent, workingDirectory: workingDir)
+                let result: AgentResult
+
+                // [Feature 2] Chain execution path
+                if let chainId = task.promptChainId {
+                    let chainExecutor = ChainExecutor(dbQueue: self.dbQueue, backendRouter: self.backendRouter)
+                    result = try await chainExecutor.execute(
+                        chainId: chainId,
+                        task: task,
+                        agent: agent,
+                        workingDirectory: workingDir,
+                        templateValues: templateValues,
+                        runner: runner
+                    )
+                } else {
+                    // Normal path: apply recommendation + template variables
+                    var promptOverride: String?
+                    if let rec = recommendation {
+                        let resolved = TemplateVariableResolver.resolve(template: rec.prompt.content, values: templateValues)
+                        // Augment: prepend recommended prompt context to agent's default prompt
+                        let agentPrompt = agent.buildPrompt(for: task)
+                        promptOverride = resolved + "\n\n" + agentPrompt
+                    }
+
+                    result = try await runner.execute(
+                        task: task,
+                        agent: agent,
+                        workingDirectory: workingDir,
+                        promptOverride: promptOverride
+                    )
+
+                    // [Feature 1] Record prompt usage on dispatch
+                    if let rec = recommendation {
+                        recommender.recordUsage(
+                            promptId: rec.prompt.id,
+                            projectId: task.projectId,
+                            taskId: task.id,
+                            agentType: task.agentType
+                        )
+                    }
+                }
 
                 // Post-completion pipeline
                 await self.handleTaskCompletion(task: task, result: result)
@@ -181,6 +227,19 @@ final class Orchestrator {
                 }
             }
         }
+    }
+
+    /// Build template variable values from project + task context.
+    private func buildTemplateValues(for task: AgentTask) async -> [String: String] {
+        let project = try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: task.projectId)
+        }
+        return TemplateVariableResolver.allValues(
+            projectName: project?.name,
+            techStack: project?.techStack,
+            projectType: project?.projectType.rawValue,
+            task: task
+        )
     }
 
     private func resolveAgent(for type: AgentTask.AgentType) -> any AgentProtocol {

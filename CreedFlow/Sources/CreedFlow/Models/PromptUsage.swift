@@ -7,6 +7,7 @@ struct PromptUsage: Codable, Identifiable, Equatable {
     var projectId: UUID?
     var taskId: UUID?
     var chainId: UUID?
+    var agentType: String?
     var outcome: Outcome?
     var reviewScore: Double?
     var usedAt: Date
@@ -22,6 +23,7 @@ struct PromptUsage: Codable, Identifiable, Equatable {
         projectId: UUID? = nil,
         taskId: UUID? = nil,
         chainId: UUID? = nil,
+        agentType: String? = nil,
         outcome: Outcome? = nil,
         reviewScore: Double? = nil,
         usedAt: Date = Date()
@@ -31,6 +33,7 @@ struct PromptUsage: Codable, Identifiable, Equatable {
         self.projectId = projectId
         self.taskId = taskId
         self.chainId = chainId
+        self.agentType = agentType
         self.outcome = outcome
         self.reviewScore = reviewScore
         self.usedAt = usedAt

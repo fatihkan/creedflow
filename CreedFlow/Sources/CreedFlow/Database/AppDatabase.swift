@@ -321,6 +321,19 @@ public struct AppDatabase {
             try db.create(index: "promptUsage_on_chainId", on: "promptUsage", columns: ["chainId"])
         }
 
+        migrator.registerMigration("v10_prompt_agent_and_chain_task") { db in
+            // Track which agent type used a prompt (for effectiveness-based recommendation)
+            try db.alter(table: "promptUsage") { t in
+                t.add(column: "agentType", .text)
+            }
+            try db.create(index: "promptUsage_on_agentType", on: "promptUsage", columns: ["agentType"])
+
+            // Link tasks to prompt chains for step-by-step execution
+            try db.alter(table: "agentTask") { t in
+                t.add(column: "promptChainId", .text).references("promptChain", onDelete: .setNull)
+            }
+        }
+
         return migrator
     }
 }

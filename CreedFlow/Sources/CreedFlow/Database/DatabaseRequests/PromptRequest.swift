@@ -112,11 +112,13 @@ final class PromptStore {
         }
     }
 
-    func fetchUsageStats(for promptId: UUID, in dbQueue: DatabaseQueue) throws -> PromptStats {
+    func fetchUsageStats(for promptId: UUID, in dbQueue: DatabaseQueue, agentType: String? = nil) throws -> PromptStats {
         try dbQueue.read { db in
-            let usages = try PromptUsage
-                .filter(Column("promptId") == promptId)
-                .fetchAll(db)
+            var request = PromptUsage.filter(Column("promptId") == promptId)
+            if let agentType {
+                request = request.filter(Column("agentType") == agentType)
+            }
+            let usages = try request.fetchAll(db)
             let count = usages.count
             guard count > 0 else {
                 return PromptStats(usageCount: 0)

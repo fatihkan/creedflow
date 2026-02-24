@@ -35,7 +35,8 @@ final class MultiBackendRunner {
     }
 
     /// Execute an agent task with full lifecycle management.
-    func execute(task: AgentTask, agent: any AgentProtocol, workingDirectory: String = "") async throws -> AgentResult {
+    /// - Parameter promptOverride: If provided, replaces the agent's default prompt (used by PromptRecommender / ChainExecutor).
+    func execute(task: AgentTask, agent: any AgentProtocol, workingDirectory: String = "", promptOverride: String? = nil) async throws -> AgentResult {
         isRunning = true
         liveOutput = []
         defer { isRunning = false }
@@ -59,7 +60,7 @@ final class MultiBackendRunner {
 
         // Build backend-neutral task input
         let input = CLITaskInput(
-            prompt: agent.buildPrompt(for: task),
+            prompt: promptOverride ?? agent.buildPrompt(for: task),
             systemPrompt: agent.systemPrompt,
             workingDirectory: workingDirectory.isEmpty ? FileManager.default.homeDirectoryForCurrentUser.path : workingDirectory,
             allowedTools: backendType == .claude ? agent.allowedTools : nil,
