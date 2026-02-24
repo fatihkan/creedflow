@@ -31,6 +31,7 @@ actor GeminiBackend: CLIBackend {
         process.executableURL = URL(fileURLWithPath: cliPath)
         process.arguments = ["-p", fullPrompt]
         process.currentDirectoryURL = URL(fileURLWithPath: input.workingDirectory)
+        process.environment = ProcessInfo.processInfo.environment
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -81,11 +82,13 @@ actor GeminiBackend: CLIBackend {
                 let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
                 let exitCode = process.terminationStatus
 
+                let stderrText = String(data: stderrData, encoding: .utf8) ?? ""
+
                 if exitCode != 0 {
-                    let errorOutput = String(data: stderrData, encoding: .utf8) ?? "Unknown error"
+                    let errorOutput = stderrText.isEmpty ? "Unknown error" : stderrText
                     continuation.yield(.error(errorOutput))
                     let result = CLIResult(
-                        output: collectedOutput.isEmpty ? nil : collectedOutput,
+                        output: collectedOutput.isEmpty ? errorOutput : collectedOutput,
                         isError: true,
                         sessionId: nil,
                         model: "gemini",
@@ -97,8 +100,10 @@ actor GeminiBackend: CLIBackend {
                     continuation.yield(.result(result))
                     continuation.finish()
                 } else {
+                    // Fallback to stderr when stdout is empty (some CLIs write output to stderr)
+                    let output = collectedOutput.isEmpty ? (stderrText.isEmpty ? nil : stderrText) : collectedOutput
                     let result = CLIResult(
-                        output: collectedOutput.isEmpty ? nil : collectedOutput,
+                        output: output,
                         isError: false,
                         sessionId: nil,
                         model: "gemini",
