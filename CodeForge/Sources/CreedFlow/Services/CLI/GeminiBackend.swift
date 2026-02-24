@@ -43,6 +43,7 @@ actor GeminiBackend: CLIBackend {
 
         do {
             try process.run()
+            ProcessTracker.shared.track(process)
         } catch {
             activeProcesses.removeValue(forKey: processId)
             return (processId, AsyncThrowingStream { $0.finish(throwing: error) })
@@ -78,6 +79,7 @@ actor GeminiBackend: CLIBackend {
 
                 let stderrData = await stderrTask.value
                 process.waitUntilExit()
+                ProcessTracker.shared.untrack(process)
 
                 let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
                 let exitCode = process.terminationStatus

@@ -42,6 +42,7 @@ actor ClaudeProcessManager {
         // Launch the process BEFORE creating the stream so no early output is lost
         do {
             try process.run()
+            ProcessTracker.shared.track(process)
         } catch {
             activeProcesses.removeValue(forKey: processId)
             return (processId, AsyncThrowingStream { $0.finish(throwing: error) })
@@ -85,6 +86,7 @@ actor ClaudeProcessManager {
 
                 // Wait for process to finish
                 process.waitUntilExit()
+                ProcessTracker.shared.untrack(process)
 
                 let exitCode = process.terminationStatus
                 if exitCode != 0 {

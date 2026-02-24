@@ -15,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        ProcessTracker.shared.terminateAll()
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         // Re-open the main window when clicking the dock icon
         if !flag {
