@@ -1,6 +1,6 @@
 import Foundation
 import MCP
-import CreedLib
+import CreedFlowLib
 
 /// Registers Creed tools on an MCP Server and handles tool calls via MCPBridge.
 struct MCPToolRegistrar {

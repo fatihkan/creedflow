@@ -1,6 +1,6 @@
 import Foundation
 import MCP
-import CreedLib
+import CreedFlowLib
 
 /// Registers Creed resources on an MCP Server and handles resource reads via MCPBridge.
 struct MCPResourceRegistrar {
@@ -15,19 +15,19 @@ struct MCPResourceRegistrar {
         [
             Resource(
                 name: "All Projects",
-                uri: "creed://projects",
+                uri: "creedflow://projects",
                 description: "List of all Creed projects",
                 mimeType: "application/json"
             ),
             Resource(
                 name: "Task Queue",
-                uri: "creed://tasks/queue",
+                uri: "creedflow://tasks/queue",
                 description: "Current task queue status (queued + in-progress)",
                 mimeType: "application/json"
             ),
             Resource(
                 name: "Cost Summary",
-                uri: "creed://costs/summary",
+                uri: "creedflow://costs/summary",
                 description: "Overall cost and token usage summary",
                 mimeType: "application/json"
             ),
@@ -38,7 +38,7 @@ struct MCPResourceRegistrar {
     var resourceTemplates: [Resource.Template] {
         [
             Resource.Template(
-                uriTemplate: "creed://projects/{id}",
+                uriTemplate: "creedflow://projects/{id}",
                 name: "Project Detail",
                 description: "Detailed project info with task counts",
                 mimeType: "application/json"
@@ -48,17 +48,17 @@ struct MCPResourceRegistrar {
 
     /// Handle a resource read request
     func handleReadResource(uri: String) throws -> ReadResource.Result {
-        if uri == "creed://projects" {
+        if uri == "creedflow://projects" {
             return try readProjects()
-        } else if uri.hasPrefix("creed://projects/") {
-            let idStr = String(uri.dropFirst("creed://projects/".count))
+        } else if uri.hasPrefix("creedflow://projects/") {
+            let idStr = String(uri.dropFirst("creedflow://projects/".count))
             guard let id = UUID(uuidString: idStr) else {
                 throw MCPError.invalidRequest("Invalid project ID: \(idStr)")
             }
             return try readProjectDetail(id: id)
-        } else if uri == "creed://tasks/queue" {
+        } else if uri == "creedflow://tasks/queue" {
             return try readTaskQueue()
-        } else if uri == "creed://costs/summary" {
+        } else if uri == "creedflow://costs/summary" {
             return try readCostSummary()
         } else {
             throw MCPError.invalidRequest("Unknown resource URI: \(uri)")
@@ -81,7 +81,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: items)
         let content = String(data: data, encoding: .utf8) ?? "[]"
         return ReadResource.Result(contents: [
-            .text(content, uri: "creed://projects", mimeType: "application/json")
+            .text(content, uri: "creedflow://projects", mimeType: "application/json")
         ])
     }
 
@@ -99,7 +99,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: dict)
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
-            .text(content, uri: "creed://projects/\(id)", mimeType: "application/json")
+            .text(content, uri: "creedflow://projects/\(id)", mimeType: "application/json")
         ])
     }
 
@@ -116,7 +116,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: dict)
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
-            .text(content, uri: "creed://tasks/queue", mimeType: "application/json")
+            .text(content, uri: "creedflow://tasks/queue", mimeType: "application/json")
         ])
     }
 
@@ -129,7 +129,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: dict)
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
-            .text(content, uri: "creed://costs/summary", mimeType: "application/json")
+            .text(content, uri: "creedflow://costs/summary", mimeType: "application/json")
         ])
     }
 }

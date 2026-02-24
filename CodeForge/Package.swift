@@ -3,14 +3,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "Creed",
+    name: "CreedFlow",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "Creed", targets: ["Creed"]),
-        .executable(name: "CreedMCPServer", targets: ["CreedMCPServer"]),
-        .executable(name: "CreedTests", targets: ["CreedTests"]),
+        .executable(name: "CreedFlow", targets: ["CreedFlow"]),
+        .executable(name: "CreedFlowMCPServer", targets: ["CreedFlowMCPServer"]),
+        .executable(name: "CreedFlowTests", targets: ["CreedFlowTests"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
@@ -18,35 +18,35 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CreedLib",
+            name: "CreedFlowLib",
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
-            path: "Sources/Creed",
+            path: "Sources/CreedFlow",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
-            name: "Creed",
-            dependencies: ["CreedLib"],
+            name: "CreedFlow",
+            dependencies: ["CreedFlowLib"],
             path: "Sources/App",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
-            name: "CreedMCPServer",
+            name: "CreedFlowMCPServer",
             dependencies: [
-                "CreedLib",
+                "CreedFlowLib",
                 .product(name: "MCP", package: "swift-sdk"),
             ],
             path: "Sources/MCPServer",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
-            name: "CreedTests",
+            name: "CreedFlowTests",
             dependencies: [
-                "CreedLib",
+                "CreedFlowLib",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
-            path: "Tests/CreedTests",
+            path: "Tests/CreedFlowTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]
