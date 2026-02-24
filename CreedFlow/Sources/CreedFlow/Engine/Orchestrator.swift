@@ -15,6 +15,7 @@ final class Orchestrator {
     private let retryPolicy: RetryPolicy
     private let telegramService: TelegramBotService?
     private let localDeployService: LocalDeploymentService
+    private let assetService: AssetStorageService
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
@@ -46,6 +47,7 @@ final class Orchestrator {
         self.retryPolicy = .default
         self.telegramService = telegramService
         self.localDeployService = LocalDeploymentService(dbQueue: dbQueue)
+        self.assetService = AssetStorageService(dbQueue: dbQueue)
 
         // Register backends (done after init to avoid capturing self before init completes)
         let pm = self.processManager
@@ -300,6 +302,14 @@ final class Orchestrator {
             await handleReviewerCompletion(task: task, result: result)
         case .devops:
             await handleDevOpsCompletion(task: task, result: result)
+        case .designer:
+            await handleCreativeCompletion(task: task, result: result, assetType: .design)
+        case .imageGenerator:
+            await handleCreativeCompletion(task: task, result: result, assetType: .image)
+        case .videoEditor:
+            await handleCreativeCompletion(task: task, result: result, assetType: .video)
+        case .contentWriter:
+            await handleContentWriterCompletion(task: task, result: result)
         default:
             break
         }
@@ -775,6 +785,165 @@ final class Orchestrator {
             await backfillPromptUsageOutcome(projectId: projectId, outcome: outcome)
         } catch {
             // Non-critical — log and continue
+        }
+    }
+
+    // MARK: - Creative Agent Completion
+
+    /// Handle completion for creative agents (designer, imageGenerator, videoEditor).
+    /// Parses JSON output for asset references, saves them, and queues a review task.
+    private func handleCreativeCompletion(task: AgentTask, result: AgentResult, assetType: GeneratedAsset.AssetType) async {
+        let project = try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: task.projectId)
+        }
+        guard let project else { return }
+
+        do {
+            try await extractAndSaveAssets(output: result.output, task: task, project: project, defaultAssetType: assetType)
+            await queueCreativeReview(for: task)
+        } catch {
+            try? await logError(taskId: task.id, agent: task.agentType,
+                               message: "Creative completion error: \(error.localizedDescription)")
+        }
+    }
+
+    /// Handle content writer completion — save output as document asset.
+    private func handleContentWriterCompletion(task: AgentTask, result: AgentResult) async {
+        let project = try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: task.projectId)
+        }
+        guard let project else { return }
+
+        do {
+            try await extractAndSaveAssets(output: result.output, task: task, project: project, defaultAssetType: .document)
+            // Content writer tasks don't auto-queue review (text is self-contained)
+        } catch {
+            try? await logError(taskId: task.id, agent: .contentWriter,
+                               message: "Content writer completion error: \(error.localizedDescription)")
+        }
+    }
+
+    /// Parse agent output for asset references and save them via AssetStorageService.
+    /// Supports JSON format: {"assets": [{"type": "...", "name": "...", "url"?: "...", "filePath"?: "...", "content"?: "..."}]}
+    /// Falls back to saving raw output as a text file.
+    private func extractAndSaveAssets(
+        output: String?,
+        task: AgentTask,
+        project: Project,
+        defaultAssetType: GeneratedAsset.AssetType
+    ) async throws {
+        guard let output, !output.isEmpty else {
+            try? await logInfo(taskId: task.id, agent: task.agentType, message: "No output to save")
+            return
+        }
+
+        // Try parsing structured JSON output
+        if let data = extractJSON(from: output) {
+            struct AssetOutput: Decodable {
+                let assets: [AssetItem]?
+
+                struct AssetItem: Decodable {
+                    let type: String?
+                    let name: String?
+                    let url: String?
+                    let filePath: String?
+                    let content: String?
+                }
+            }
+
+            if let parsed = try? JSONDecoder().decode(AssetOutput.self, from: data),
+               let items = parsed.assets, !items.isEmpty {
+                for (index, item) in items.enumerated() {
+                    let assetType = item.type.flatMap { GeneratedAsset.AssetType(rawValue: $0) } ?? defaultAssetType
+                    let name = item.name ?? "\(task.agentType.rawValue)-\(index + 1)"
+
+                    if let urlStr = item.url, let url = URL(string: urlStr) {
+                        _ = try await assetService.downloadAndSaveAsset(
+                            url: url,
+                            fileName: name,
+                            project: project,
+                            task: task,
+                            assetType: assetType
+                        )
+                    } else if let path = item.filePath, FileManager.default.fileExists(atPath: path) {
+                        _ = try await assetService.recordExistingAsset(
+                            filePath: path,
+                            project: project,
+                            task: task,
+                            assetType: assetType
+                        )
+                    } else if let content = item.content {
+                        let ext = extensionForAssetType(assetType)
+                        let fileName = name.contains(".") ? name : "\(name).\(ext)"
+                        _ = try await assetService.saveTextAsset(
+                            content: content,
+                            fileName: fileName,
+                            project: project,
+                            task: task,
+                            assetType: assetType
+                        )
+                    }
+                }
+
+                try? await logInfo(taskId: task.id, agent: task.agentType,
+                                  message: "Saved \(items.count) asset(s)")
+                return
+            }
+        }
+
+        // Fallback: save raw output as text file
+        let ext = extensionForAssetType(defaultAssetType)
+        let fileName = "\(task.agentType.rawValue)-\(task.id.uuidString.prefix(8)).\(ext)"
+        _ = try await assetService.saveTextAsset(
+            content: output,
+            fileName: fileName,
+            project: project,
+            task: task,
+            assetType: defaultAssetType
+        )
+        try? await logInfo(taskId: task.id, agent: task.agentType,
+                          message: "Saved raw output as \(fileName)")
+    }
+
+    /// Queue a reviewer task for creative output (same pattern as coder → reviewer).
+    private func queueCreativeReview(for task: AgentTask) async {
+        do {
+            try await dbQueue.write { db in
+                let reviewTask = AgentTask(
+                    projectId: task.projectId,
+                    featureId: task.featureId,
+                    agentType: .reviewer,
+                    title: "Review: \(task.title)",
+                    description: "Review the creative output from \(task.agentType.rawValue) task: \(task.title)",
+                    priority: task.priority + 1
+                )
+                try reviewTask.insert(db)
+
+                // Add dependency: review depends on creative task
+                let dep = TaskDependency(taskId: reviewTask.id, dependsOnTaskId: task.id)
+                try dep.insert(db)
+
+                // Link assets to review task
+                try GeneratedAsset
+                    .filter(Column("taskId") == task.id)
+                    .updateAll(db,
+                        Column("reviewTaskId").set(to: reviewTask.id),
+                        Column("updatedAt").set(to: Date())
+                    )
+            }
+        } catch {
+            try? await logError(taskId: task.id, agent: task.agentType,
+                               message: "Failed to queue creative review: \(error.localizedDescription)")
+        }
+    }
+
+    private func extensionForAssetType(_ type: GeneratedAsset.AssetType) -> String {
+        switch type {
+        case .image: return "png"
+        case .video: return "mp4"
+        case .audio: return "mp3"
+        case .design: return "json"
+        case .document: return "md"
         }
     }
 

@@ -334,6 +334,34 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v11_generated_assets") { db in
+            try db.create(table: "generatedAsset") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("projectId", .text).notNull()
+                    .references("project", onDelete: .cascade)
+                t.column("taskId", .text).notNull()
+                    .references("agentTask", onDelete: .cascade)
+                t.column("agentType", .text).notNull()
+                t.column("assetType", .text).notNull()
+                t.column("name", .text).notNull()
+                t.column("assetDescription", .text).notNull().defaults(to: "")
+                t.column("filePath", .text).notNull()
+                t.column("mimeType", .text)
+                t.column("fileSize", .integer)
+                t.column("sourceUrl", .text)
+                t.column("metadata", .text)
+                t.column("status", .text).notNull().defaults(to: "generated")
+                t.column("reviewTaskId", .text)
+                    .references("agentTask", onDelete: .setNull)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(index: "generatedAsset_on_projectId", on: "generatedAsset", columns: ["projectId"])
+            try db.create(index: "generatedAsset_on_taskId", on: "generatedAsset", columns: ["taskId"])
+            try db.create(index: "generatedAsset_on_status", on: "generatedAsset", columns: ["status"])
+        }
+
         return migrator
     }
 }

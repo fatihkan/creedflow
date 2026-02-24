@@ -43,6 +43,12 @@ struct MCPResourceRegistrar {
                 description: "Detailed project info with task counts",
                 mimeType: "application/json"
             ),
+            Resource.Template(
+                uriTemplate: "creedflow://projects/{id}/assets",
+                name: "Project Assets",
+                description: "Generated assets for a project with summary",
+                mimeType: "application/json"
+            ),
         ]
     }
 
@@ -51,9 +57,17 @@ struct MCPResourceRegistrar {
         if uri == "creedflow://projects" {
             return try readProjects()
         } else if uri.hasPrefix("creedflow://projects/") {
-            let idStr = String(uri.dropFirst("creedflow://projects/".count))
-            guard let id = UUID(uuidString: idStr) else {
-                throw MCPError.invalidRequest("Invalid project ID: \(idStr)")
+            let remainder = String(uri.dropFirst("creedflow://projects/".count))
+            // Check for /assets suffix before plain project ID
+            if remainder.hasSuffix("/assets") {
+                let idStr = String(remainder.dropLast("/assets".count))
+                guard let id = UUID(uuidString: idStr) else {
+                    throw MCPError.invalidRequest("Invalid project ID: \(idStr)")
+                }
+                return try readProjectAssets(id: id)
+            }
+            guard let id = UUID(uuidString: remainder) else {
+                throw MCPError.invalidRequest("Invalid project ID: \(remainder)")
             }
             return try readProjectDetail(id: id)
         } else if uri == "creedflow://tasks/queue" {
@@ -100,6 +114,27 @@ struct MCPResourceRegistrar {
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
             .text(content, uri: "creedflow://projects/\(id)", mimeType: "application/json")
+        ])
+    }
+
+    private func readProjectAssets(id: UUID) throws -> ReadResource.Result {
+        let summary = try bridge.getProjectAssetSummary(projectId: id)
+        let assets = try bridge.listAssets(projectId: id)
+        let assetItems: [[String: Any]] = assets.map { a in
+            ["id": a.id.uuidString, "name": a.name, "type": a.assetType.rawValue,
+             "status": a.status.rawValue, "filePath": a.filePath,
+             "fileSize": a.fileSize ?? 0]
+        }
+        let dict: [String: Any] = [
+            "totalAssets": summary.totalAssets,
+            "approvedAssets": summary.approvedAssets,
+            "assetsByType": summary.assetsByType,
+            "assets": assetItems
+        ]
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let content = String(data: data, encoding: .utf8) ?? "{}"
+        return ReadResource.Result(contents: [
+            .text(content, uri: "creedflow://projects/\(id)/assets", mimeType: "application/json")
         ])
     }
 

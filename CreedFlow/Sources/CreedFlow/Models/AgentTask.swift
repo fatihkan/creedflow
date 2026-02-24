@@ -109,6 +109,7 @@ extension AgentTask: FetchableRecord, PersistableRecord {
     static let feature = belongsTo(Feature.self)
     static let reviews = hasMany(Review.self)
     static let agentLogs = hasMany(AgentLog.self)
+    static let generatedAssets = hasMany(GeneratedAsset.self, using: ForeignKey(["taskId"]))
     static let dependsOn = hasMany(
         TaskDependency.self,
         using: TaskDependency.ForeignKeys.task

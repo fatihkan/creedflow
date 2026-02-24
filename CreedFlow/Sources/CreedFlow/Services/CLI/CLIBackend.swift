@@ -97,4 +97,10 @@ struct BackendPreferences: Sendable {
         preferred: [.claude, .codex, .gemini],
         requiresClaudeFeatures: false
     )
+
+    /// Prefers Claude (for MCP support) but falls back to other backends if unavailable
+    static let claudePreferred = BackendPreferences(
+        preferred: [.claude, .codex, .gemini],
+        requiresClaudeFeatures: false
+    )
 }

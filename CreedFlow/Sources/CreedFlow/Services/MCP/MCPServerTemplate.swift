@@ -74,7 +74,10 @@ struct MCPServerTemplate: Identifiable {
 
     // MARK: - Preset Templates
 
-    static let all: [MCPServerTemplate] = [filesystem, github, promptsChat, creedFlow]
+    static let all: [MCPServerTemplate] = [
+        filesystem, github, promptsChat, creedFlow,
+        dalle, figma, stability, elevenlabs, runway
+    ]
 
     static let filesystem = MCPServerTemplate(
         id: "filesystem",
@@ -139,6 +142,101 @@ struct MCPServerTemplate: Identifiable {
                 placeholder: "/path/to/CreedFlowMCPServer",
                 type: .path,
                 isCommand: true
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let dalle = MCPServerTemplate(
+        id: "dalle",
+        displayName: "DALL-E",
+        description: "OpenAI image generation via DALL-E",
+        icon: "photo.fill",
+        command: "npx",
+        defaultArgs: ["-y", "@modelcontextprotocol/server-openai"],
+        requiredInputs: [
+            RequiredInput(
+                id: "openai_api_key",
+                label: "OpenAI API Key",
+                placeholder: "sk-...",
+                type: .secret,
+                envKey: "OPENAI_API_KEY"
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let figma = MCPServerTemplate(
+        id: "figma",
+        displayName: "Figma",
+        description: "Figma design file access and inspection",
+        icon: "paintbrush.fill",
+        command: "npx",
+        defaultArgs: ["-y", "@anthropic/figma-mcp"],
+        requiredInputs: [
+            RequiredInput(
+                id: "figma_access_token",
+                label: "Figma Access Token",
+                placeholder: "figd_...",
+                type: .secret,
+                envKey: "FIGMA_ACCESS_TOKEN"
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let stability = MCPServerTemplate(
+        id: "stability",
+        displayName: "Stability AI",
+        description: "Stability AI image generation (Stable Diffusion)",
+        icon: "wand.and.stars",
+        command: "npx",
+        defaultArgs: ["-y", "@stability-ai/mcp-server"],
+        requiredInputs: [
+            RequiredInput(
+                id: "stability_api_key",
+                label: "Stability API Key",
+                placeholder: "sk-...",
+                type: .secret,
+                envKey: "STABILITY_API_KEY"
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let elevenlabs = MCPServerTemplate(
+        id: "elevenlabs",
+        displayName: "ElevenLabs",
+        description: "ElevenLabs AI voice and audio generation",
+        icon: "waveform",
+        command: "npx",
+        defaultArgs: ["-y", "@elevenlabs/mcp-server"],
+        requiredInputs: [
+            RequiredInput(
+                id: "elevenlabs_api_key",
+                label: "ElevenLabs API Key",
+                placeholder: "xi_...",
+                type: .secret,
+                envKey: "ELEVENLABS_API_KEY"
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let runway = MCPServerTemplate(
+        id: "runway",
+        displayName: "Runway",
+        description: "Runway AI video generation and editing",
+        icon: "film.fill",
+        command: "npx",
+        defaultArgs: ["-y", "@runway/mcp-server"],
+        requiredInputs: [
+            RequiredInput(
+                id: "runway_api_key",
+                label: "Runway API Key",
+                placeholder: "rw_...",
+                type: .secret,
+                envKey: "RUNWAY_API_KEY"
             )
         ],
         defaultEnv: [:]

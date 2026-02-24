@@ -66,6 +66,7 @@ extension Project: FetchableRecord, PersistableRecord {
     static let tasks = hasMany(AgentTask.self)
     static let deployments = hasMany(Deployment.self)
     static let costTrackings = hasMany(CostTracking.self)
+    static let generatedAssets = hasMany(GeneratedAsset.self)
 
     var features: QueryInterfaceRequest<Feature> {
         request(for: Project.features)

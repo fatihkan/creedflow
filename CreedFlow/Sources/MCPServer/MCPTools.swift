@@ -98,6 +98,30 @@ struct MCPToolRegistrar {
                     "required": .array([.string("task_id")])
                 ])
             ),
+            Tool(
+                name: "list_assets",
+                description: "List generated assets with optional filters",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_id": .object(["type": .string("string"), "description": .string("Filter by project UUID")]),
+                        "asset_type": .object(["type": .string("string"), "enum": .array([.string("image"), .string("video"), .string("audio"), .string("design"), .string("document")]), "description": .string("Filter by asset type")]),
+                        "status": .object(["type": .string("string"), "enum": .array([.string("generated"), .string("reviewed"), .string("approved"), .string("rejected")]), "description": .string("Filter by status")])
+                    ]),
+                    "required": .array([.string("project_id")])
+                ])
+            ),
+            Tool(
+                name: "get_asset",
+                description: "Get details of a specific generated asset",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "asset_id": .object(["type": .string("string"), "description": .string("Asset UUID")])
+                    ]),
+                    "required": .array([.string("asset_id")])
+                ])
+            ),
         ]
     }
 
@@ -120,6 +144,10 @@ struct MCPToolRegistrar {
             return try handleRetryTask(args)
         case "get_agent_logs":
             return try handleGetAgentLogs(args)
+        case "list_assets":
+            return try handleListAssets(args)
+        case "get_asset":
+            return try handleGetAsset(args)
         default:
             return CallTool.Result(content: [.text("Unknown tool: \(name)")], isError: true)
         }
@@ -216,5 +244,41 @@ struct MCPToolRegistrar {
         }
         let lines = logs.map { "[\($0.level.rawValue)] \($0.message)" }
         return CallTool.Result(content: [.text(lines.joined(separator: "\n"))])
+    }
+
+    private func handleListAssets(_ args: [String: Value]) throws -> CallTool.Result {
+        guard let projectIdStr = args["project_id"]?.stringValue,
+              let projectId = UUID(uuidString: projectIdStr) else {
+            return CallTool.Result(content: [.text("Missing required: project_id")], isError: true)
+        }
+        let assetType = args["asset_type"]?.stringValue.flatMap(GeneratedAsset.AssetType.init(rawValue:))
+        let status = args["status"]?.stringValue.flatMap(GeneratedAsset.Status.init(rawValue:))
+        let assets = try bridge.listAssets(projectId: projectId, assetType: assetType, status: status)
+        if assets.isEmpty {
+            return CallTool.Result(content: [.text("No assets found")])
+        }
+        let lines = assets.map { "[\($0.status.rawValue)] \($0.name) (id: \($0.id), type: \($0.assetType.rawValue), path: \($0.filePath))" }
+        return CallTool.Result(content: [.text(lines.joined(separator: "\n"))])
+    }
+
+    private func handleGetAsset(_ args: [String: Value]) throws -> CallTool.Result {
+        guard let idStr = args["asset_id"]?.stringValue,
+              let id = UUID(uuidString: idStr) else {
+            return CallTool.Result(content: [.text("Missing required: asset_id")], isError: true)
+        }
+        guard let asset = try bridge.getAsset(id: id) else {
+            return CallTool.Result(content: [.text("Asset not found")], isError: true)
+        }
+        let text = """
+            Asset: \(asset.name)
+            Type: \(asset.assetType.rawValue)
+            Status: \(asset.status.rawValue)
+            Path: \(asset.filePath)
+            Size: \(asset.fileSize ?? 0) bytes
+            MIME: \(asset.mimeType ?? "unknown")
+            Source URL: \(asset.sourceUrl ?? "none")
+            Created: \(asset.createdAt)
+            """
+        return CallTool.Result(content: [.text(text)])
     }
 }

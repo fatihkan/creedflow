@@ -171,6 +171,59 @@ package final class MCPBridge: Sendable {
         }
     }
 
+    // MARK: - Asset Operations
+
+    package func listAssets(projectId: UUID? = nil, assetType: GeneratedAsset.AssetType? = nil, status: GeneratedAsset.Status? = nil) throws -> [GeneratedAsset] {
+        try dbQueue.read { db in
+            var request = GeneratedAsset.order(Column("createdAt").desc)
+            if let projectId {
+                request = request.filter(Column("projectId") == projectId)
+            }
+            if let assetType {
+                request = request.filter(Column("assetType") == assetType.rawValue)
+            }
+            if let status {
+                request = request.filter(Column("status") == status.rawValue)
+            }
+            return try request.fetchAll(db)
+        }
+    }
+
+    package func getAsset(id: UUID) throws -> GeneratedAsset? {
+        try dbQueue.read { db in
+            try GeneratedAsset.fetchOne(db, id: id)
+        }
+    }
+
+    package func getProjectAssetSummary(projectId: UUID) throws -> AssetSummaryInfo {
+        try dbQueue.read { db in
+            let total = try GeneratedAsset
+                .filter(Column("projectId") == projectId)
+                .fetchCount(db)
+            let approved = try GeneratedAsset
+                .filter(Column("projectId") == projectId)
+                .filter(Column("status") == GeneratedAsset.Status.approved.rawValue)
+                .fetchCount(db)
+
+            var byType: [String: Int] = [:]
+            for type in GeneratedAsset.AssetType.allCases {
+                let count = try GeneratedAsset
+                    .filter(Column("projectId") == projectId)
+                    .filter(Column("assetType") == type.rawValue)
+                    .fetchCount(db)
+                if count > 0 {
+                    byType[type.rawValue] = count
+                }
+            }
+
+            return AssetSummaryInfo(
+                totalAssets: total,
+                assetsByType: byType,
+                approvedAssets: approved
+            )
+        }
+    }
+
     // MARK: - Queue Status
 
     package func getQueueStatus() throws -> QueueStatusInfo {
@@ -208,4 +261,10 @@ package struct CostSummaryInfo: Sendable {
 package struct QueueStatusInfo: Sendable {
     package let queuedTasks: [AgentTask]
     package let inProgressTasks: [AgentTask]
+}
+
+package struct AssetSummaryInfo: Sendable {
+    package let totalAssets: Int
+    package let assetsByType: [String: Int]
+    package let approvedAssets: Int
 }
