@@ -15,21 +15,29 @@ CreedFlow: Coder agents write code, open branches per task
   ↓
 CreedFlow: Reviewer agent scores code (AI review + security scan)
   ↓
+CreedFlow: Creative agents generate assets (images, videos, designs)
+  ↓
+CreedFlow: Publisher agent distributes content to Medium, WordPress, Twitter, LinkedIn
+  ↓
 CreedFlow: Telegram notification → You approve → Deploy
 ```
 
 ## Features
 
-- **10 AI Agents** — Analyzer, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor
-- **3 CLI Backends** — Claude, Codex, Gemini with round-robin routing
+- **11 AI Agents** — Analyzer, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor, Publisher
+- **3 CLI Backends** — Claude, Codex, Gemini with smart routing and automatic fallback
 - **Kanban Board** — Drag-and-drop task management with live agent output
 - **Dependency Graph** — Tasks execute in correct order (e.g., DB before API before UI)
 - **Auto-Retry** — Failed tasks retry up to 3 times before escalating
 - **Cost Tracking** — Per-task token usage and cost breakdown by backend
+- **Asset Pipeline** — Creative agents produce images/videos/designs with versioning, checksums, and thumbnails
+- **Content Publishing** — Publish to Medium, WordPress, Twitter, LinkedIn with scheduled publishing
 - **Local Deploy** — Docker, Docker Compose, or direct process execution
-- **MCP Server** — Query project state from external tools via `creedflow://` URIs
+- **MCP Server** — 13 tools + 5 resources via `creedflow://` URIs
+- **Creative MCP** — DALL-E, Figma, Stability AI, ElevenLabs, Runway integrations
 - **Telegram Notifications** — Task completion, review results, deploy status
-- **Prompt Library** — Versioning, chaining, tagging, effectiveness tracking
+- **Prompt Library** — Versioning, chaining, tagging, effectiveness-based selection
+- **Smart Backend Routing** — Disabled or missing CLIs are never selected; tasks fall back to any active backend
 
 ## Tech Stack
 
@@ -37,9 +45,9 @@ CreedFlow: Telegram notification → You approve → Deploy
 |-----------|-----------|
 | Language | Swift 6.0 |
 | UI | SwiftUI (macOS 14+) |
-| Database | SQLite via GRDB.swift |
+| Database | SQLite via GRDB.swift (13 migrations, 18 models) |
 | AI Backends | Claude CLI, Codex CLI, Gemini CLI |
-| MCP | modelcontextprotocol/swift-sdk |
+| MCP | modelcontextprotocol/swift-sdk 0.11.0 |
 | Deployment | Docker / Docker Compose / Direct Process |
 | Notifications | Telegram Bot API |
 
@@ -52,8 +60,11 @@ cd CreedFlow && swift build
 # Run the app
 .build/debug/CreedFlow
 
-# Run tests (38 tests)
+# Run tests (104 tests)
 .build/debug/CreedFlowTests
+
+# Run MCP server (stdio)
+.build/debug/CreedFlowMCPServer
 
 # Package as .app bundle
 ./Scripts/package-app.sh
@@ -80,7 +91,8 @@ cd CreedFlow && swift build
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐ │
 │  │ Task Queue   │  │ Backend      │  │ Agent Scheduler    │ │
 │  │ (Priority +  │  │ Router       │  │ (Concurrency)      │ │
-│  │  Dependencies)│ │ (Round-Robin)│  │                    │ │
+│  │  Dependencies)│ │ (Smart       │  │                    │ │
+│  │              │  │  Fallback)   │  │                    │ │
 │  └─────────────┘  └──────────────┘  └────────────────────┘ │
 └──────────────────────────┬──────────────────────────────────┘
                            │
@@ -96,41 +108,44 @@ cd CreedFlow && swift build
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│                    10 AI Agents                              │
+│                    11 AI Agents                              │
 │                                                              │
 │  Analyzer → Coder → Reviewer → Tester → DevOps → Monitor   │
-│  ContentWriter    Designer    ImageGenerator    VideoEditor  │
+│  ContentWriter → Designer → ImageGenerator → VideoEditor    │
+│  Publisher                                                   │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
 │                    Storage & Services                         │
 │  ┌───────────┐  ┌──────────┐  ┌──────────┐  ┌───────────┐ │
-│  │ SQLite    │  │ Git      │  │ Docker   │  │ Telegram  │ │
-│  │ (GRDB)    │  │ Service  │  │ Deploy   │  │ Bot       │ │
+│  │ SQLite    │  │ Asset    │  │ Content  │  │ Telegram  │ │
+│  │ (GRDB)    │  │ Pipeline │  │ Publishing│ │ Bot       │ │
+│  │           │  │ + Thumbs │  │ Service  │  │           │ │
 │  └───────────┘  └──────────┘  └──────────┘  └───────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Agents
 
-| Agent | Backend | Timeout | Purpose |
-|-------|---------|---------|---------|
+| Agent | Preference | Timeout | Purpose |
+|-------|-----------|---------|---------|
 | **Analyzer** | Any | 5 min | Decompose projects into features/tasks |
-| **Coder** | Claude | 15 min | Write code, create branches/PRs |
-| **Reviewer** | Claude | 5 min | AI code review with 0-10 scoring |
-| **Tester** | Claude | 10 min | Generate and run tests |
+| **Coder** | Claude (fallback: any) | 15 min | Write code, create branches/PRs |
+| **Reviewer** | Claude (fallback: any) | 5 min | AI code review with 0-10 scoring |
+| **Tester** | Claude (fallback: any) | 10 min | Generate and run tests |
 | **DevOps** | Any | 10 min | Docker, CI/CD, infrastructure setup |
 | **Monitor** | Any | 5 min | Health checks, log analysis, alerts |
-| **ContentWriter** | Any | 10 min | Articles, docs, copy writing |
-| **Designer** | Any | 10 min | Design specs and guidelines |
-| **ImageGenerator** | Any | 5 min | Image prompt engineering |
-| **VideoEditor** | Any | 10 min | Video editing specifications |
+| **ContentWriter** | Claude preferred | 10 min | Articles, docs, copy writing |
+| **Designer** | Claude preferred | 10 min | Design specs + Figma access |
+| **ImageGenerator** | Claude preferred | 10 min | AI image generation (DALL-E, Stability) |
+| **VideoEditor** | Claude preferred | 15 min | Video/audio generation (Runway, ElevenLabs) |
+| **Publisher** | Claude preferred | 10 min | Publish to Medium, WordPress, Twitter, LinkedIn |
 
-**Backend routing:** Agents requiring MCP/tools (Coder, Reviewer, Tester) use Claude only. Others round-robin across all enabled backends.
+**Backend routing:** Disabled or unavailable CLIs are never selected. If a preferred backend is unavailable, tasks automatically fall back to any active backend. Tasks only skip when zero backends are available.
 
 ## Database
 
-SQLite with 9 migrations, 15 models:
+SQLite with 13 migrations, 18 models:
 
 - **project** — Name, description, tech stack, project type, status
 - **feature** — Grouped tasks within a project
@@ -140,6 +155,9 @@ SQLite with 9 migrations, 15 models:
 - **deployment** — Environment, method (docker/compose/process), status
 - **costTracking** — Per-task token usage and USD cost by backend
 - **agentLog** — Timestamped execution logs
+- **generatedAsset** — Creative assets with versioning, checksums, thumbnails
+- **publication** — Published content tracking (status, external URLs)
+- **publishingChannel** — Channel configuration (Medium, WordPress, Twitter, LinkedIn)
 - **prompt** / **promptVersion** / **promptChain** / **promptChainStep** / **promptTag** / **promptUsage** — Prompt management system
 - **mcpServerConfig** — External MCP server configurations
 
@@ -147,9 +165,9 @@ SQLite with 9 migrations, 15 models:
 
 CreedFlow runs as an MCP server (`CreedFlowMCPServer` binary) exposing:
 
-**Tools:** create-project, create-task, update-task-status, get-project-tasks, run-analyzer, get-cost-summary, search-prompts
+**Tools (13):** create-project, create-task, update-task-status, get-project-tasks, run-analyzer, get-cost-summary, search-prompts, list-assets, get-asset, list-asset-versions, approve-asset, list-publications, list-publishing-channels
 
-**Resources:** `creedflow://projects`, `creedflow://tasks/queue`, `creedflow://costs/summary`, `creedflow://agents/status`
+**Resources (5):** `creedflow://projects`, `creedflow://tasks/queue`, `creedflow://costs/summary`, `creedflow://projects/{id}/assets`, `creedflow://publications`
 
 ## Project Structure
 
@@ -159,23 +177,25 @@ CreedFlow/
 ├── Sources/
 │   ├── App/                          # App entry point
 │   ├── CreedFlow/                    # Main library
-│   │   ├── Database/                 # GRDB migrations + queries
-│   │   ├── Engine/                   # Orchestrator, TaskQueue, Scheduler
-│   │   ├── Models/                   # 15 domain models
+│   │   ├── Database/                 # GRDB migrations v1–v13
+│   │   ├── Engine/                   # Orchestrator, TaskQueue, Scheduler, ChainExecutor
+│   │   ├── Models/                   # 18 domain models
 │   │   ├── Services/
-│   │   │   ├── Agents/               # 10 agent implementations
-│   │   │   ├── CLI/                  # Backend router + adapters
+│   │   │   ├── Agents/               # 11 agent implementations
+│   │   │   ├── CLI/                  # Backend router + adapters (smart fallback)
 │   │   │   ├── Claude/               # Claude process management
 │   │   │   ├── Deploy/               # Local deployment service
 │   │   │   ├── Git/                  # Git + GitHub integration
 │   │   │   ├── MCP/                  # MCP bridge + config generator
+│   │   │   ├── Publishing/           # Content exporter + 4 publishers
+│   │   │   ├── Storage/              # Asset storage backend
 │   │   │   └── Telegram/             # Bot notifications + polling
 │   │   ├── Utilities/                # NDJSON parser, async helpers
-│   │   └── Views/                    # SwiftUI views (42 files)
-│   └── MCPServer/                    # Standalone MCP server
-├── Tests/CreedFlowTests/             # 38 tests
+│   │   └── Views/                    # SwiftUI views
+│   └── MCPServer/                    # Standalone MCP server (13 tools, 5 resources)
+├── Tests/CreedFlowTests/             # 104 tests
 ├── Resources/                        # Info.plist, entitlements
-└── Scripts/                          # .app packaging
+└── Scripts/                          # .app + DMG packaging
 ```
 
 ## License

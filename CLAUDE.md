@@ -51,7 +51,14 @@ Platform: macOS 14+ (arm64). Database at `~/Library/Application Support/CreedFlo
 - **CodexBackend** — Spawns `codex exec "<prompt>" --full-auto --skip-git-repo-check`
 - **GeminiBackend** — Spawns `gemini -p "<prompt>" -y -o text`
 
-`BackendRouter` selects backend per task: agents with MCP needs get Claude, others get round-robin across enabled backends. Enable/disable via UserDefaults (`claudeEnabled`, `codexEnabled`, `geminiEnabled`).
+`BackendRouter` selects backend per task with smart fallback:
+1. If agent requires Claude features → try Claude first
+2. Collect enabled+available backends from agent's preference list
+3. If no preferred backend is usable → fall back to ANY active backend
+4. Round-robin across the resulting pool
+5. Returns `nil` only when zero backends are enabled and available system-wide
+
+**Hard rules:** A disabled backend (UserDefaults `claudeEnabled`/`codexEnabled`/`geminiEnabled`) or one whose CLI binary is missing is NEVER selected. Tasks are deferred (not skipped) when no backend is available.
 
 ### 11 AI Agents
 
@@ -152,5 +159,5 @@ Scripts/package-app.sh                              — .app + DMG packaging
 8. Content writer completion: queues publisher task when publishing channels are configured
 9. Publisher agent: distributes content to Medium, WordPress, Twitter, LinkedIn
 10. Failed tasks auto-retry up to 3 times
-9. Telegram notifications at key milestones
-10. Deploy to staging/production via Docker or direct process
+11. Telegram notifications at key milestones
+12. Deploy to staging/production via Docker or direct process
