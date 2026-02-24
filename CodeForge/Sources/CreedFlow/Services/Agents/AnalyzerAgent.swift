@@ -22,7 +22,7 @@ struct AnalyzerAgent: AgentProtocol {
 
     let allowedTools: [String]? = [] // No tools needed — pure text analysis
     let maxBudgetUSD: Double = 1.0
-    let timeoutSeconds = 120 // 2 minutes is enough
+    let timeoutSeconds = 300 // 5 minutes — Gemini/Codex CLIs may retry on rate limits
     let streamOutput = true  // Show live progress in UI
     let backendPreferences: BackendPreferences = .anyBackend
 

@@ -279,6 +279,17 @@ struct TaskCardView: View {
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(task.agentType.themeColor)
 
+                // Backend badge
+                if let backend = task.backend {
+                    Text(backend.uppercased())
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(backendColor(backend))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(backendColor(backend).opacity(0.12))
+                        .clipShape(Capsule())
+                }
+
                 Spacer()
 
                 if isRunning {
@@ -324,6 +335,15 @@ struct TaskCardView: View {
         .onHover { isHovered = $0 }
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .contextMenu { taskContextMenu }
+    }
+
+    private func backendColor(_ backend: String) -> Color {
+        switch backend.lowercased() {
+        case "claude": return .purple
+        case "codex": return .green
+        case "gemini": return .blue
+        default: return .secondary
+        }
     }
 
     @ViewBuilder

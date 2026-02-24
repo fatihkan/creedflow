@@ -124,6 +124,15 @@ final class Orchestrator {
         let runner = MultiBackendRunner(backend: backend, dbQueue: dbQueue)
         activeRunners[task.id] = runner
 
+        // Record selected backend immediately so UI shows it during in_progress
+        let selectedBackend = backend.backendType.rawValue
+        try? await dbQueue.write { db in
+            var t = task
+            t.backend = selectedBackend
+            t.updatedAt = Date()
+            try t.update(db)
+        }
+
         // Dispatch in a Swift Task
         Task { [weak self, agent] in
             defer {
