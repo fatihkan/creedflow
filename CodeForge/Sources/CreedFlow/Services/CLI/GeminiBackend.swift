@@ -29,7 +29,7 @@ actor GeminiBackend: CLIBackend {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: cliPath)
-        process.arguments = ["-p", fullPrompt]
+        process.arguments = ["-p", fullPrompt, "-y", "-o", "text"]
         process.currentDirectoryURL = URL(fileURLWithPath: input.workingDirectory)
         process.environment = ProcessInfo.processInfo.environment
 

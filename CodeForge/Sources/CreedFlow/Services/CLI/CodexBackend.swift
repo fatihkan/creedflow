@@ -29,7 +29,7 @@ actor CodexBackend: CLIBackend {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: cliPath)
-        process.arguments = ["-q", fullPrompt, "--full-auto"]
+        process.arguments = ["exec", fullPrompt, "--full-auto"]
         process.currentDirectoryURL = URL(fileURLWithPath: input.workingDirectory)
         process.environment = ProcessInfo.processInfo.environment
 
