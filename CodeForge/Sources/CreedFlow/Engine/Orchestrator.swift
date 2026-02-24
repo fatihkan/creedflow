@@ -149,6 +149,9 @@ final class Orchestrator {
                 // Post-completion pipeline
                 await self.handleTaskCompletion(task: task, result: result)
 
+                // Check if project is fully done and backfill prompt usage outcomes
+                await self.checkProjectCompletion(projectId: task.projectId)
+
                 // Telegram notification: task completed
                 await self.sendTelegramNotification(for: task) { telegram, project in
                     await telegram.notifyTaskCompleted(task: task, project: project)
@@ -485,6 +488,12 @@ final class Orchestrator {
                     costUSD: result.costUSD
                 )
                 try review.insert(db)
+
+                // Backfill review score on prompt usage records for this project
+                try PromptUsage
+                    .filter(Column("projectId") == task.projectId)
+                    .filter(Column("reviewScore") == nil)
+                    .updateAll(db, Column("reviewScore").set(to: parsed.score))
             }
 
             // Find the original coder task (the one this review task depends on)
@@ -652,6 +661,34 @@ final class Orchestrator {
         } catch {
             try? await logError(taskId: task.id, agent: .devops,
                               message: "Failed to deploy: \(error.localizedDescription)")
+        }
+    }
+
+    /// Backfill PromptUsage outcome when a project reaches a terminal status.
+    private func backfillPromptUsageOutcome(projectId: UUID, outcome: PromptUsage.Outcome) async {
+        _ = try? await dbQueue.write { db in
+            try PromptUsage
+                .filter(Column("projectId") == projectId)
+                .filter(Column("outcome") == nil)
+                .updateAll(db, Column("outcome").set(to: outcome.rawValue))
+        }
+    }
+
+    /// Check if all tasks for a project are done and update project + prompt usage accordingly.
+    private func checkProjectCompletion(projectId: UUID) async {
+        do {
+            let (allDone, anyFailed) = try await dbQueue.read { db -> (Bool, Bool) in
+                let tasks = try AgentTask.filter(Column("projectId") == projectId).fetchAll(db)
+                let pending = tasks.contains { $0.status == .queued || $0.status == .inProgress }
+                let failed = tasks.contains { $0.status == .failed }
+                return (!pending, failed)
+            }
+            guard allDone else { return }
+
+            let outcome: PromptUsage.Outcome = anyFailed ? .failed : .completed
+            await backfillPromptUsageOutcome(projectId: projectId, outcome: outcome)
+        } catch {
+            // Non-critical — log and continue
         }
     }
 

@@ -4,17 +4,28 @@ import GRDB
 struct PromptsLibraryView: View {
     let appDatabase: AppDatabase?
     @State private var store = PromptStore()
+    @State private var chainStore = PromptChainStore()
     @State private var searchText = ""
     @State private var selectedSource: Prompt.Source?
     @State private var selectedCategory = "all"
+    @State private var selectedTag = ""
+    @State private var selectedTab = 0 // 0 = prompts, 1 = chains
     @State private var showEditSheet = false
     @State private var editingPrompt: Prompt?
     @State private var isImporting = false
     @State private var importResult: String?
     @State private var promptToDelete: Prompt?
+    @State private var showChainEditSheet = false
+    @State private var editingChain: PromptChain?
+    @State private var chainToDelete: PromptChain?
 
     private var filteredPrompts: [Prompt] {
-        store.filtered(searchText: searchText, source: selectedSource, category: selectedCategory == "all" ? nil : selectedCategory)
+        store.filtered(
+            searchText: searchText,
+            source: selectedSource,
+            category: selectedCategory == "all" ? nil : selectedCategory,
+            tag: selectedTag.isEmpty ? nil : selectedTag
+        )
     }
 
     var body: some View {
@@ -34,21 +45,46 @@ struct PromptsLibraryView: View {
                     }
                     .disabled(isImporting)
 
-                    Button {
-                        showEditSheet = true
-                    } label: {
-                        Label("New Prompt", systemImage: "plus")
+                    if selectedTab == 0 {
+                        Button {
+                            showEditSheet = true
+                        } label: {
+                            Label("New Prompt", systemImage: "plus")
+                        }
+                    } else {
+                        Button {
+                            showChainEditSheet = true
+                        } label: {
+                            Label("New Chain", systemImage: "plus")
+                        }
                     }
                 }
             }
             Divider()
-            filterBar
-            Divider()
-            promptList
+
+            // Tab selector
+            Picker("View", selection: $selectedTab) {
+                Text("Prompts").tag(0)
+                Text("Chains").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 200)
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            if selectedTab == 0 {
+                filterBar
+                Divider()
+                promptList
+            } else {
+                Divider()
+                chainList
+            }
         }
         .onAppear {
             if let db = appDatabase {
                 store.observe(in: db.dbQueue)
+                chainStore.observe(in: db.dbQueue)
             }
         }
         .sheet(isPresented: $showEditSheet) {
@@ -56,6 +92,12 @@ struct PromptsLibraryView: View {
         }
         .sheet(item: $editingPrompt) { prompt in
             PromptEditSheet(appDatabase: appDatabase, existing: prompt)
+        }
+        .sheet(isPresented: $showChainEditSheet) {
+            PromptChainEditSheet(appDatabase: appDatabase, prompts: store.prompts)
+        }
+        .sheet(item: $editingChain) { chain in
+            PromptChainEditSheet(appDatabase: appDatabase, existing: chain, prompts: store.prompts)
         }
         .confirmationDialog(
             "Delete Prompt",
@@ -70,6 +112,20 @@ struct PromptsLibraryView: View {
             }
         } message: { prompt in
             Text("This will permanently delete the prompt \"\(prompt.title)\". This cannot be undone.")
+        }
+        .confirmationDialog(
+            "Delete Chain",
+            isPresented: Binding(
+                get: { chainToDelete != nil },
+                set: { if !$0 { chainToDelete = nil } }
+            ),
+            presenting: chainToDelete
+        ) { chain in
+            Button("Delete \"\(chain.name)\"", role: .destructive) {
+                deleteChain(chain)
+            }
+        } message: { chain in
+            Text("This will permanently delete the chain \"\(chain.name)\". This cannot be undone.")
         }
     }
 
@@ -110,13 +166,25 @@ struct PromptsLibraryView: View {
                 .frame(maxWidth: 160)
             }
 
+            if !store.allTags.isEmpty {
+                Picker(selection: $selectedTag) {
+                    Text("All Tags").tag("")
+                    ForEach(store.allTags, id: \.self) { tag in
+                        Text(tag).tag(tag)
+                    }
+                } label: {
+                    EmptyView()
+                }
+                .frame(maxWidth: 140)
+            }
+
             Spacer()
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
     }
 
-    // MARK: - List
+    // MARK: - Prompt List
 
     private var promptList: some View {
         Group {
@@ -135,6 +203,8 @@ struct PromptsLibraryView: View {
                     ForEach(filteredPrompts) { prompt in
                         PromptRow(
                             prompt: prompt,
+                            tags: store.promptTags[prompt.id] ?? [],
+                            usageCount: usageCount(for: prompt),
                             onToggleFavorite: { toggleFavorite(prompt) },
                             onEdit: { editingPrompt = prompt },
                             onDelete: { promptToDelete = prompt }
@@ -146,7 +216,79 @@ struct PromptsLibraryView: View {
         }
     }
 
+    // MARK: - Chain List
+
+    private var chainList: some View {
+        Group {
+            if chainStore.chains.isEmpty {
+                ForgeEmptyState(
+                    icon: "link",
+                    title: "No Chains",
+                    subtitle: "Create a chain to compose multiple prompts together",
+                    actionTitle: "New Chain",
+                    action: { showChainEditSheet = true }
+                )
+            } else {
+                List {
+                    ForEach(chainStore.chains) { chain in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(chain.name)
+                                        .font(.headline)
+                                    let stepCount = chainStore.steps[chain.id]?.count ?? 0
+                                    Text("\(stepCount) steps")
+                                        .font(.system(size: 9, weight: .medium))
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1)
+                                        .background(.purple.opacity(0.15), in: Capsule())
+                                        .foregroundStyle(.purple)
+                                    if chain.category != "general" {
+                                        Text(chain.category)
+                                            .font(.system(size: 9, weight: .medium))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1)
+                                            .background(.secondary.opacity(0.15), in: Capsule())
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                if !chain.description.isEmpty {
+                                    Text(chain.description)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                            Spacer()
+                            HStack(spacing: 4) {
+                                Button { editingChain = chain } label: {
+                                    Image(systemName: "pencil")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Edit")
+                                Button(role: .destructive) { chainToDelete = chain } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Delete")
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .listStyle(.inset(alternatesRowBackgrounds: true))
+            }
+        }
+    }
+
     // MARK: - Actions
+
+    private func usageCount(for prompt: Prompt) -> Int {
+        guard let db = appDatabase else { return 0 }
+        return (try? db.dbQueue.read { dbConn in
+            try PromptUsage.filter(Column("promptId") == prompt.id).fetchCount(dbConn)
+        }) ?? 0
+    }
 
     private func importCommunityPrompts() {
         guard let db = appDatabase else { return }
@@ -180,12 +322,21 @@ struct PromptsLibraryView: View {
             try prompt.delete(dbConn)
         }
     }
+
+    private func deleteChain(_ chain: PromptChain) {
+        guard let db = appDatabase else { return }
+        _ = try? db.dbQueue.write { dbConn in
+            try chain.delete(dbConn)
+        }
+    }
 }
 
 // MARK: - Prompt Row
 
 private struct PromptRow: View {
     let prompt: Prompt
+    let tags: [String]
+    let usageCount: Int
     let onToggleFavorite: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -196,6 +347,14 @@ private struct PromptRow: View {
                 HStack(spacing: 6) {
                     Text(prompt.title)
                         .font(.headline)
+                    if prompt.version > 1 {
+                        Text("v\(prompt.version)")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(.green.opacity(0.15), in: Capsule())
+                            .foregroundStyle(.green)
+                    }
                     if prompt.source == .community {
                         Text("Community")
                             .font(.system(size: 9, weight: .medium))
@@ -217,10 +376,33 @@ private struct PromptRow: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
-                if let contributor = prompt.contributor, !contributor.isEmpty {
-                    Text("by \(contributor)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+
+                HStack(spacing: 4) {
+                    if !tags.isEmpty {
+                        ForEach(tags.prefix(5), id: \.self) { tag in
+                            Text(tag)
+                                .font(.system(size: 8, weight: .medium))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(.teal.opacity(0.12), in: Capsule())
+                                .foregroundStyle(.teal)
+                        }
+                    }
+                    if let contributor = prompt.contributor, !contributor.isEmpty {
+                        Text("by \(contributor)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    if usageCount > 0 {
+                        Spacer().frame(width: 4)
+                        HStack(spacing: 2) {
+                            Image(systemName: "chart.bar")
+                                .font(.system(size: 8))
+                            Text("\(usageCount)")
+                                .font(.system(size: 9, weight: .medium))
+                        }
+                        .foregroundStyle(.secondary)
+                    }
                 }
             }
 

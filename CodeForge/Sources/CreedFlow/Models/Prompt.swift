@@ -10,6 +10,7 @@ struct Prompt: Codable, Identifiable, Equatable {
     var contributor: String?
     var isBuiltIn: Bool
     var isFavorite: Bool
+    var version: Int
     var createdAt: Date
     var updatedAt: Date
 
@@ -27,6 +28,7 @@ struct Prompt: Codable, Identifiable, Equatable {
         contributor: String? = nil,
         isBuiltIn: Bool = false,
         isFavorite: Bool = false,
+        version: Int = 1,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -38,6 +40,7 @@ struct Prompt: Codable, Identifiable, Equatable {
         self.contributor = contributor
         self.isBuiltIn = isBuiltIn
         self.isFavorite = isFavorite
+        self.version = version
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -47,4 +50,21 @@ struct Prompt: Codable, Identifiable, Equatable {
 
 extension Prompt: FetchableRecord, PersistableRecord {
     static let databaseTableName = "prompt"
+
+    static let versions = hasMany(PromptVersion.self)
+    static let tags = hasMany(PromptTag.self)
+    static let usages = hasMany(PromptUsage.self)
+    static let chainSteps = hasMany(PromptChainStep.self, using: PromptChainStep.ForeignKeys.prompt)
+
+    var versions: QueryInterfaceRequest<PromptVersion> {
+        request(for: Prompt.versions)
+    }
+
+    var tags: QueryInterfaceRequest<PromptTag> {
+        request(for: Prompt.tags)
+    }
+
+    var usages: QueryInterfaceRequest<PromptUsage> {
+        request(for: Prompt.usages)
+    }
 }

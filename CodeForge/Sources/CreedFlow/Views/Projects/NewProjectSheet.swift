@@ -108,9 +108,16 @@ struct NewProjectSheet: View {
         }
         .frame(width: 500, height: 540)
         .sheet(isPresented: $showPromptPicker) {
-            PromptPickerSheet(appDatabase: appDatabase) { prompt in
-                description = prompt.content
-                projectType = Self.detectProjectType(from: prompt.category)
+            PromptPickerSheet(
+                appDatabase: appDatabase,
+                projectName: name,
+                techStack: techStack,
+                projectType: projectType.rawValue
+            ) { content, category in
+                description = content
+                if let category {
+                    projectType = Self.detectProjectType(from: category)
+                }
             }
         }
     }
