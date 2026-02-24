@@ -65,10 +65,10 @@ All conform to `AgentProtocol` with `backendPreferences`:
 | Tester | claudeOnly | 10min | creedflow | Run tests in workspace |
 | DevOps | default | 10min | - | Docker, CI/CD, infrastructure |
 | Monitor | default | 5min | - | Health checks, log analysis |
-| ContentWriter | anyBackend | 10min | - | Content/copy writing |
-| Designer | anyBackend | 10min | - | Design specs/guidelines |
-| ImageGenerator | anyBackend | 5min | - | Image prompt generation |
-| VideoEditor | anyBackend | 10min | - | Video editing specs |
+| ContentWriter | claudePreferred | 10min | creedflow | Content/copy writing |
+| Designer | claudePreferred | 10min | figma, creedflow | Design specs + Figma access |
+| ImageGenerator | claudePreferred | 10min | dalle, stability, creedflow | AI image generation |
+| VideoEditor | claudePreferred | 15min | runway, elevenlabs, creedflow | Video/audio generation |
 
 ### Engine
 
@@ -80,13 +80,14 @@ All conform to `AgentProtocol` with `backendPreferences`:
 
 ### Database (SQLite via GRDB)
 
-9 migrations (v1–v9). 15 models: `Project`, `Feature`, `AgentTask`, `TaskDependency`, `Review`, `AgentLog`, `Deployment`, `CostTracking`, `MCPServerConfig`, `Prompt`, `PromptVersion`, `PromptChain`, `PromptChainStep`, `PromptTag`, `PromptUsage`.
+11 migrations (v1–v11). 16 models: `Project`, `Feature`, `AgentTask`, `TaskDependency`, `Review`, `AgentLog`, `Deployment`, `CostTracking`, `MCPServerConfig`, `Prompt`, `PromptVersion`, `PromptChain`, `PromptChainStep`, `PromptTag`, `PromptUsage`, `GeneratedAsset`.
 
 ### MCP Integration
 
 - **Agent → External MCP**: Agents declare `mcpServers`, `MCPConfigGenerator` creates temp config, passed via `--mcp-config`
-- **CreedFlow as MCP Server**: `CreedFlowMCPServer` binary, 7 tools + 4 resources, stdio transport
-- **URIs**: `creedflow://projects`, `creedflow://tasks/queue`, `creedflow://costs/summary`
+- **Creative MCP Servers**: DALL-E, Figma, Stability AI, ElevenLabs, Runway — templates in `MCPServerTemplate.swift`
+- **CreedFlow as MCP Server**: `CreedFlowMCPServer` binary, 9 tools + 5 resources, stdio transport
+- **URIs**: `creedflow://projects`, `creedflow://tasks/queue`, `creedflow://costs/summary`, `creedflow://projects/{id}/assets`
 
 ### Process Lifecycle
 
@@ -101,6 +102,8 @@ All conform to `AgentProtocol` with `backendPreferences`:
 - Models use `package` access level for cross-target visibility
 - `extractJSON()` in Orchestrator strips ANSI codes, handles markdown blocks, validates JSON before returning
 - Backend field written to DB on dispatch (not just completion) so UI shows it during in_progress
+- `BackendPreferences.claudePreferred` — prefers Claude for MCP but falls back to Codex/Gemini
+- Creative agents output structured JSON `{"assets": [...]}` for asset pipeline; fallback saves raw output as text
 
 ## Key File Paths
 
@@ -117,7 +120,9 @@ Sources/CreedFlow/Services/Claude/ClaudeProcessManager.swift — Process spawnin
 Sources/CreedFlow/Services/ProcessTracker.swift     — Global child process cleanup
 Sources/CreedFlow/Services/Agents/AgentProtocol.swift — Agent interface
 Sources/CreedFlow/Services/Deploy/LocalDeploymentService.swift — Docker/process deploy
-Sources/CreedFlow/Database/AppDatabase.swift        — Migrations v1–v9
+Sources/CreedFlow/Models/GeneratedAsset.swift         — Asset model (image, video, audio, design, document)
+Sources/CreedFlow/Services/AssetStorageService.swift  — File storage + DB records for creative assets
+Sources/CreedFlow/Database/AppDatabase.swift        — Migrations v1–v11
 Sources/CreedFlow/Views/ContentView.swift           — Main window layout
 Sources/CreedFlow/Views/Tasks/TaskBoardView.swift   — Kanban board
 Resources/Info.plist                                — App metadata
@@ -132,6 +137,7 @@ Scripts/package-app.sh                              — .app + DMG packaging
 4. BackendRouter selects Claude/Codex/Gemini per agent preferences
 5. MultiBackendRunner streams output, captures result
 6. On completion: Reviewer scores code (>= 7.0 PASS, 5.0-6.9 NEEDS_REVISION, < 5.0 FAIL)
-7. Failed tasks auto-retry up to 3 times
-8. Telegram notifications at key milestones
-9. Deploy to staging/production via Docker or direct process
+7. Creative agents: output parsed for assets → saved to `~/CreedFlow/projects/{name}/assets/` → review queued
+8. Failed tasks auto-retry up to 3 times
+9. Telegram notifications at key milestones
+10. Deploy to staging/production via Docker or direct process
