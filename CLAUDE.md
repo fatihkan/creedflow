@@ -24,7 +24,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 ## Build & Run
 
 ```bash
-cd CodeForge && swift build          # Build (0 errors expected)
+cd CreedFlow && swift build          # Build (0 errors expected)
 .build/debug/CreedFlow               # Run the app
 .build/debug/CreedFlowTests          # Run 38 tests
 .build/debug/CreedFlowMCPServer      # Run MCP server (stdio)
@@ -36,7 +36,7 @@ Platform: macOS 14+ (arm64). Database at `~/Library/Application Support/CreedFlo
 
 ## Architecture
 
-### SPM Package (CodeForge/)
+### SPM Package (CreedFlow/)
 
 4 targets in Package.swift:
 - **CreedFlowLib** — Main library (`Sources/CreedFlow/`)

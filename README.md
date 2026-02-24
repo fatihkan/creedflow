@@ -47,7 +47,7 @@ CreedFlow: Telegram notification → You approve → Deploy
 
 ```bash
 # Build
-cd CodeForge && swift build
+cd CreedFlow && swift build
 
 # Run the app
 .build/debug/CreedFlow
@@ -154,7 +154,7 @@ CreedFlow runs as an MCP server (`CreedFlowMCPServer` binary) exposing:
 ## Project Structure
 
 ```
-CodeForge/
+CreedFlow/
 ├── Package.swift
 ├── Sources/
 │   ├── App/                          # App entry point
