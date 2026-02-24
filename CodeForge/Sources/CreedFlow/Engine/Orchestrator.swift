@@ -237,30 +237,48 @@ final class Orchestrator {
         }
     }
 
+    /// Strip ANSI escape codes from CLI output (color codes, cursor movement, etc.)
+    private func stripANSI(_ text: String) -> String {
+        // Matches sequences like \e[0m, \e[1;31m, \e[38;5;200m, etc.
+        guard let regex = try? NSRegularExpression(pattern: "\\e\\[[0-9;]*[A-Za-z]") else { return text }
+        return regex.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: "")
+    }
+
     /// Extract JSON from text that might contain markdown code blocks or extra text
-    private func extractJSON(from text: String) -> Data? {
+    private func extractJSON(from rawText: String) -> Data? {
+        let text = stripANSI(rawText)
+
         // Try direct parse first
         if let data = text.data(using: .utf8),
            (try? JSONSerialization.jsonObject(with: data)) != nil {
             return data
         }
-        // Try extracting from ```json ... ``` block
-        if let start = text.range(of: "```json"),
+        // Try extracting from ```json ... ``` block (case-insensitive)
+        if let start = text.range(of: "```json", options: .caseInsensitive),
            let end = text.range(of: "```", range: start.upperBound..<text.endIndex) {
             let json = String(text[start.upperBound..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-            return json.data(using: .utf8)
+            if let data = json.data(using: .utf8),
+               (try? JSONSerialization.jsonObject(with: data)) != nil {
+                return data
+            }
         }
         // Try extracting from ``` ... ``` block
         if let start = text.range(of: "```"),
            let end = text.range(of: "```", range: start.upperBound..<text.endIndex) {
             let json = String(text[start.upperBound..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-            return json.data(using: .utf8)
+            if let data = json.data(using: .utf8),
+               (try? JSONSerialization.jsonObject(with: data)) != nil {
+                return data
+            }
         }
         // Try finding first { to last }
         if let firstBrace = text.firstIndex(of: "{"),
            let lastBrace = text.lastIndex(of: "}") {
             let json = String(text[firstBrace...lastBrace])
-            return json.data(using: .utf8)
+            if let data = json.data(using: .utf8),
+               (try? JSONSerialization.jsonObject(with: data)) != nil {
+                return data
+            }
         }
         return nil
     }
