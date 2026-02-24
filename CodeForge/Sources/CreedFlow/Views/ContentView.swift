@@ -154,7 +154,7 @@ public struct ContentView: View {
             )
             .onAppear { selectedProjectId = projectId }
         case .settings:
-            MCPSettingsView(appDatabase: appDatabase)
+            EmptyView()
         case .none:
             ForgeEmptyState(
                 icon: "hammer.fill",

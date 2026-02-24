@@ -22,7 +22,6 @@ struct SidebarView: View {
                 pipelineSection
                 monitorSection
                 promptsSection
-                settingsSection
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
@@ -161,13 +160,6 @@ struct SidebarView: View {
         Section("Library") {
             Label("Prompts", systemImage: "text.book.closed")
                 .tag(SidebarSection.prompts)
-        }
-    }
-
-    private var settingsSection: some View {
-        Section {
-            Label("Settings", systemImage: "gear")
-                .tag(SidebarSection.settings)
         }
     }
 
