@@ -1,8 +1,8 @@
 import Foundation
 import MCP
-import CodeForgeLib
+import CreedLib
 
-/// Registers CodeForge resources on an MCP Server and handles resource reads via MCPBridge.
+/// Registers Creed resources on an MCP Server and handles resource reads via MCPBridge.
 struct MCPResourceRegistrar {
     let bridge: MCPBridge
 
@@ -15,19 +15,19 @@ struct MCPResourceRegistrar {
         [
             Resource(
                 name: "All Projects",
-                uri: "codeforge://projects",
-                description: "List of all CodeForge projects",
+                uri: "creed://projects",
+                description: "List of all Creed projects",
                 mimeType: "application/json"
             ),
             Resource(
                 name: "Task Queue",
-                uri: "codeforge://tasks/queue",
+                uri: "creed://tasks/queue",
                 description: "Current task queue status (queued + in-progress)",
                 mimeType: "application/json"
             ),
             Resource(
                 name: "Cost Summary",
-                uri: "codeforge://costs/summary",
+                uri: "creed://costs/summary",
                 description: "Overall cost and token usage summary",
                 mimeType: "application/json"
             ),
@@ -38,7 +38,7 @@ struct MCPResourceRegistrar {
     var resourceTemplates: [Resource.Template] {
         [
             Resource.Template(
-                uriTemplate: "codeforge://projects/{id}",
+                uriTemplate: "creed://projects/{id}",
                 name: "Project Detail",
                 description: "Detailed project info with task counts",
                 mimeType: "application/json"
@@ -48,17 +48,17 @@ struct MCPResourceRegistrar {
 
     /// Handle a resource read request
     func handleReadResource(uri: String) throws -> ReadResource.Result {
-        if uri == "codeforge://projects" {
+        if uri == "creed://projects" {
             return try readProjects()
-        } else if uri.hasPrefix("codeforge://projects/") {
-            let idStr = String(uri.dropFirst("codeforge://projects/".count))
+        } else if uri.hasPrefix("creed://projects/") {
+            let idStr = String(uri.dropFirst("creed://projects/".count))
             guard let id = UUID(uuidString: idStr) else {
                 throw MCPError.invalidRequest("Invalid project ID: \(idStr)")
             }
             return try readProjectDetail(id: id)
-        } else if uri == "codeforge://tasks/queue" {
+        } else if uri == "creed://tasks/queue" {
             return try readTaskQueue()
-        } else if uri == "codeforge://costs/summary" {
+        } else if uri == "creed://costs/summary" {
             return try readCostSummary()
         } else {
             throw MCPError.invalidRequest("Unknown resource URI: \(uri)")
@@ -81,7 +81,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: items)
         let content = String(data: data, encoding: .utf8) ?? "[]"
         return ReadResource.Result(contents: [
-            .text(content, uri: "codeforge://projects", mimeType: "application/json")
+            .text(content, uri: "creed://projects", mimeType: "application/json")
         ])
     }
 
@@ -99,7 +99,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: dict)
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
-            .text(content, uri: "codeforge://projects/\(id)", mimeType: "application/json")
+            .text(content, uri: "creed://projects/\(id)", mimeType: "application/json")
         ])
     }
 
@@ -116,7 +116,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: dict)
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
-            .text(content, uri: "codeforge://tasks/queue", mimeType: "application/json")
+            .text(content, uri: "creed://tasks/queue", mimeType: "application/json")
         ])
     }
 
@@ -129,7 +129,7 @@ struct MCPResourceRegistrar {
         let data = try JSONSerialization.data(withJSONObject: dict)
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
-            .text(content, uri: "codeforge://costs/summary", mimeType: "application/json")
+            .text(content, uri: "creed://costs/summary", mimeType: "application/json")
         ])
     }
 }

@@ -3,14 +3,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodeForge",
+    name: "Creed",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "CodeForge", targets: ["CodeForge"]),
-        .executable(name: "CodeForgeMCPServer", targets: ["CodeForgeMCPServer"]),
-        .executable(name: "CodeForgeTests", targets: ["CodeForgeTests"]),
+        .executable(name: "Creed", targets: ["Creed"]),
+        .executable(name: "CreedMCPServer", targets: ["CreedMCPServer"]),
+        .executable(name: "CreedTests", targets: ["CreedTests"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
@@ -18,35 +18,35 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CodeForgeLib",
+            name: "CreedLib",
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
-            path: "Sources/CodeForge",
+            path: "Sources/Creed",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
-            name: "CodeForge",
-            dependencies: ["CodeForgeLib"],
+            name: "Creed",
+            dependencies: ["CreedLib"],
             path: "Sources/App",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
-            name: "CodeForgeMCPServer",
+            name: "CreedMCPServer",
             dependencies: [
-                "CodeForgeLib",
+                "CreedLib",
                 .product(name: "MCP", package: "swift-sdk"),
             ],
             path: "Sources/MCPServer",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
-            name: "CodeForgeTests",
+            name: "CreedTests",
             dependencies: [
-                "CodeForgeLib",
+                "CreedLib",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
-            path: "Tests/CodeForgeTests",
+            path: "Tests/CreedTests",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

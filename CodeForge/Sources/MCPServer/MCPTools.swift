@@ -1,8 +1,8 @@
 import Foundation
 import MCP
-import CodeForgeLib
+import CreedLib
 
-/// Registers CodeForge tools on an MCP Server and handles tool calls via MCPBridge.
+/// Registers Creed tools on an MCP Server and handles tool calls via MCPBridge.
 struct MCPToolRegistrar {
     let bridge: MCPBridge
 
@@ -10,12 +10,12 @@ struct MCPToolRegistrar {
         self.bridge = bridge
     }
 
-    /// All tool definitions exposed by CodeForge
+    /// All tool definitions exposed by Creed
     var tools: [Tool] {
         [
             Tool(
                 name: "create_project",
-                description: "Create a new CodeForge project",
+                description: "Create a new Creed project",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
