@@ -13,6 +13,10 @@ struct PromptEditSheet: View {
     @State private var changeNote = ""
     @State private var versionHistory: [PromptVersion] = []
     @State private var showVersionHistory = false
+    @State private var selectedVersionsForDiff: Set<UUID> = []
+    @State private var showDiffSheet = false
+    @State private var diffOldVersion: PromptVersion?
+    @State private var diffNewVersion: PromptVersion?
 
     init(appDatabase: AppDatabase?, existing: Prompt? = nil) {
         self.appDatabase = appDatabase
@@ -86,8 +90,34 @@ struct PromptEditSheet: View {
 
                     if !versionHistory.isEmpty {
                         DisclosureGroup("Version History (\(versionHistory.count))", isExpanded: $showVersionHistory) {
+                            if selectedVersionsForDiff.count == 2 {
+                                Button("Compare Selected") {
+                                    presentDiff()
+                                }
+                                .font(.caption)
+                                .buttonStyle(.bordered)
+                                .padding(.bottom, 4)
+                            }
+
                             ForEach(versionHistory) { ver in
                                 HStack {
+                                    Toggle(isOn: Binding(
+                                        get: { selectedVersionsForDiff.contains(ver.id) },
+                                        set: { isOn in
+                                            if isOn {
+                                                if selectedVersionsForDiff.count >= 2 {
+                                                    selectedVersionsForDiff.removeFirst()
+                                                }
+                                                selectedVersionsForDiff.insert(ver.id)
+                                            } else {
+                                                selectedVersionsForDiff.remove(ver.id)
+                                            }
+                                        }
+                                    )) {
+                                        EmptyView()
+                                    }
+                                    .toggleStyle(.checkbox)
+
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("v\(ver.version) — \(ver.title)")
                                             .font(.caption.bold())
@@ -132,6 +162,11 @@ struct PromptEditSheet: View {
             .padding()
         }
         .frame(width: 520, height: 560)
+        .sheet(isPresented: $showDiffSheet) {
+            if let old = diffOldVersion, let new = diffNewVersion {
+                PromptVersionDiffView(oldVersion: old, newVersion: new)
+            }
+        }
         .onAppear {
             if let existing {
                 title = existing.title
@@ -164,6 +199,15 @@ struct PromptEditSheet: View {
     private func loadVersionHistory() {
         guard let db = appDatabase, let existing else { return }
         versionHistory = (try? PromptStore().fetchVersionHistory(for: existing.id, in: db.dbQueue)) ?? []
+    }
+
+    private func presentDiff() {
+        let selected = versionHistory.filter { selectedVersionsForDiff.contains($0.id) }
+        guard selected.count == 2 else { return }
+        let sorted = selected.sorted { $0.version < $1.version }
+        diffOldVersion = sorted[0]
+        diffNewVersion = sorted[1]
+        showDiffSheet = true
     }
 
     private func revertToVersion(_ version: PromptVersion) {

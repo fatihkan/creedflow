@@ -1,5 +1,13 @@
 import SwiftUI
 import GRDB
+import AppKit
+
+enum PromptSortOrder: String, CaseIterable {
+    case alphabetical = "A-Z"
+    case usageCount = "Usage"
+    case successRate = "Success"
+    case reviewScore = "Score"
+}
 
 struct PromptsLibraryView: View {
     let appDatabase: AppDatabase?
@@ -9,7 +17,7 @@ struct PromptsLibraryView: View {
     @State private var selectedSource: Prompt.Source?
     @State private var selectedCategory = "all"
     @State private var selectedTag = ""
-    @State private var selectedTab = 0 // 0 = prompts, 1 = chains
+    @State private var selectedTab = 0 // 0 = prompts, 1 = chains, 2 = effectiveness
     @State private var showEditSheet = false
     @State private var editingPrompt: Prompt?
     @State private var isImporting = false
@@ -18,14 +26,25 @@ struct PromptsLibraryView: View {
     @State private var showChainEditSheet = false
     @State private var editingChain: PromptChain?
     @State private var chainToDelete: PromptChain?
+    @State private var sortOrder: PromptSortOrder = .alphabetical
 
     private var filteredPrompts: [Prompt] {
-        store.filtered(
+        let base = store.filtered(
             searchText: searchText,
             source: selectedSource,
             category: selectedCategory == "all" ? nil : selectedCategory,
             tag: selectedTag.isEmpty ? nil : selectedTag
         )
+        switch sortOrder {
+        case .alphabetical:
+            return base
+        case .usageCount:
+            return base.sorted { (store.promptStats[$0.id]?.usageCount ?? 0) > (store.promptStats[$1.id]?.usageCount ?? 0) }
+        case .successRate:
+            return base.sorted { (store.promptStats[$0.id]?.successRate ?? -1) > (store.promptStats[$1.id]?.successRate ?? -1) }
+        case .reviewScore:
+            return base.sorted { (store.promptStats[$0.id]?.averageReviewScore ?? -1) > (store.promptStats[$1.id]?.averageReviewScore ?? -1) }
+        }
     }
 
     var body: some View {
@@ -38,24 +57,39 @@ struct PromptsLibraryView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Button {
-                        importCommunityPrompts()
-                    } label: {
-                        Label("Import Community", systemImage: "arrow.down.circle")
-                    }
-                    .disabled(isImporting)
-
-                    if selectedTab == 0 {
+                    if selectedTab != 2 {
                         Button {
-                            showEditSheet = true
+                            importCommunityPrompts()
                         } label: {
-                            Label("New Prompt", systemImage: "plus")
+                            Label("Import Community", systemImage: "arrow.down.circle")
                         }
-                    } else {
-                        Button {
-                            showChainEditSheet = true
-                        } label: {
-                            Label("New Chain", systemImage: "plus")
+                        .disabled(isImporting)
+
+                        if selectedTab == 0 {
+                            Button {
+                                exportPrompts()
+                            } label: {
+                                Label("Export", systemImage: "square.and.arrow.up")
+                            }
+                            .disabled(filteredPrompts.isEmpty)
+
+                            Button {
+                                importPromptsFromJSON()
+                            } label: {
+                                Label("Import JSON", systemImage: "square.and.arrow.down")
+                            }
+
+                            Button {
+                                showEditSheet = true
+                            } label: {
+                                Label("New Prompt", systemImage: "plus")
+                            }
+                        } else {
+                            Button {
+                                showChainEditSheet = true
+                            } label: {
+                                Label("New Chain", systemImage: "plus")
+                            }
                         }
                     }
                 }
@@ -66,9 +100,10 @@ struct PromptsLibraryView: View {
             Picker("View", selection: $selectedTab) {
                 Text("Prompts").tag(0)
                 Text("Chains").tag(1)
+                Text("Effectiveness").tag(2)
             }
             .pickerStyle(.segmented)
-            .frame(maxWidth: 200)
+            .frame(maxWidth: 300)
             .padding(.horizontal)
             .padding(.top, 8)
 
@@ -76,14 +111,18 @@ struct PromptsLibraryView: View {
                 filterBar
                 Divider()
                 promptList
-            } else {
+            } else if selectedTab == 1 {
                 Divider()
                 chainList
+            } else {
+                Divider()
+                PromptEffectivenessDashboardView(appDatabase: appDatabase)
             }
         }
         .onAppear {
             if let db = appDatabase {
                 store.observe(in: db.dbQueue)
+                store.observeStats(in: db.dbQueue)
                 chainStore.observe(in: db.dbQueue)
             }
         }
@@ -178,6 +217,15 @@ struct PromptsLibraryView: View {
                 .frame(maxWidth: 140)
             }
 
+            Picker(selection: $sortOrder) {
+                ForEach(PromptSortOrder.allCases, id: \.self) { order in
+                    Text(order.rawValue).tag(order)
+                }
+            } label: {
+                EmptyView()
+            }
+            .frame(maxWidth: 100)
+
             Spacer()
         }
         .padding(.horizontal)
@@ -205,6 +253,7 @@ struct PromptsLibraryView: View {
                             prompt: prompt,
                             tags: store.promptTags[prompt.id] ?? [],
                             usageCount: usageCount(for: prompt),
+                            stats: store.promptStats[prompt.id],
                             onToggleFavorite: { toggleFavorite(prompt) },
                             onEdit: { editingPrompt = prompt },
                             onDelete: { promptToDelete = prompt }
@@ -251,6 +300,16 @@ struct PromptsLibraryView: View {
                                             .background(.secondary.opacity(0.15), in: Capsule())
                                             .foregroundStyle(.secondary)
                                     }
+                                    let chainUsage = chainUsageCount(for: chain)
+                                    if chainUsage > 0 {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "chart.bar")
+                                                .font(.system(size: 8))
+                                            Text("\(chainUsage)")
+                                                .font(.system(size: 9, weight: .medium))
+                                        }
+                                        .foregroundStyle(.secondary)
+                                    }
                                 }
                                 if !chain.description.isEmpty {
                                     Text(chain.description)
@@ -282,6 +341,11 @@ struct PromptsLibraryView: View {
     }
 
     // MARK: - Actions
+
+    private func chainUsageCount(for chain: PromptChain) -> Int {
+        guard let db = appDatabase else { return 0 }
+        return (try? chainStore.fetchChainUsageCount(chainId: chain.id, in: db.dbQueue)) ?? 0
+    }
 
     private func usageCount(for prompt: Prompt) -> Int {
         guard let db = appDatabase else { return 0 }
@@ -323,6 +387,40 @@ struct PromptsLibraryView: View {
         }
     }
 
+    private func exportPrompts() {
+        guard appDatabase != nil else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "creedflow-prompts.json"
+        panel.title = "Export Prompts"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let data = try PromptExporter.export(prompts: filteredPrompts, tags: store.promptTags)
+            try data.write(to: url)
+            importResult = "Exported \(filteredPrompts.count) prompts"
+        } catch {
+            importResult = "Export failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func importPromptsFromJSON() {
+        guard let db = appDatabase else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.title = "Import Prompts"
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let count = try PromptExporter.importPrompts(from: data, into: db.dbQueue)
+            importResult = "Imported \(count) prompts"
+        } catch {
+            importResult = "Import failed: \(error.localizedDescription)"
+        }
+    }
+
     private func deleteChain(_ chain: PromptChain) {
         guard let db = appDatabase else { return }
         _ = try? db.dbQueue.write { dbConn in
@@ -337,6 +435,7 @@ private struct PromptRow: View {
     let prompt: Prompt
     let tags: [String]
     let usageCount: Int
+    var stats: PromptStats?
     let onToggleFavorite: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -402,6 +501,24 @@ private struct PromptRow: View {
                                 .font(.system(size: 9, weight: .medium))
                         }
                         .foregroundStyle(.secondary)
+                    }
+                    if let rate = stats?.successRate {
+                        HStack(spacing: 2) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 8))
+                            Text("\(Int(rate * 100))%")
+                                .font(.system(size: 9, weight: .medium))
+                        }
+                        .foregroundStyle(rate >= 0.7 ? .forgeSuccess : rate >= 0.4 ? .forgeWarning : .forgeDanger)
+                    }
+                    if let score = stats?.averageReviewScore {
+                        HStack(spacing: 2) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 8))
+                            Text(String(format: "%.1f", score))
+                                .font(.system(size: 9, weight: .medium))
+                        }
+                        .foregroundStyle(score >= 7.0 ? .forgeSuccess : score >= 5.0 ? .forgeWarning : .forgeDanger)
                     }
                 }
             }

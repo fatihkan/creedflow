@@ -14,8 +14,10 @@ final class PromptStore {
     private(set) var prompts: [Prompt] = []
     private(set) var allTags: [String] = []
     private(set) var promptTags: [UUID: [String]] = [:]
+    private(set) var promptStats: [UUID: PromptStats] = [:]
     private var cancellable: AnyCancellable?
     private var tagCancellable: AnyCancellable?
+    private var statsCancellable: AnyCancellable?
 
     func observe(in dbQueue: DatabaseQueue) {
         cancellable = ValueObservation
@@ -46,6 +48,36 @@ final class PromptStore {
                     }
                     self?.promptTags = byPrompt
                     self?.allTags = allSet.sorted()
+                }
+            )
+    }
+
+    func observeStats(in dbQueue: DatabaseQueue) {
+        statsCancellable = ValueObservation
+            .tracking { db in
+                try PromptUsage.fetchAll(db)
+            }
+            .publisher(in: dbQueue, scheduling: .immediate)
+            .sink(
+                receiveCompletion: { _ in },
+                receiveValue: { [weak self] usages in
+                    var stats: [UUID: PromptStats] = [:]
+                    let grouped = Dictionary(grouping: usages, by: \.promptId)
+                    for (promptId, records) in grouped {
+                        let count = records.count
+                        let withOutcome = records.filter { $0.outcome != nil }
+                        let successRate: Double?
+                        if !withOutcome.isEmpty {
+                            let successes = withOutcome.filter { $0.outcome == .completed }.count
+                            successRate = Double(successes) / Double(withOutcome.count)
+                        } else {
+                            successRate = nil
+                        }
+                        let scores = records.compactMap(\.reviewScore)
+                        let avgScore = scores.isEmpty ? nil : scores.reduce(0, +) / Double(scores.count)
+                        stats[promptId] = PromptStats(usageCount: count, successRate: successRate, averageReviewScore: avgScore)
+                    }
+                    self?.promptStats = stats
                 }
             )
     }

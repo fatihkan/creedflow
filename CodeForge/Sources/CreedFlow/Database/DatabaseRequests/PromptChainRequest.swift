@@ -68,6 +68,14 @@ final class PromptChainStore {
         }
     }
 
+    func fetchChainUsageCount(chainId: UUID, in dbQueue: DatabaseQueue) throws -> Int {
+        try dbQueue.read { db in
+            try PromptUsage
+                .filter(Column("chainId") == chainId)
+                .fetchCount(db)
+        }
+    }
+
     func composeChainContent(chainId: UUID, in dbQueue: DatabaseQueue) throws -> String {
         guard let chainWithSteps = try fetchChainWithSteps(chainId: chainId, in: dbQueue) else {
             return ""

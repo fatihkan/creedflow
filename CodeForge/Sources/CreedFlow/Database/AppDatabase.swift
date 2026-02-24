@@ -314,6 +314,13 @@ public struct AppDatabase {
             try db.create(index: "promptUsage_on_promptId", on: "promptUsage", columns: ["promptId"])
         }
 
+        migrator.registerMigration("v9_chain_usage_tracking") { db in
+            try db.alter(table: "promptUsage") { t in
+                t.add(column: "chainId", .text).references("promptChain", onDelete: .setNull)
+            }
+            try db.create(index: "promptUsage_on_chainId", on: "promptUsage", columns: ["chainId"])
+        }
+
         return migrator
     }
 }

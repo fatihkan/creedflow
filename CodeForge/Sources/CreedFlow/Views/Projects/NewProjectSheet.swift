@@ -148,6 +148,13 @@ struct NewProjectSheet: View {
                 )
                 try project.insert(dbConn)
 
+                // Backfill recent prompt usage records (within 5-min window) with this project's ID
+                let fiveMinAgo = Date().addingTimeInterval(-300)
+                try PromptUsage
+                    .filter(Column("projectId") == nil)
+                    .filter(Column("usedAt") >= fiveMinAgo)
+                    .updateAll(dbConn, Column("projectId").set(to: project.id))
+
                 // Auto-queue analyzer task for the new project
                 let analyzerTask = AgentTask(
                     projectId: project.id,

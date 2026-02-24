@@ -115,7 +115,7 @@ struct ProjectRevisionSheet: View {
         }
         .frame(width: 550, height: 560)
         .sheet(isPresented: $showPromptPicker) {
-            PromptPickerSheet(appDatabase: appDatabase) { content, _ in
+            PromptPickerSheet(appDatabase: appDatabase, projectId: project.id) { content, _ in
                 newRequirements = content
             }
         }

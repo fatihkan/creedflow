@@ -3,6 +3,7 @@ import GRDB
 
 struct PromptPickerSheet: View {
     let appDatabase: AppDatabase?
+    let projectId: UUID?
     let projectName: String?
     let techStack: String?
     let projectType: String?
@@ -17,15 +18,18 @@ struct PromptPickerSheet: View {
     @State private var promptForVariables: Prompt?
     @State private var chainContentForVariables: String?
     @State private var chainCategoryForVariables: String?
+    @State private var chainForVariables: PromptChain?
 
     init(
         appDatabase: AppDatabase?,
+        projectId: UUID? = nil,
         projectName: String? = nil,
         techStack: String? = nil,
         projectType: String? = nil,
         onSelect: @escaping (String, String?) -> Void
     ) {
         self.appDatabase = appDatabase
+        self.projectId = projectId
         self.projectName = projectName
         self.techStack = techStack
         self.projectType = projectType
@@ -165,13 +169,16 @@ struct PromptPickerSheet: View {
         }
         .sheet(isPresented: Binding(
             get: { chainContentForVariables != nil },
-            set: { if !$0 { chainContentForVariables = nil; chainCategoryForVariables = nil } }
+            set: { if !$0 { chainContentForVariables = nil; chainCategoryForVariables = nil; chainForVariables = nil } }
         )) {
             if let content = chainContentForVariables {
                 TemplateVariableInputView(
                     template: content,
                     builtInValues: builtInValues
                 ) { resolved in
+                    if let chain = chainForVariables {
+                        recordChainUsage(chain: chain)
+                    }
                     onSelect(resolved, chainCategoryForVariables)
                     dismiss()
                 }
@@ -332,19 +339,32 @@ struct PromptPickerSheet: View {
 
         let variables = TemplateVariableResolver.extractVariables(from: content)
         if variables.isEmpty {
+            recordChainUsage(chain: chain)
             onSelect(content, chain.category)
             dismiss()
         } else {
             chainContentForVariables = content
             chainCategoryForVariables = chain.category
+            chainForVariables = chain
         }
     }
 
     private func recordUsage(promptId: UUID) {
         guard let db = appDatabase else { return }
         try? db.dbQueue.write { dbConn in
-            let usage = PromptUsage(promptId: promptId)
+            let usage = PromptUsage(promptId: promptId, projectId: projectId)
             try usage.insert(dbConn)
+        }
+    }
+
+    private func recordChainUsage(chain: PromptChain) {
+        guard let db = appDatabase else { return }
+        let steps = chainStore.steps[chain.id] ?? []
+        try? db.dbQueue.write { dbConn in
+            for step in steps {
+                let usage = PromptUsage(promptId: step.promptId, projectId: projectId, chainId: chain.id)
+                try usage.insert(dbConn)
+            }
         }
     }
 }

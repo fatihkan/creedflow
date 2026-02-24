@@ -32,8 +32,13 @@ extension PromptChain: FetchableRecord, PersistableRecord {
     static let databaseTableName = "promptChain"
 
     static let steps = hasMany(PromptChainStep.self, using: PromptChainStep.ForeignKeys.chain)
+    static let usages = hasMany(PromptUsage.self)
 
     var steps: QueryInterfaceRequest<PromptChainStep> {
         request(for: PromptChain.steps)
+    }
+
+    var usages: QueryInterfaceRequest<PromptUsage> {
+        request(for: PromptChain.usages)
     }
 }

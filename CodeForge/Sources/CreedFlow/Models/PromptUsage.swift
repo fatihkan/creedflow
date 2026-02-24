@@ -6,6 +6,7 @@ struct PromptUsage: Codable, Identifiable, Equatable {
     var promptId: UUID
     var projectId: UUID?
     var taskId: UUID?
+    var chainId: UUID?
     var outcome: Outcome?
     var reviewScore: Double?
     var usedAt: Date
@@ -20,6 +21,7 @@ struct PromptUsage: Codable, Identifiable, Equatable {
         promptId: UUID,
         projectId: UUID? = nil,
         taskId: UUID? = nil,
+        chainId: UUID? = nil,
         outcome: Outcome? = nil,
         reviewScore: Double? = nil,
         usedAt: Date = Date()
@@ -28,6 +30,7 @@ struct PromptUsage: Codable, Identifiable, Equatable {
         self.promptId = promptId
         self.projectId = projectId
         self.taskId = taskId
+        self.chainId = chainId
         self.outcome = outcome
         self.reviewScore = reviewScore
         self.usedAt = usedAt
@@ -40,8 +43,13 @@ extension PromptUsage: FetchableRecord, PersistableRecord {
     static let databaseTableName = "promptUsage"
 
     static let prompt = belongsTo(Prompt.self)
+    static let chain = belongsTo(PromptChain.self)
 
     var prompt: QueryInterfaceRequest<Prompt> {
         request(for: PromptUsage.prompt)
+    }
+
+    var chain: QueryInterfaceRequest<PromptChain> {
+        request(for: PromptUsage.chain)
     }
 }
