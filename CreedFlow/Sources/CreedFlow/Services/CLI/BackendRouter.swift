@@ -1,7 +1,15 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.creedflow", category: "BackendRouter")
 
 /// Routes agent tasks to the appropriate CLI backend using round-robin
 /// load balancing, with MCP-aware routing for agents that need Claude features.
+///
+/// **Hard rules:**
+/// - A backend that is disabled in Settings is NEVER selected.
+/// - A backend whose CLI binary is missing (`isAvailable == false`) is NEVER selected.
+/// - If no suitable backend exists, `selectBackend` returns `nil` and the task is skipped.
 actor BackendRouter {
     private var backends: [CLIBackendType: any CLIBackend] = [:]
     private var roundRobinIndex: Int = 0
@@ -23,19 +31,23 @@ actor BackendRouter {
     }
 
     /// Select the best available backend for the given agent and task.
+    /// Returns `nil` when no suitable, enabled, and available backend exists.
     ///
     /// Selection logic:
-    /// 1. If the agent requires Claude features (MCP, tools, JSON schema) → Claude only
-    /// 2. Otherwise, round-robin across the agent's preferred backends that are available AND enabled
-    /// 3. Falls back to Claude if no preferred backend is available
-    func selectBackend(agent: any AgentProtocol, task: AgentTask) async -> any CLIBackend {
+    /// 1. If the agent requires Claude features → return Claude only if enabled AND available.
+    /// 2. Otherwise, round-robin across the agent's preferred backends that are available AND enabled.
+    /// 3. Never returns a disabled or unavailable backend.
+    func selectBackend(agent: any AgentProtocol, task: AgentTask) async -> (any CLIBackend)? {
         let prefs = agent.backendPreferences
 
-        // If agent requires Claude-specific features, always use Claude
+        // If agent requires Claude-specific features, Claude must be enabled + available
         if prefs.requiresClaudeFeatures {
-            if let claude = backends[.claude] {
+            if let claude = backends[.claude], isEnabled(.claude), await claude.isAvailable {
                 return claude
             }
+            // Claude required but not usable — no fallback for MCP-dependent agents
+            logger.warning("Agent \(task.agentType.rawValue) requires Claude but it is disabled or unavailable — skipping task \(task.id)")
+            return nil
         }
 
         // Collect available AND enabled backends from the agent's preference list
@@ -46,13 +58,9 @@ actor BackendRouter {
             }
         }
 
-        // Fallback to Claude if nothing else is available
         if available.isEmpty {
-            if let claude = backends[.claude] {
-                return claude
-            }
-            // Last resort: return whatever we have
-            return backends.values.first!
+            logger.warning("No enabled and available backend for agent \(task.agentType.rawValue) — skipping task \(task.id)")
+            return nil
         }
 
         // Round-robin across available backends
@@ -61,8 +69,9 @@ actor BackendRouter {
         return available[index]
     }
 
-    /// Get a specific backend by type.
-    func backend(for type: CLIBackendType) -> (any CLIBackend)? {
-        backends[type]
+    /// Get a specific backend by type (only if enabled and available).
+    func backend(for type: CLIBackendType) async -> (any CLIBackend)? {
+        guard let b = backends[type], isEnabled(type), await b.isAvailable else { return nil }
+        return b
     }
 }

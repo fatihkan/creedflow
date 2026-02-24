@@ -5,15 +5,15 @@ import Foundation
 actor ClaudeBackend: CLIBackend {
     nonisolated let backendType = CLIBackendType.claude
     private let processManager: ClaudeProcessManager
+    private let claudePath: String
 
-    init(processManager: ClaudeProcessManager) {
+    init(processManager: ClaudeProcessManager, claudePath: String? = nil) {
         self.processManager = processManager
+        self.claudePath = claudePath ?? Self.findClaudeCLI()
     }
 
     var isAvailable: Bool {
-        // Claude is always considered available if the app is running
-        // (path resolution handled at init time by Orchestrator)
-        true
+        FileManager.default.isExecutableFile(atPath: claudePath)
     }
 
     func execute(_ input: CLITaskInput) async -> (id: UUID, stream: AsyncThrowingStream<CLIOutputEvent, Error>) {
@@ -68,6 +68,23 @@ actor ClaudeBackend: CLIBackend {
 
     nonisolated func activeCountAsync() async -> Int {
         await processManager.activeCount()
+    }
+
+    // MARK: - Path Resolution
+
+    private static func findClaudeCLI() -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            "\(home)/.local/bin/claude",
+            "/usr/local/bin/claude",
+            "/opt/homebrew/bin/claude",
+        ]
+        for path in candidates {
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+        }
+        return candidates[0]
     }
 
     // MARK: - Event Mapping

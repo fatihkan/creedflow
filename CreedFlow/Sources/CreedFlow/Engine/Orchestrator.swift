@@ -54,9 +54,11 @@ final class Orchestrator {
         self.publishingService = ContentPublishingService(dbQueue: dbQueue)
 
         // Register backends (done after init to avoid capturing self before init completes)
+        // All three are registered; BackendRouter checks isEnabled + isAvailable before selection.
         let pm = self.processManager
+        let claudeResolvedPath = resolvedPath
         Task {
-            await router.register(ClaudeBackend(processManager: pm))
+            await router.register(ClaudeBackend(processManager: pm, claudePath: claudeResolvedPath))
             await router.register(CodexBackend())
             await router.register(GeminiBackend())
         }
@@ -130,7 +132,12 @@ final class Orchestrator {
 
         // Select backend and create a runner for this task
         let agent = resolveAgent(for: task.agentType)
-        let backend = await backendRouter.selectBackend(agent: agent, task: task)
+        guard let backend = await backendRouter.selectBackend(agent: agent, task: task) else {
+            // No enabled/available backend — defer the task back to queue
+            await scheduler.release(task: task)
+            try? await taskQueue.deferTask(task)
+            return
+        }
         let runner = MultiBackendRunner(backend: backend, dbQueue: dbQueue)
         activeRunners[task.id] = runner
 
