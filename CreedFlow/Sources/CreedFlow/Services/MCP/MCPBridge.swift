@@ -224,6 +224,56 @@ package final class MCPBridge: Sendable {
         }
     }
 
+    // MARK: - Asset Versioning
+
+    package func listAssetVersions(assetId: UUID) throws -> [GeneratedAsset] {
+        try dbQueue.read { db in
+            guard let asset = try GeneratedAsset.fetchOne(db, id: assetId) else { return [] }
+            return try GeneratedAsset
+                .filter(Column("name") == asset.name)
+                .filter(Column("projectId") == asset.projectId)
+                .order(Column("version").asc)
+                .fetchAll(db)
+        }
+    }
+
+    package func approveAsset(id: UUID) throws -> Bool {
+        try dbQueue.write { db in
+            guard var asset = try GeneratedAsset.fetchOne(db, id: id) else { return false }
+            asset.status = .approved
+            asset.updatedAt = Date()
+            try asset.update(db)
+            return true
+        }
+    }
+
+    // MARK: - Publishing Operations
+
+    package func listPublications(projectId: UUID? = nil, status: Publication.Status? = nil) throws -> [Publication] {
+        try dbQueue.read { db in
+            var request = Publication.order(Column("createdAt").desc)
+            if let projectId {
+                request = request.filter(Column("projectId") == projectId)
+            }
+            if let status {
+                request = request.filter(Column("status") == status.rawValue)
+            }
+            return try request.fetchAll(db)
+        }
+    }
+
+    package func listPublishingChannels() throws -> [PublishingChannel] {
+        try dbQueue.read { db in
+            try PublishingChannel.order(Column("name").asc).fetchAll(db)
+        }
+    }
+
+    package func getPublishingChannel(id: UUID) throws -> PublishingChannel? {
+        try dbQueue.read { db in
+            try PublishingChannel.fetchOne(db, id: id)
+        }
+    }
+
     // MARK: - Queue Status
 
     package func getQueueStatus() throws -> QueueStatusInfo {

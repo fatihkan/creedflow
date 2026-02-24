@@ -33,7 +33,7 @@ struct MCPToolRegistrar {
                     "type": .string("object"),
                     "properties": .object([
                         "project_id": .object(["type": .string("string"), "description": .string("Project UUID")]),
-                        "agent_type": .object(["type": .string("string"), "enum": .array([.string("analyzer"), .string("coder"), .string("reviewer"), .string("tester"), .string("devops"), .string("monitor")])]),
+                        "agent_type": .object(["type": .string("string"), "enum": .array([.string("analyzer"), .string("coder"), .string("reviewer"), .string("tester"), .string("devops"), .string("monitor"), .string("contentWriter"), .string("designer"), .string("imageGenerator"), .string("videoEditor"), .string("publisher")])]),
                         "title": .object(["type": .string("string"), "description": .string("Task title")]),
                         "description": .object(["type": .string("string"), "description": .string("Task description")]),
                         "priority": .object(["type": .string("integer"), "description": .string("Priority (0=low, higher=more urgent)"), "default": .int(0)])
@@ -60,7 +60,7 @@ struct MCPToolRegistrar {
                     "properties": .object([
                         "project_id": .object(["type": .string("string"), "description": .string("Filter by project UUID")]),
                         "status": .object(["type": .string("string"), "enum": .array([.string("queued"), .string("in_progress"), .string("passed"), .string("failed"), .string("needs_revision"), .string("cancelled")])]),
-                        "agent_type": .object(["type": .string("string"), "enum": .array([.string("analyzer"), .string("coder"), .string("reviewer"), .string("tester"), .string("devops"), .string("monitor")])])
+                        "agent_type": .object(["type": .string("string"), "enum": .array([.string("analyzer"), .string("coder"), .string("reviewer"), .string("tester"), .string("devops"), .string("monitor"), .string("contentWriter"), .string("designer"), .string("imageGenerator"), .string("videoEditor"), .string("publisher")])])
                     ])
                 ])
             ),
@@ -122,6 +122,47 @@ struct MCPToolRegistrar {
                     "required": .array([.string("asset_id")])
                 ])
             ),
+            Tool(
+                name: "list_asset_versions",
+                description: "List all versions of an asset",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "asset_id": .object(["type": .string("string"), "description": .string("Asset UUID")])
+                    ]),
+                    "required": .array([.string("asset_id")])
+                ])
+            ),
+            Tool(
+                name: "approve_asset",
+                description: "Approve a generated asset",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "asset_id": .object(["type": .string("string"), "description": .string("Asset UUID")])
+                    ]),
+                    "required": .array([.string("asset_id")])
+                ])
+            ),
+            Tool(
+                name: "list_publications",
+                description: "List content publications with optional filters",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "project_id": .object(["type": .string("string"), "description": .string("Filter by project UUID")]),
+                        "status": .object(["type": .string("string"), "enum": .array([.string("scheduled"), .string("publishing"), .string("published"), .string("failed")])])
+                    ])
+                ])
+            ),
+            Tool(
+                name: "list_publishing_channels",
+                description: "List configured publishing channels",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([:])
+                ])
+            ),
         ]
     }
 
@@ -148,6 +189,14 @@ struct MCPToolRegistrar {
             return try handleListAssets(args)
         case "get_asset":
             return try handleGetAsset(args)
+        case "list_asset_versions":
+            return try handleListAssetVersions(args)
+        case "approve_asset":
+            return try handleApproveAsset(args)
+        case "list_publications":
+            return try handleListPublications(args)
+        case "list_publishing_channels":
+            return try handleListPublishingChannels(args)
         default:
             return CallTool.Result(content: [.text("Unknown tool: \(name)")], isError: true)
         }
@@ -273,12 +322,57 @@ struct MCPToolRegistrar {
             Asset: \(asset.name)
             Type: \(asset.assetType.rawValue)
             Status: \(asset.status.rawValue)
+            Version: \(asset.version)
             Path: \(asset.filePath)
             Size: \(asset.fileSize ?? 0) bytes
             MIME: \(asset.mimeType ?? "unknown")
+            Thumbnail: \(asset.thumbnailPath ?? "none")
+            Checksum: \(asset.checksum ?? "none")
             Source URL: \(asset.sourceUrl ?? "none")
             Created: \(asset.createdAt)
             """
         return CallTool.Result(content: [.text(text)])
+    }
+
+    private func handleListAssetVersions(_ args: [String: Value]) throws -> CallTool.Result {
+        guard let idStr = args["asset_id"]?.stringValue,
+              let id = UUID(uuidString: idStr) else {
+            return CallTool.Result(content: [.text("Missing required: asset_id")], isError: true)
+        }
+        let versions = try bridge.listAssetVersions(assetId: id)
+        if versions.isEmpty {
+            return CallTool.Result(content: [.text("No versions found")])
+        }
+        let lines = versions.map { "v\($0.version) [\($0.status.rawValue)] \($0.name) (id: \($0.id), checksum: \($0.checksum ?? "none"))" }
+        return CallTool.Result(content: [.text(lines.joined(separator: "\n"))])
+    }
+
+    private func handleApproveAsset(_ args: [String: Value]) throws -> CallTool.Result {
+        guard let idStr = args["asset_id"]?.stringValue,
+              let id = UUID(uuidString: idStr) else {
+            return CallTool.Result(content: [.text("Missing required: asset_id")], isError: true)
+        }
+        let success = try bridge.approveAsset(id: id)
+        return CallTool.Result(content: [.text(success ? "Asset approved" : "Asset not found")])
+    }
+
+    private func handleListPublications(_ args: [String: Value]) throws -> CallTool.Result {
+        let projectId = args["project_id"]?.stringValue.flatMap(UUID.init(uuidString:))
+        let status = args["status"]?.stringValue.flatMap(Publication.Status.init(rawValue:))
+        let pubs = try bridge.listPublications(projectId: projectId, status: status)
+        if pubs.isEmpty {
+            return CallTool.Result(content: [.text("No publications found")])
+        }
+        let lines = pubs.map { "[\($0.status.rawValue)] asset:\($0.assetId) → channel:\($0.channelId) (url: \($0.publishedUrl ?? "pending"))" }
+        return CallTool.Result(content: [.text(lines.joined(separator: "\n"))])
+    }
+
+    private func handleListPublishingChannels(_ args: [String: Value]) throws -> CallTool.Result {
+        let channels = try bridge.listPublishingChannels()
+        if channels.isEmpty {
+            return CallTool.Result(content: [.text("No publishing channels configured")])
+        }
+        let lines = channels.map { "[\($0.isEnabled ? "enabled" : "disabled")] \($0.name) (\($0.channelType.rawValue), id: \($0.id))" }
+        return CallTool.Result(content: [.text(lines.joined(separator: "\n"))])
     }
 }

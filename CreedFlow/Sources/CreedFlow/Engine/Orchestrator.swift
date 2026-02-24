@@ -16,6 +16,8 @@ final class Orchestrator {
     private let telegramService: TelegramBotService?
     private let localDeployService: LocalDeploymentService
     private let assetService: AssetStorageService
+    private let thumbnailService: ThumbnailGeneratorService
+    private let publishingService: ContentPublishingService
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
@@ -48,6 +50,8 @@ final class Orchestrator {
         self.telegramService = telegramService
         self.localDeployService = LocalDeploymentService(dbQueue: dbQueue)
         self.assetService = AssetStorageService(dbQueue: dbQueue)
+        self.thumbnailService = ThumbnailGeneratorService()
+        self.publishingService = ContentPublishingService(dbQueue: dbQueue)
 
         // Register backends (done after init to avoid capturing self before init completes)
         let pm = self.processManager
@@ -81,6 +85,9 @@ final class Orchestrator {
         // Recover orphaned tasks from previous crash
         try? await taskQueue.recoverOrphanedTasks()
 
+        // Start scheduled publication polling
+        await publishingService.startScheduledPublishing()
+
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.pollAndDispatch()
@@ -94,6 +101,7 @@ final class Orchestrator {
         pollingTask?.cancel()
         pollingTask = nil
         isRunning = false
+        await publishingService.stopScheduledPublishing()
         // Cancel all backends
         for backend in await backendRouter.allBackends {
             await backend.cancelAll()
@@ -256,6 +264,7 @@ final class Orchestrator {
         case .designer: return DesignerAgent()
         case .imageGenerator: return ImageGeneratorAgent()
         case .videoEditor: return VideoEditorAgent()
+        case .publisher: return PublisherAgent()
         }
     }
 
@@ -310,6 +319,8 @@ final class Orchestrator {
             await handleCreativeCompletion(task: task, result: result, assetType: .video)
         case .contentWriter:
             await handleContentWriterCompletion(task: task, result: result)
+        case .publisher:
+            await handlePublisherCompletion(task: task, result: result)
         default:
             break
         }
@@ -467,6 +478,7 @@ final class Orchestrator {
                         case "designer": agentType = .designer
                         case "imagegenerator": agentType = .imageGenerator
                         case "videoeditor": agentType = .videoEditor
+                        case "publisher": agentType = .publisher
                         default: agentType = .coder
                         }
 
@@ -807,7 +819,7 @@ final class Orchestrator {
         }
     }
 
-    /// Handle content writer completion — save output as document asset.
+    /// Handle content writer completion — save output as document asset, queue publisher if channels exist.
     private func handleContentWriterCompletion(task: AgentTask, result: AgentResult) async {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
@@ -816,10 +828,89 @@ final class Orchestrator {
 
         do {
             try await extractAndSaveAssets(output: result.output, task: task, project: project, defaultAssetType: .document)
-            // Content writer tasks don't auto-queue review (text is self-contained)
+
+            // If publishing channels are configured, queue a publisher task
+            let hasChannels = try await publishingService.enabledChannels().isEmpty == false
+            if hasChannels {
+                try await dbQueue.write { db in
+                    let publishTask = AgentTask(
+                        projectId: task.projectId,
+                        featureId: task.featureId,
+                        agentType: .publisher,
+                        title: "Publish: \(task.title)",
+                        description: "Select publishing channels and schedule publication for: \(task.title)",
+                        priority: task.priority
+                    )
+                    try publishTask.insert(db)
+
+                    let dep = TaskDependency(taskId: publishTask.id, dependsOnTaskId: task.id)
+                    try dep.insert(db)
+                }
+            }
         } catch {
             try? await logError(taskId: task.id, agent: .contentWriter,
                                message: "Content writer completion error: \(error.localizedDescription)")
+        }
+    }
+
+    /// Handle publisher agent completion — parse publication plan and create records.
+    private func handlePublisherCompletion(task: AgentTask, result: AgentResult) async {
+        guard let output = result.output else {
+            try? await logError(taskId: task.id, agent: .publisher, message: "Publisher returned no output")
+            return
+        }
+
+        guard let data = extractJSON(from: output) else {
+            try? await logInfo(taskId: task.id, agent: .publisher, message: "No structured publication plan in output")
+            return
+        }
+
+        struct PublisherOutput: Decodable {
+            let publications: [PubItem]?
+
+            struct PubItem: Decodable {
+                let assetId: String?
+                let channelId: String?
+                let format: String?
+                let title: String?
+                let tags: [String]?
+                let isDraft: Bool?
+            }
+        }
+
+        do {
+            let parsed = try JSONDecoder().decode(PublisherOutput.self, from: data)
+            guard let items = parsed.publications, !items.isEmpty else {
+                try? await logInfo(taskId: task.id, agent: .publisher, message: "No publications planned")
+                return
+            }
+
+            for item in items {
+                guard let assetIdStr = item.assetId, let assetId = UUID(uuidString: assetIdStr),
+                      let channelIdStr = item.channelId, let channelId = UUID(uuidString: channelIdStr) else {
+                    continue
+                }
+
+                let format = item.format.flatMap { Publication.ExportFormat(rawValue: $0) } ?? .markdown
+                let options = PublishOptions(
+                    title: item.title ?? task.title,
+                    tags: item.tags ?? [],
+                    isDraft: item.isDraft ?? false
+                )
+
+                _ = try? await publishingService.publish(
+                    assetId: assetId,
+                    channelId: channelId,
+                    format: format,
+                    options: options
+                )
+            }
+
+            try? await logInfo(taskId: task.id, agent: .publisher,
+                              message: "Processed \(items.count) publication(s)")
+        } catch {
+            try? await logError(taskId: task.id, agent: .publisher,
+                               message: "Failed to parse publisher output: \(error.localizedDescription)")
         }
     }
 
@@ -885,6 +976,9 @@ final class Orchestrator {
                     }
                 }
 
+                // Generate thumbnails for saved assets
+                await generateThumbnailsForTask(taskId: task.id, projectName: project.name)
+
                 try? await logInfo(taskId: task.id, agent: task.agentType,
                                   message: "Saved \(items.count) asset(s)")
                 return
@@ -901,8 +995,34 @@ final class Orchestrator {
             task: task,
             assetType: defaultAssetType
         )
+        // Generate thumbnail for the fallback asset
+        await generateThumbnailsForTask(taskId: task.id, projectName: project.name)
+
         try? await logInfo(taskId: task.id, agent: task.agentType,
                           message: "Saved raw output as \(fileName)")
+    }
+
+    /// Generate thumbnails for all assets belonging to a task.
+    private func generateThumbnailsForTask(taskId: UUID, projectName: String) async {
+        let assets = try? await dbQueue.read { db in
+            try GeneratedAsset
+                .filter(Column("taskId") == taskId)
+                .filter(Column("thumbnailPath") == nil)
+                .fetchAll(db)
+        }
+        guard let assets else { return }
+
+        for asset in assets {
+            if let thumbPath = await thumbnailService.generateThumbnail(for: asset, projectName: projectName) {
+                try? await dbQueue.write { db in
+                    var updated = asset
+                    updated.thumbnailPath = thumbPath
+                    updated.checksum = AssetVersioningService.computeChecksum(filePath: asset.filePath)
+                    updated.updatedAt = Date()
+                    try updated.update(db)
+                }
+            }
+        }
     }
 
     /// Queue a reviewer task for creative output (same pattern as coder → reviewer).

@@ -109,6 +109,7 @@ extension AgentTask.AgentType {
         case .designer: return .pink
         case .imageGenerator: return .indigo
         case .videoEditor: return .teal
+        case .publisher: return .green
         }
     }
 
@@ -124,6 +125,7 @@ extension AgentTask.AgentType {
         case .designer: return "paintbrush"
         case .imageGenerator: return "photo"
         case .videoEditor: return "film"
+        case .publisher: return "paperplane"
         }
     }
 }

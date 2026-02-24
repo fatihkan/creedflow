@@ -101,6 +101,7 @@ struct PromptRecommender {
         case .designer: return "design"
         case .imageGenerator: return "image"
         case .videoEditor: return "video"
+        case .publisher: return "publishing"
         }
     }
 }

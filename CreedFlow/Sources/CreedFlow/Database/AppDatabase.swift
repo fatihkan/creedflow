@@ -362,6 +362,54 @@ public struct AppDatabase {
             try db.create(index: "generatedAsset_on_status", on: "generatedAsset", columns: ["status"])
         }
 
+        migrator.registerMigration("v12_asset_versioning") { db in
+            try db.alter(table: "generatedAsset") { t in
+                t.add(column: "version", .integer).notNull().defaults(to: 1)
+                t.add(column: "thumbnailPath", .text)
+                t.add(column: "checksum", .text)
+                t.add(column: "parentAssetId", .text)
+                    .references("generatedAsset", onDelete: .setNull)
+            }
+            try db.create(index: "generatedAsset_on_parentAssetId",
+                          on: "generatedAsset", columns: ["parentAssetId"])
+        }
+
+        migrator.registerMigration("v13_publishing") { db in
+            try db.create(table: "publishingChannel") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("name", .text).notNull()
+                t.column("channelType", .text).notNull()
+                t.column("credentialsJSON", .text).notNull().defaults(to: "{}")
+                t.column("isEnabled", .boolean).notNull().defaults(to: true)
+                t.column("defaultTags", .text).notNull().defaults(to: "")
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(table: "publication") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("assetId", .text).notNull()
+                    .references("generatedAsset", onDelete: .cascade)
+                t.column("projectId", .text).notNull()
+                    .references("project", onDelete: .cascade)
+                t.column("channelId", .text).notNull()
+                    .references("publishingChannel", onDelete: .cascade)
+                t.column("status", .text).notNull().defaults(to: "scheduled")
+                t.column("externalId", .text)
+                t.column("publishedUrl", .text)
+                t.column("scheduledAt", .datetime)
+                t.column("publishedAt", .datetime)
+                t.column("errorMessage", .text)
+                t.column("exportFormat", .text).notNull().defaults(to: "markdown")
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(index: "publication_on_assetId", on: "publication", columns: ["assetId"])
+            try db.create(index: "publication_on_projectId", on: "publication", columns: ["projectId"])
+            try db.create(index: "publication_on_status", on: "publication", columns: ["status"])
+        }
+
         return migrator
     }
 }

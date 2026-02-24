@@ -17,6 +17,10 @@ package struct GeneratedAsset: Codable, Identifiable, Equatable {
     package var metadata: String?   // JSON blob for extra info
     package var status: Status
     package var reviewTaskId: UUID?
+    package var version: Int
+    package var thumbnailPath: String?
+    package var checksum: String?
+    package var parentAssetId: UUID?
     package var createdAt: Date
     package var updatedAt: Date
 
@@ -50,6 +54,10 @@ package struct GeneratedAsset: Codable, Identifiable, Equatable {
         metadata: String? = nil,
         status: Status = .generated,
         reviewTaskId: UUID? = nil,
+        version: Int = 1,
+        thumbnailPath: String? = nil,
+        checksum: String? = nil,
+        parentAssetId: UUID? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -67,6 +75,10 @@ package struct GeneratedAsset: Codable, Identifiable, Equatable {
         self.metadata = metadata
         self.status = status
         self.reviewTaskId = reviewTaskId
+        self.version = version
+        self.thumbnailPath = thumbnailPath
+        self.checksum = checksum
+        self.parentAssetId = parentAssetId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -82,6 +94,7 @@ extension GeneratedAsset: FetchableRecord, PersistableRecord {
         case id, projectId, taskId, agentType, assetType, name
         case assetDescription, filePath, mimeType, fileSize
         case sourceUrl, metadata, status, reviewTaskId
+        case version, thumbnailPath, checksum, parentAssetId
         case createdAt, updatedAt
     }
 

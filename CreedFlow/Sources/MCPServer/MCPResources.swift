@@ -31,6 +31,12 @@ struct MCPResourceRegistrar {
                 description: "Overall cost and token usage summary",
                 mimeType: "application/json"
             ),
+            Resource(
+                name: "Publications",
+                uri: "creedflow://publications",
+                description: "Content publication history and status",
+                mimeType: "application/json"
+            ),
         ]
     }
 
@@ -74,6 +80,8 @@ struct MCPResourceRegistrar {
             return try readTaskQueue()
         } else if uri == "creedflow://costs/summary" {
             return try readCostSummary()
+        } else if uri == "creedflow://publications" {
+            return try readPublications()
         } else {
             throw MCPError.invalidRequest("Unknown resource URI: \(uri)")
         }
@@ -152,6 +160,20 @@ struct MCPResourceRegistrar {
         let content = String(data: data, encoding: .utf8) ?? "{}"
         return ReadResource.Result(contents: [
             .text(content, uri: "creedflow://tasks/queue", mimeType: "application/json")
+        ])
+    }
+
+    private func readPublications() throws -> ReadResource.Result {
+        let pubs = try bridge.listPublications()
+        let items: [[String: Any]] = pubs.map { p in
+            ["id": p.id.uuidString, "assetId": p.assetId.uuidString,
+             "channelId": p.channelId.uuidString, "status": p.status.rawValue,
+             "publishedUrl": p.publishedUrl ?? "", "exportFormat": p.exportFormat.rawValue]
+        }
+        let data = try JSONSerialization.data(withJSONObject: items)
+        let content = String(data: data, encoding: .utf8) ?? "[]"
+        return ReadResource.Result(contents: [
+            .text(content, uri: "creedflow://publications", mimeType: "application/json")
         ])
     }
 
