@@ -53,7 +53,7 @@ Platform: macOS 14+ (arm64). Database at `~/Library/Application Support/CreedFlo
 
 `BackendRouter` selects backend per task: agents with MCP needs get Claude, others get round-robin across enabled backends. Enable/disable via UserDefaults (`claudeEnabled`, `codexEnabled`, `geminiEnabled`).
 
-### 10 AI Agents
+### 11 AI Agents
 
 All conform to `AgentProtocol` with `backendPreferences`:
 
@@ -69,6 +69,7 @@ All conform to `AgentProtocol` with `backendPreferences`:
 | Designer | claudePreferred | 10min | figma, creedflow | Design specs + Figma access |
 | ImageGenerator | claudePreferred | 10min | dalle, stability, creedflow | AI image generation |
 | VideoEditor | claudePreferred | 15min | runway, elevenlabs, creedflow | Video/audio generation |
+| Publisher | claudePreferred | 10min | creedflow | Content distribution to channels |
 
 ### Engine
 
@@ -80,14 +81,14 @@ All conform to `AgentProtocol` with `backendPreferences`:
 
 ### Database (SQLite via GRDB)
 
-11 migrations (v1–v11). 16 models: `Project`, `Feature`, `AgentTask`, `TaskDependency`, `Review`, `AgentLog`, `Deployment`, `CostTracking`, `MCPServerConfig`, `Prompt`, `PromptVersion`, `PromptChain`, `PromptChainStep`, `PromptTag`, `PromptUsage`, `GeneratedAsset`.
+13 migrations (v1–v13). 18 models: `Project`, `Feature`, `AgentTask`, `TaskDependency`, `Review`, `AgentLog`, `Deployment`, `CostTracking`, `MCPServerConfig`, `Prompt`, `PromptVersion`, `PromptChain`, `PromptChainStep`, `PromptTag`, `PromptUsage`, `GeneratedAsset`, `Publication`, `PublishingChannel`.
 
 ### MCP Integration
 
 - **Agent → External MCP**: Agents declare `mcpServers`, `MCPConfigGenerator` creates temp config, passed via `--mcp-config`
 - **Creative MCP Servers**: DALL-E, Figma, Stability AI, ElevenLabs, Runway — templates in `MCPServerTemplate.swift`
-- **CreedFlow as MCP Server**: `CreedFlowMCPServer` binary, 9 tools + 5 resources, stdio transport
-- **URIs**: `creedflow://projects`, `creedflow://tasks/queue`, `creedflow://costs/summary`, `creedflow://projects/{id}/assets`
+- **CreedFlow as MCP Server**: `CreedFlowMCPServer` binary, 13 tools + 5 resources, stdio transport
+- **URIs**: `creedflow://projects`, `creedflow://tasks/queue`, `creedflow://costs/summary`, `creedflow://projects/{id}/assets`, `creedflow://publications`
 
 ### Process Lifecycle
 
@@ -104,6 +105,9 @@ All conform to `AgentProtocol` with `backendPreferences`:
 - Backend field written to DB on dispatch (not just completion) so UI shows it during in_progress
 - `BackendPreferences.claudePreferred` — prefers Claude for MCP but falls back to Codex/Gemini
 - Creative agents output structured JSON `{"assets": [...]}` for asset pipeline; fallback saves raw output as text
+- Asset versioning via `parentAssetId` linked-list chain with SHA256 checksums
+- Content publishing: `ContentPublishingService` actor polls for scheduled publications every 60s
+- Publisher agent outputs `{"publications": [...]}` JSON; Orchestrator processes and records results
 
 ## Key File Paths
 
@@ -120,9 +124,16 @@ Sources/CreedFlow/Services/Claude/ClaudeProcessManager.swift — Process spawnin
 Sources/CreedFlow/Services/ProcessTracker.swift     — Global child process cleanup
 Sources/CreedFlow/Services/Agents/AgentProtocol.swift — Agent interface
 Sources/CreedFlow/Services/Deploy/LocalDeploymentService.swift — Docker/process deploy
-Sources/CreedFlow/Models/GeneratedAsset.swift         — Asset model (image, video, audio, design, document)
+Sources/CreedFlow/Models/GeneratedAsset.swift         — Asset model with versioning + checksums
+Sources/CreedFlow/Models/Publication.swift             — Publication tracking model
+Sources/CreedFlow/Models/PublishingChannel.swift       — Publishing channel configuration
 Sources/CreedFlow/Services/AssetStorageService.swift  — File storage + DB records for creative assets
-Sources/CreedFlow/Database/AppDatabase.swift        — Migrations v1–v11
+Sources/CreedFlow/Services/AssetVersioningService.swift — Asset version chain + SHA256 checksums
+Sources/CreedFlow/Services/ThumbnailGeneratorService.swift — QuickLook thumbnail generation
+Sources/CreedFlow/Services/Publishing/ContentPublishingService.swift — Central publishing coordinator
+Sources/CreedFlow/Services/Publishing/ContentExporter.swift — Markdown→HTML/plaintext/PDF export
+Sources/CreedFlow/Services/Storage/LocalAssetStorageBackend.swift — Local filesystem storage backend
+Sources/CreedFlow/Database/AppDatabase.swift        — Migrations v1–v13
 Sources/CreedFlow/Views/ContentView.swift           — Main window layout
 Sources/CreedFlow/Views/Tasks/TaskBoardView.swift   — Kanban board
 Resources/Info.plist                                — App metadata
@@ -137,7 +148,9 @@ Scripts/package-app.sh                              — .app + DMG packaging
 4. BackendRouter selects Claude/Codex/Gemini per agent preferences
 5. MultiBackendRunner streams output, captures result
 6. On completion: Reviewer scores code (>= 7.0 PASS, 5.0-6.9 NEEDS_REVISION, < 5.0 FAIL)
-7. Creative agents: output parsed for assets → saved to `~/CreedFlow/projects/{name}/assets/` → review queued
-8. Failed tasks auto-retry up to 3 times
+7. Creative agents: output parsed for assets → saved to `~/CreedFlow/projects/{name}/assets/` → thumbnails generated → review queued
+8. Content writer completion: queues publisher task when publishing channels are configured
+9. Publisher agent: distributes content to Medium, WordPress, Twitter, LinkedIn
+10. Failed tasks auto-retry up to 3 times
 9. Telegram notifications at key milestones
 10. Deploy to staging/production via Docker or direct process
