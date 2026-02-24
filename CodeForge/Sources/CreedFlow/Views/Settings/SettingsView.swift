@@ -11,6 +11,9 @@ public struct SettingsView: View {
     @AppStorage("defaultMaxBudgetUSD") private var defaultMaxBudgetUSD = 5.0
     @AppStorage("projectsBaseDir") private var projectsBaseDir = ""
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = true
+    @AppStorage("claudeEnabled") private var claudeEnabled = true
+    @AppStorage("codexEnabled") private var codexEnabled = true
+    @AppStorage("geminiEnabled") private var geminiEnabled = true
 
     @State private var claudeVersion = "Checking..."
     @State private var codexVersion = "Checking..."
@@ -85,22 +88,52 @@ public struct SettingsView: View {
 
     private var aiCLIsTab: some View {
         Form {
-            Section("Claude CLI") {
-                CLISettingsRow(label: "Claude CLI Path", path: $claudePath, version: claudeVersion)
+            Section {
+                Toggle("Enabled", isOn: $claudeEnabled)
+                CLISettingsRow(label: "Claude CLI Path", path: $claudePath, version: claudeVersion, enabled: claudeEnabled)
+            } header: {
+                HStack {
+                    Text("Claude CLI")
+                    if claudeEnabled {
+                        Text("Active").font(.caption2).foregroundStyle(.green)
+                    } else {
+                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
             }
 
-            Section("Codex CLI") {
-                CLISettingsRow(label: "Codex CLI Path", path: $codexPath, version: codexVersion)
+            Section {
+                Toggle("Enabled", isOn: $codexEnabled)
+                CLISettingsRow(label: "Codex CLI Path", path: $codexPath, version: codexVersion, enabled: codexEnabled)
                 Text("Install: npm install -g @openai/codex")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                HStack {
+                    Text("Codex CLI")
+                    if codexEnabled {
+                        Text("Active").font(.caption2).foregroundStyle(.green)
+                    } else {
+                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
             }
 
-            Section("Gemini CLI") {
-                CLISettingsRow(label: "Gemini CLI Path", path: $geminiPath, version: geminiVersion)
+            Section {
+                Toggle("Enabled", isOn: $geminiEnabled)
+                CLISettingsRow(label: "Gemini CLI Path", path: $geminiPath, version: geminiVersion, enabled: geminiEnabled)
                 Text("Install: npm install -g @anthropic-ai/gemini-cli")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                HStack {
+                    Text("Gemini CLI")
+                    if geminiEnabled {
+                        Text("Active").font(.caption2).foregroundStyle(.green)
+                    } else {
+                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section("Dev Tools") {
@@ -167,11 +200,13 @@ private struct CLISettingsRow: View {
     let label: String
     @Binding var path: String
     let version: String
+    var enabled: Bool = true
 
     var body: some View {
         HStack {
             TextField(label, text: $path)
                 .textFieldStyle(.roundedBorder)
+                .disabled(!enabled)
             Button("Browse") {
                 let panel = NSOpenPanel()
                 panel.canChooseFiles = true
@@ -180,6 +215,7 @@ private struct CLISettingsRow: View {
                     path = url.path
                 }
             }
+            .disabled(!enabled)
         }
         LabeledContent("Version", value: version)
     }

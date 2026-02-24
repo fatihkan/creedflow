@@ -16,11 +16,17 @@ actor BackendRouter {
         Array(backends.values)
     }
 
+    /// Check whether a backend type is enabled in user settings.
+    /// Reads `claudeEnabled`, `codexEnabled`, `geminiEnabled` from UserDefaults (default: true).
+    nonisolated func isEnabled(_ type: CLIBackendType) -> Bool {
+        UserDefaults.standard.object(forKey: "\(type.rawValue)Enabled") as? Bool ?? true
+    }
+
     /// Select the best available backend for the given agent and task.
     ///
     /// Selection logic:
     /// 1. If the agent requires Claude features (MCP, tools, JSON schema) → Claude only
-    /// 2. Otherwise, round-robin across the agent's preferred backends that are available
+    /// 2. Otherwise, round-robin across the agent's preferred backends that are available AND enabled
     /// 3. Falls back to Claude if no preferred backend is available
     func selectBackend(agent: any AgentProtocol, task: AgentTask) async -> any CLIBackend {
         let prefs = agent.backendPreferences
@@ -32,10 +38,10 @@ actor BackendRouter {
             }
         }
 
-        // Collect available backends from the agent's preference list
+        // Collect available AND enabled backends from the agent's preference list
         var available: [any CLIBackend] = []
         for type in prefs.preferred {
-            if let backend = backends[type], await backend.isAvailable {
+            if let backend = backends[type], isEnabled(type), await backend.isAvailable {
                 available.append(backend)
             }
         }
