@@ -1,6 +1,29 @@
 import Foundation
 import GRDB
 
+// MARK: - Analyzer Output Models
+
+/// Data model produced by the Analyzer agent (database table, API endpoint, etc.)
+struct AnalysisDataModel: Decodable {
+    let name: String
+    let type: String?
+    let fields: [Field]?
+    let relationships: [String]?
+
+    struct Field: Decodable {
+        let name: String
+        let type: String
+        let constraints: String?
+    }
+}
+
+/// Mermaid diagram produced by the Analyzer agent.
+struct AnalysisDiagram: Decodable {
+    let title: String
+    let type: String?
+    let mermaid: String
+}
+
 /// Central coordination loop that polls for ready tasks and dispatches them to agents.
 @Observable
 final class Orchestrator {
@@ -404,10 +427,13 @@ final class Orchestrator {
             return
         }
 
-        // Parse the structured JSON output
+        // Parse the structured JSON output (supports both rich and legacy formats)
         struct AnalyzerOutput: Decodable {
             let projectName: String?
             let techStack: String?
+            let architecture: String?
+            let dataModels: [AnalysisDataModel]?
+            let diagrams: [AnalysisDiagram]?
             let features: [FeatureOutput]
 
             struct FeatureOutput: Decodable {
@@ -423,21 +449,40 @@ final class Orchestrator {
                 let agentType: String
                 let priority: Int
                 let dependsOn: [String]?
+                let acceptanceCriteria: [String]?
+                let filesToCreate: [String]?
+                let estimatedComplexity: String?
             }
         }
 
         do {
             let parsed = try JSONDecoder().decode(AnalyzerOutput.self, from: data)
 
+            // Fetch project for directory path
+            let project = try await dbQueue.read { db in
+                try Project.fetchOne(db, id: task.projectId)
+            }
+
             // Update project tech stack if provided
             if let techStack = parsed.techStack {
                 try await dbQueue.write { db in
-                    var project = try Project.fetchOne(db, id: task.projectId)!
-                    project.techStack = techStack
-                    project.status = .inProgress
-                    project.updatedAt = Date()
-                    try project.update(db)
+                    guard var p = try Project.fetchOne(db, id: task.projectId) else { return }
+                    p.techStack = techStack
+                    p.status = .inProgress
+                    p.updatedAt = Date()
+                    try p.update(db)
                 }
+            }
+
+            // Save architecture docs and diagrams to project directory
+            if let project, !project.directoryPath.isEmpty {
+                await saveAnalysisDocs(
+                    to: project.directoryPath,
+                    architecture: parsed.architecture,
+                    dataModels: parsed.dataModels,
+                    diagrams: parsed.diagrams,
+                    taskId: task.id
+                )
             }
 
             // Build title → UUID mapping (pre-generate to avoid duplicates)
@@ -502,13 +547,21 @@ final class Orchestrator {
                         default: agentType = .coder
                         }
 
+                        // Build enriched description with acceptance criteria and file list
+                        let enrichedDescription = buildEnrichedTaskDescription(
+                            base: taskOutput.description,
+                            acceptanceCriteria: taskOutput.acceptanceCriteria,
+                            filesToCreate: taskOutput.filesToCreate,
+                            estimatedComplexity: taskOutput.estimatedComplexity
+                        )
+
                         let newTask = AgentTask(
                             id: pregenId,
                             projectId: task.projectId,
                             featureId: feature.id,
                             agentType: agentType,
                             title: taskOutput.title,
-                            description: taskOutput.description,
+                            description: enrichedDescription,
                             priority: taskOutput.priority
                         )
                         try newTask.insert(db)
@@ -532,12 +585,103 @@ final class Orchestrator {
             }
 
             let totalTasks = titleToTaskId.count
+            let diagramCount = parsed.diagrams?.count ?? 0
+            let modelCount = parsed.dataModels?.count ?? 0
             try? await logInfo(taskId: task.id, agent: .analyzer,
-                             message: "Created \(parsed.features.count) features and \(totalTasks) tasks")
+                             message: "Created \(parsed.features.count) features, \(totalTasks) tasks, \(modelCount) data models, \(diagramCount) diagrams")
 
         } catch {
             try? await logError(taskId: task.id, agent: .analyzer,
                               message: "Failed to parse analyzer output: \(error.localizedDescription)")
+        }
+    }
+
+    /// Build an enriched task description that includes acceptance criteria and files to create.
+    private func buildEnrichedTaskDescription(
+        base: String,
+        acceptanceCriteria: [String]?,
+        filesToCreate: [String]?,
+        estimatedComplexity: String?
+    ) -> String {
+        var parts: [String] = [base]
+
+        if let complexity = estimatedComplexity, !complexity.isEmpty {
+            parts.append("\n[Complexity: \(complexity)]")
+        }
+
+        if let criteria = acceptanceCriteria, !criteria.isEmpty {
+            parts.append("\n--- Acceptance Criteria ---")
+            for (i, criterion) in criteria.enumerated() {
+                parts.append("  \(i + 1). \(criterion)")
+            }
+        }
+
+        if let files = filesToCreate, !files.isEmpty {
+            parts.append("\n--- Files to Create/Modify ---")
+            for file in files {
+                parts.append("  - \(file)")
+            }
+        }
+
+        return parts.joined(separator: "\n")
+    }
+
+    /// Save architecture documentation and Mermaid diagrams to project directory.
+    private func saveAnalysisDocs(
+        to projectDir: String,
+        architecture: String?,
+        dataModels: [AnalysisDataModel]?,
+        diagrams: [AnalysisDiagram]?,
+        taskId: UUID
+    ) async {
+        let fm = FileManager.default
+        let docsDir = "\(projectDir)/docs"
+        try? fm.createDirectory(atPath: docsDir, withIntermediateDirectories: true)
+
+        // Save ARCHITECTURE.md
+        if let arch = architecture, !arch.isEmpty {
+            var content = "# Architecture\n\n\(arch)\n"
+
+            // Append data models section
+            if let models = dataModels, !models.isEmpty {
+                content += "\n## Data Models\n\n"
+                for model in models {
+                    content += "### \(model.name)"
+                    if let type = model.type { content += " (\(type))" }
+                    content += "\n\n"
+                    if let fields = model.fields {
+                        content += "| Field | Type | Constraints |\n|-------|------|-------------|\n"
+                        for field in fields {
+                            content += "| \(field.name) | \(field.type) | \(field.constraints ?? "") |\n"
+                        }
+                        content += "\n"
+                    }
+                    if let rels = model.relationships, !rels.isEmpty {
+                        content += "**Relationships:** \(rels.joined(separator: ", "))\n\n"
+                    }
+                }
+            }
+
+            let archPath = "\(docsDir)/ARCHITECTURE.md"
+            try? content.write(toFile: archPath, atomically: true, encoding: .utf8)
+        }
+
+        // Save Mermaid diagrams
+        if let diagrams, !diagrams.isEmpty {
+            let diagramsDir = "\(docsDir)/diagrams"
+            try? fm.createDirectory(atPath: diagramsDir, withIntermediateDirectories: true)
+
+            for (index, diagram) in diagrams.enumerated() {
+                let safeName = diagram.title
+                    .lowercased()
+                    .replacingOccurrences(of: " ", with: "-")
+                    .replacingOccurrences(of: "/", with: "-")
+                let fileName = "\(index + 1)-\(safeName).mmd"
+                let filePath = "\(diagramsDir)/\(fileName)"
+                // Unescape \\n to actual newlines in Mermaid content
+                let mermaidContent = diagram.mermaid.replacingOccurrences(of: "\\n", with: "\n")
+                try? mermaidContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+            }
         }
     }
 

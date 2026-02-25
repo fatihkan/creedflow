@@ -106,11 +106,35 @@ final class EnvironmentDetector {
 
     /// Editor candidates: (display name, CLI command name, candidate paths)
     private static let editorCandidates: [(name: String, command: String, paths: [String])] = [
-        ("VS Code", "code", ["/usr/local/bin/code", "\(home)/.local/bin/code", "/opt/homebrew/bin/code"]),
-        ("Cursor", "cursor", ["/usr/local/bin/cursor", "\(home)/.local/bin/cursor", "/opt/homebrew/bin/cursor"]),
-        ("Zed", "zed", ["/usr/local/bin/zed", "\(home)/.local/bin/zed", "/opt/homebrew/bin/zed"]),
-        ("Sublime Text", "subl", ["/usr/local/bin/subl", "/opt/homebrew/bin/subl", "/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl"]),
+        ("VS Code", "code", [
+            "/usr/local/bin/code",
+            "\(home)/.local/bin/code",
+            "/opt/homebrew/bin/code",
+            "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+        ]),
+        ("Cursor", "cursor", [
+            "/usr/local/bin/cursor",
+            "\(home)/.local/bin/cursor",
+            "/opt/homebrew/bin/cursor",
+            "/Applications/Cursor.app/Contents/Resources/app/bin/cursor",
+        ]),
+        ("Zed", "zed", [
+            "/usr/local/bin/zed",
+            "\(home)/.local/bin/zed",
+            "/opt/homebrew/bin/zed",
+            "/Applications/Zed.app/Contents/MacOS/cli/zed",
+        ]),
+        ("Sublime Text", "subl", [
+            "/usr/local/bin/subl",
+            "/opt/homebrew/bin/subl",
+            "/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl",
+        ]),
         ("Xcode", "xed", ["/usr/bin/xed"]),
+        ("Windsurf", "windsurf", [
+            "/usr/local/bin/windsurf",
+            "\(home)/.local/bin/windsurf",
+            "/Applications/Windsurf.app/Contents/Resources/app/bin/windsurf",
+        ]),
     ]
 
     /// Auto-detect all tools using candidate paths

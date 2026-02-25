@@ -4,8 +4,10 @@ import GRDB
 struct DeployView: View {
     let appDatabase: AppDatabase?
     @State private var deployments: [Deployment] = []
+    @State private var projectNames: [UUID: String] = [:]
     @State private var errorMessage: String?
     @State private var showDeploySheet = false
+    @State private var showCleanupConfirm = false
     @State private var isLoading = true
     @State private var filterEnvironment: Deployment.Environment?
     @State private var filterStatus: Deployment.Status?
@@ -16,6 +18,11 @@ struct DeployView: View {
             if let status = filterStatus, d.status != status { return false }
             return true
         }
+    }
+
+    /// Deployments eligible for cleanup (terminal states: success, failed, rolled_back)
+    private var cleanableCount: Int {
+        deployments.filter { $0.status == .success || $0.status == .failed || $0.status == .rolledBack }.count
     }
 
     var body: some View {
@@ -39,6 +46,15 @@ struct DeployView: View {
                     }
                     .labelsHidden()
                     .frame(maxWidth: 120)
+
+                    if cleanableCount > 0 {
+                        Button {
+                            showCleanupConfirm = true
+                        } label: {
+                            Label("Clean Up", systemImage: "trash")
+                        }
+                        .help("Remove \(cleanableCount) completed, failed, and rolled-back deployments")
+                    }
 
                     Button {
                         showDeploySheet = true
@@ -78,6 +94,17 @@ struct DeployView: View {
         .sheet(isPresented: $showDeploySheet) {
             DeployTriggerSheet(appDatabase: appDatabase)
         }
+        .confirmationDialog(
+            "Clean Up Deployments",
+            isPresented: $showCleanupConfirm
+        ) {
+            Button("Remove Completed, Failed & Rolled-back (\(cleanableCount))", role: .destructive) {
+                cleanUpDeployments()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all completed, failed, and rolled-back deployment records. Active and pending deployments will not be affected.")
+        }
         .task {
             await observeDeployments()
         }
@@ -97,8 +124,15 @@ struct DeployView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
+                    // Project name
+                    if let name = projectNames[deployment.projectId] {
+                        Text(name)
+                            .font(.system(.subheadline, weight: .semibold))
+                    }
+
                     Text(deployment.version)
-                        .font(.system(.subheadline, weight: .semibold))
+                        .font(.system(.subheadline, weight: .medium))
+                        .foregroundStyle(.secondary)
 
                     if let method = deployment.deployMethod {
                         Text(method.capitalized)
@@ -128,7 +162,7 @@ struct DeployView: View {
 
                     Spacer()
 
-                    // Runtime controls for successful (running) deployments
+                    // Runtime controls
                     if deployment.status == .success {
                         if let port = deployment.port {
                             Button {
@@ -146,6 +180,18 @@ struct DeployView: View {
                             stopDeployment(deployment)
                         } label: {
                             Label("Stop", systemImage: "stop.fill")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.forgeDanger)
+                    }
+
+                    // Cancel for pending/in-progress deployments
+                    if deployment.status == .pending || deployment.status == .inProgress {
+                        Button {
+                            cancelDeployment(deployment)
+                        } label: {
+                            Label("Cancel", systemImage: "xmark.circle")
                                 .font(.caption2)
                         }
                         .buttonStyle(.borderless)
@@ -170,6 +216,26 @@ struct DeployView: View {
         }
     }
 
+    private func cancelDeployment(_ deployment: Deployment) {
+        guard let db = appDatabase else { return }
+        // For in_progress deployments, stop any running process first
+        if deployment.status == .inProgress {
+            Task {
+                let service = LocalDeploymentService(dbQueue: db.dbQueue)
+                try? await service.stop(deployment: deployment)
+            }
+        } else {
+            // Pending — just mark as failed in DB
+            try? db.dbQueue.write { dbConn in
+                guard var d = try Deployment.fetchOne(dbConn, id: deployment.id) else { return }
+                d.status = .failed
+                d.completedAt = Date()
+                d.logs = (d.logs ?? "") + "\nCancelled by user"
+                try d.update(dbConn)
+            }
+        }
+    }
+
     private func deployStatusColor(_ status: Deployment.Status) -> Color {
         switch status {
         case .pending: return .forgeNeutral
@@ -180,16 +246,43 @@ struct DeployView: View {
         }
     }
 
+    private func cleanUpDeployments() {
+        guard let db = appDatabase else { return }
+        let terminalStatuses: [Deployment.Status] = [.success, .failed, .rolledBack]
+        try? db.dbQueue.write { dbConn in
+            let idsToDelete = deployments
+                .filter { terminalStatuses.contains($0.status) }
+                .map(\.id)
+            guard !idsToDelete.isEmpty else { return }
+            try Deployment
+                .filter(idsToDelete.contains(Column("id")))
+                .deleteAll(dbConn)
+        }
+    }
+
     private func observeDeployments() async {
         guard let db = appDatabase else { return }
-        let observation = ValueObservation.tracking { db in
-            try Deployment
+        let observation = ValueObservation.tracking { db -> ([Deployment], [UUID: String]) in
+            let deps = try Deployment
                 .order(Column("createdAt").desc)
                 .fetchAll(db)
+            // Fetch project names for all referenced project IDs
+            let projectIds = Set(deps.map(\.projectId))
+            var names: [UUID: String] = [:]
+            if !projectIds.isEmpty {
+                let projects = try Project
+                    .filter(projectIds.contains(Column("id")))
+                    .fetchAll(db)
+                for project in projects {
+                    names[project.id] = project.name
+                }
+            }
+            return (deps, names)
         }
         do {
-            for try await value in observation.values(in: db.dbQueue) {
-                deployments = value
+            for try await (deps, names) in observation.values(in: db.dbQueue) {
+                deployments = deps
+                projectNames = names
                 isLoading = false
             }
         } catch {

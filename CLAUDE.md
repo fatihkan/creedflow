@@ -76,7 +76,7 @@ All conform to `AgentProtocol` with `backendPreferences`:
 
 | Agent | Backend | Timeout | MCP | Purpose |
 |-------|---------|---------|-----|---------|
-| Analyzer | anyBackend | 5min | - | Decompose projects into features/tasks |
+| Analyzer | anyBackend | 5min | - | Deep architecture analysis, data models, Mermaid diagrams, task decomposition |
 | Coder | claudeOnly | 15min | creedflow | Write code, open branches/PRs |
 | Reviewer | claudeOnly | 5min | creedflow | AI code review + scoring |
 | Tester | claudeOnly | 10min | creedflow | Run tests in workspace |
@@ -125,6 +125,12 @@ All conform to `AgentProtocol` with `backendPreferences`:
 - Asset versioning via `parentAssetId` linked-list chain with SHA256 checksums
 - Content publishing: `ContentPublishingService` actor polls for scheduled publications every 60s
 - Publisher agent outputs `{"publications": [...]}` JSON; Orchestrator processes and records results
+- Analyzer produces rich output: `architecture`, `dataModels[]`, `diagrams[]` (Mermaid), tasks with `acceptanceCriteria[]`, `filesToCreate[]`, `estimatedComplexity`
+- Analyzer saves `docs/ARCHITECTURE.md` and `docs/diagrams/*.mmd` to project directory
+- Task detail panel slides from the right side (not bottom) for better readability
+- Deployment cards show project name; pending/in-progress deployments can be cancelled
+- Setup wizard has a Dependencies step with one-click Homebrew install for system tools
+- Editor detection checks `.app` bundle paths (VS Code, Cursor, Zed, Windsurf) in addition to `/usr/local/bin` symlinks
 
 ## Key File Paths
 
@@ -155,8 +161,10 @@ Sources/CreedFlow/Services/Publishing/ContentPublishingService.swift — Central
 Sources/CreedFlow/Services/Publishing/ContentExporter.swift — Markdown→HTML/plaintext/PDF export
 Sources/CreedFlow/Services/Storage/LocalAssetStorageBackend.swift — Local filesystem storage backend
 Sources/CreedFlow/Database/AppDatabase.swift        — Migrations v1–v13
-Sources/CreedFlow/Views/ContentView.swift           — Main window layout
+Sources/CreedFlow/Services/DependencyInstaller.swift — System dependency detection + Homebrew install
+Sources/CreedFlow/Views/ContentView.swift           — Main window layout (sidebar + content + right detail panel)
 Sources/CreedFlow/Views/Tasks/TaskBoardView.swift   — Kanban board
+Sources/CreedFlow/Views/Setup/SetupWizardView.swift — 6-step setup wizard
 Resources/Info.plist                                — App metadata
 Scripts/package-app.sh                              — .app + DMG packaging
 ```
@@ -164,7 +172,7 @@ Scripts/package-app.sh                              — .app + DMG packaging
 ## Core Workflow
 
 1. User creates project (natural language description) via UI
-2. Analyzer agent decomposes into features + tasks with dependency graph
+2. Analyzer agent produces architecture overview, data models, Mermaid diagrams, features + tasks with acceptance criteria and dependency graph; saves `docs/ARCHITECTURE.md` and `docs/diagrams/*.mmd` to project directory
 3. Tasks queued by priority, dispatched when dependencies met
 4. BackendRouter selects Claude/Codex/Gemini per agent preferences (local LLMs as fallback)
 5. MultiBackendRunner streams output, captures result

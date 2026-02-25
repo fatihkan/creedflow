@@ -22,15 +22,15 @@ public struct ContentView: View {
             )
             .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
 
-            VStack(spacing: 0) {
+            HStack(spacing: 0) {
                 contentPanel
-                    .frame(maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if showDetailPanel {
                     Divider()
                     detailPanel
-                        .frame(minHeight: 150, idealHeight: 280, maxHeight: 350)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .frame(minWidth: 340, idealWidth: 400, maxWidth: 480)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

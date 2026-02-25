@@ -191,7 +191,162 @@ struct WizardEnvironmentStep: View {
     }
 }
 
-// MARK: - Step 2: Projects & Budget
+// MARK: - Step 2: Dependencies
+
+struct WizardDependenciesStep: View {
+    let installer: DependencyInstaller
+
+    var body: some View {
+        Form {
+            Section("Package Manager") {
+                HStack(spacing: 8) {
+                    Image(systemName: installer.brewDetected ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(installer.brewDetected ? .forgeSuccess : .forgeWarning)
+                        .font(.body)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Homebrew")
+                            .font(.subheadline.weight(.medium))
+                        Text(installer.brewDetected ? installer.brewVersion : "Not found — required for installing dependencies")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !installer.brewDetected {
+                        if installer.isInstallingBrew {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .frame(width: 16, height: 16)
+                        } else {
+                            Button("Install") {
+                                Task { await installer.installBrew() }
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
+                if installer.isInstallingBrew && !installer.brewInstallOutput.isEmpty {
+                    Text(installer.brewInstallOutput.suffix(200))
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+                if let error = installer.brewInstallError {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                }
+            }
+
+            Section("System Dependencies") {
+                if installer.isDetecting {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .frame(width: 16, height: 16)
+                        Text("Detecting installed tools...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(installer.dependencies) { dep in
+                        DependencyRow(dep: dep, brewAvailable: installer.brewDetected) {
+                            Task { await installer.install(dep.id) }
+                        }
+                    }
+                }
+            }
+
+            Section {
+                HStack {
+                    Button {
+                        Task { await installer.detectAll() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if installer.isDetecting {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .frame(width: 14, height: 14)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            Text("Refresh")
+                        }
+                    }
+                    .disabled(installer.isDetecting || installer.anyInstalling)
+
+                    Spacer()
+
+                    if installer.missingCount > 0 && installer.brewDetected {
+                        Button {
+                            Task { await installer.installAllMissing() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if installer.isInstallingAll {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
+                                        .frame(width: 14, height: 14)
+                                }
+                                Text("Install All Missing (\(installer.missingCount))")
+                            }
+                        }
+                        .disabled(installer.anyInstalling)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct DependencyRow: View {
+    let dep: SystemDependency
+    let brewAvailable: Bool
+    let onInstall: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: dep.isInstalled ? "checkmark.circle.fill" : "circle.dashed")
+                    .foregroundStyle(dep.isInstalled ? .forgeSuccess : .forgeNeutral)
+                    .font(.body)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(dep.name)
+                        .font(.subheadline.weight(.medium))
+                    Text(dep.isInstalled ? dep.detectedVersion : dep.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                if dep.isInstalling {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .frame(width: 16, height: 16)
+                } else if !dep.isInstalled && brewAvailable {
+                    Button("Install") { onInstall() }
+                        .controlSize(.small)
+                }
+            }
+            if dep.isInstalling && !dep.installOutput.isEmpty {
+                Text(dep.installOutput.suffix(200))
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .padding(.leading, 28)
+            }
+            if let error = dep.installError {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+                    .padding(.leading, 28)
+            }
+        }
+    }
+}
+
+// MARK: - Step 3: Projects & Budget
 
 struct WizardProjectsStep: View {
     @Binding var projectsBaseDir: String
@@ -231,7 +386,7 @@ struct WizardProjectsStep: View {
     }
 }
 
-// MARK: - Step 3: Integrations (Optional)
+// MARK: - Step 4: Integrations (Optional)
 
 struct WizardIntegrationsStep: View {
     @Binding var telegramBotToken: String
@@ -253,7 +408,7 @@ struct WizardIntegrationsStep: View {
     }
 }
 
-// MARK: - Step 4: MCP Servers (Optional)
+// MARK: - Step 5: MCP Servers (Optional)
 
 struct WizardMCPStep: View {
     let appDatabase: AppDatabase?
@@ -498,7 +653,7 @@ private struct WizardMCPTemplateSetupSheet: View {
     }
 }
 
-// MARK: - Step 5: Summary
+// MARK: - Step 6: Summary
 
 struct WizardSummaryStep: View {
     let detector: EnvironmentDetector

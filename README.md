@@ -7,7 +7,7 @@ AI-powered project orchestration platform for macOS. Describe a project in natur
 ```
 You: "Todo app with React + Node.js + SQLite"
   ↓
-CreedFlow: Analyzer agent decomposes into features & tasks
+CreedFlow: Analyzer produces architecture docs, ER diagrams, data models, task breakdown
   ↓
 CreedFlow: Routes tasks to Claude / Codex / Gemini (+ local LLM fallback)
   ↓
@@ -25,14 +25,15 @@ CreedFlow: Telegram notification → You approve → Deploy
 ## Features
 
 - **11 AI Agents** — Analyzer, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor, Publisher
+- **Deep Analysis** — Analyzer produces architecture docs, data models with field-level detail, Mermaid diagrams (ER, flowchart, sequence, class), tasks with acceptance criteria and file lists
 - **7 AI Backends** — Claude, Codex, Gemini (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
-- **Kanban Board** — Drag-and-drop task management with live agent output
+- **Kanban Board** — Drag-and-drop task management with live agent output and right-side detail panel
+- **Setup Wizard** — 6-step wizard with environment detection, one-click dependency install via Homebrew, MCP server configuration
 - **Dependency Graph** — Tasks execute in correct order (e.g., DB before API before UI)
 - **Auto-Retry** — Failed tasks retry up to 3 times before escalating
-- **Cost Tracking** — Per-task token usage and cost breakdown by backend
 - **Asset Pipeline** — Creative agents produce images/videos/designs with versioning, checksums, and thumbnails
 - **Content Publishing** — Publish to Medium, WordPress, Twitter, LinkedIn with scheduled publishing
-- **Local Deploy** — Docker, Docker Compose, or direct process execution
+- **Local Deploy** — Docker, Docker Compose, or direct process execution with cleanup and cancel support
 - **MCP Server** — 13 tools + 5 resources via `creedflow://` URIs
 - **Creative MCP** — DALL-E, Figma, Stability AI, ElevenLabs, Runway integrations
 - **Telegram Notifications** — Task completion, review results, deploy status
@@ -60,7 +61,7 @@ cd CreedFlow && swift build
 # Run the app
 .build/debug/CreedFlow
 
-# Run tests (104 tests)
+# Run tests (111 tests)
 .build/debug/CreedFlowTests
 
 # Run MCP server (stdio)
@@ -81,7 +82,7 @@ cd CreedFlow && swift build
 ┌─────────────────────────────────────────────────────────────┐
 │                     macOS App (SwiftUI)                      │
 │  ┌──────────┐  ┌──────────────┐  ┌────────────────────────┐│
-│  │ Sidebar   │  │ Task Board   │  │ Detail Panel           ││
+│  │ Sidebar   │  │ Task Board   │  │ Detail Panel (Right)   ││
 │  │ Projects  │  │ (Kanban)     │  │ Live Output / Review   ││
 │  └──────────┘  └──────────────┘  └────────────────────────┘│
 └──────────────────────────┬──────────────────────────────────┘
@@ -137,7 +138,7 @@ cd CreedFlow && swift build
 
 | Agent | Preference | Timeout | Purpose |
 |-------|-----------|---------|---------|
-| **Analyzer** | Any | 5 min | Decompose projects into features/tasks |
+| **Analyzer** | Any | 5 min | Architecture analysis, data models, diagrams, task decomposition |
 | **Coder** | Claude (fallback: any) | 15 min | Write code, create branches/PRs |
 | **Reviewer** | Claude (fallback: any) | 5 min | AI code review with 0-10 scoring |
 | **Tester** | Claude (fallback: any) | 10 min | Generate and run tests |
@@ -201,7 +202,7 @@ CreedFlow/
 │   │   ├── Utilities/                # NDJSON parser, async helpers
 │   │   └── Views/                    # SwiftUI views
 │   └── MCPServer/                    # Standalone MCP server (13 tools, 5 resources)
-├── Tests/CreedFlowTests/             # 104 tests
+├── Tests/CreedFlowTests/             # 111 tests
 ├── Resources/                        # Info.plist, entitlements
 └── Scripts/                          # .app + DMG packaging
 ```

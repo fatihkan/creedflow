@@ -15,7 +15,7 @@ struct TaskBoardView: View {
     @State private var showNewTask = false
     @State private var showCleanupConfirm = false
 
-    private static let allColumns: [KanbanColumn] = [
+    private let columns: [KanbanColumn] = [
         KanbanColumn(title: "Queued", status: .queued, color: .forgeNeutral),
         KanbanColumn(title: "In Progress", status: .inProgress, color: .forgeInfo),
         KanbanColumn(title: "Review", status: .needsRevision, color: .forgeWarning),
@@ -23,13 +23,6 @@ struct TaskBoardView: View {
         KanbanColumn(title: "Failed", status: .failed, color: .forgeDanger),
         KanbanColumn(title: "Cancelled", status: .cancelled, color: .forgeNeutral),
     ]
-
-    /// Only show columns that have tasks in them
-    private var visibleColumns: [KanbanColumn] {
-        Self.allColumns.filter { column in
-            tasks.contains { $0.status == column.status }
-        }
-    }
 
     /// Count of tasks that can be cleaned up (done + failed + cancelled)
     private var cleanableCount: Int {
@@ -66,29 +59,21 @@ struct TaskBoardView: View {
                     .padding(.top, 8)
             }
 
-            if tasks.isEmpty {
-                ForgeEmptyState(
-                    icon: "checklist",
-                    title: "No Tasks",
-                    subtitle: projectId != nil ? "Create a task or analyze the project to get started" : "Select a project to view its tasks"
-                )
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 12) {
-                        ForEach(visibleColumns, id: \.title) { column in
-                            KanbanColumnView(
-                                column: column,
-                                tasks: tasks.filter { $0.status == column.status },
-                                selectedTaskId: $selectedTaskId,
-                                orchestrator: orchestrator,
-                                onMoveTask: { taskId, newStatus in
-                                    moveTask(taskId: taskId, to: newStatus)
-                                }
-                            )
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(columns, id: \.title) { column in
+                        KanbanColumnView(
+                            column: column,
+                            tasks: tasks.filter { $0.status == column.status },
+                            selectedTaskId: $selectedTaskId,
+                            orchestrator: orchestrator,
+                            onMoveTask: { taskId, newStatus in
+                                moveTask(taskId: taskId, to: newStatus)
+                            }
+                        )
                     }
-                    .padding(16)
                 }
+                .padding(16)
             }
         }
         .sheet(isPresented: $showNewTask) {
@@ -302,12 +287,12 @@ struct KanbanColumnView: View {
 
             // Task cards
             if tasks.isEmpty {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isDropTargeted ? AnyShapeStyle(column.color.opacity(0.15)) : AnyShapeStyle(.quaternary.opacity(0.3)))
-                    .frame(height: 60)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isDropTargeted ? AnyShapeStyle(column.color.opacity(0.15)) : AnyShapeStyle(.quaternary.opacity(0.15)))
+                    .frame(height: 32)
                     .overlay {
-                        Text(isDropTargeted ? "Drop here" : "No tasks")
-                            .font(.caption)
+                        Text(isDropTargeted ? "Drop here" : "Empty")
+                            .font(.system(size: 10))
                             .foregroundStyle(isDropTargeted ? AnyShapeStyle(column.color) : AnyShapeStyle(.quaternary))
                     }
                     .animation(.easeOut(duration: 0.15), value: isDropTargeted)
@@ -331,6 +316,8 @@ struct KanbanColumnView: View {
                     }
                 }
             }
+
+            Spacer()
         }
         .frame(minWidth: 200, idealWidth: 240, maxWidth: 280, maxHeight: .infinity)
         .dropDestination(for: String.self) { items, _ in

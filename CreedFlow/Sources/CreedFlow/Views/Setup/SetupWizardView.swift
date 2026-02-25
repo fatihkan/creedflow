@@ -22,6 +22,7 @@ public struct SetupWizardView: View {
 
     @State private var currentStep = 0
     @State private var detector = EnvironmentDetector()
+    @State private var installer = DependencyInstaller()
     @State private var mcpStore = MCPServerConfigStore()
 
     // Local wizard state (written to AppStorage on completion)
@@ -40,8 +41,8 @@ public struct SetupWizardView: View {
     @State private var telegramChatId = ""
     @State private var selectedEditor = ""
 
-    private let totalSteps = 5
-    private let stepTitles = ["Environment", "Projects & Budget", "Integrations", "MCP Servers", "Summary"]
+    private let totalSteps = 6
+    private let stepTitles = ["Environment", "Dependencies", "Projects & Budget", "Integrations", "MCP Servers", "Summary"]
 
     public init() {}
 
@@ -97,22 +98,24 @@ public struct SetupWizardView: View {
                         selectedEditor: $selectedEditor
                     )
                 case 1:
+                    WizardDependenciesStep(installer: installer)
+                case 2:
                     WizardProjectsStep(
                         projectsBaseDir: $projectsBaseDir,
                         maxConcurrency: $maxConcurrency,
                         defaultBudget: $defaultBudget
                     )
-                case 2:
+                case 3:
                     WizardIntegrationsStep(
                         telegramBotToken: $telegramBotToken,
                         telegramChatId: $telegramChatId
                     )
-                case 3:
+                case 4:
                     WizardMCPStep(
                         appDatabase: appDatabase,
                         store: mcpStore
                     )
-                case 4:
+                case 5:
                     WizardSummaryStep(
                         detector: detector,
                         claudePathOverride: claudePathOverride,
@@ -148,7 +151,7 @@ public struct SetupWizardView: View {
 
                 Spacer()
 
-                if currentStep == 2 || currentStep == 3 {
+                if currentStep == 1 || currentStep == 3 || currentStep == 4 {
                     Button("Skip") {
                         withAnimation { currentStep += 1 }
                     }
@@ -175,6 +178,7 @@ public struct SetupWizardView: View {
         .frame(width: 640, height: 620)
         .task {
             await detector.detectAll()
+            await installer.detectAll()
         }
         .onAppear {
             if let db = appDatabase {
