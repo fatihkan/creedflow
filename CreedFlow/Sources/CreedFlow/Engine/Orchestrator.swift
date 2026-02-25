@@ -757,7 +757,13 @@ final class Orchestrator {
         }
         guard var deployment else { return false }
 
-        if task.status == .passed {
+        // Re-read task from DB to get current status (parameter may be stale)
+        let currentTask = try? await dbQueue.read { db in
+            try AgentTask.fetchOne(db, id: task.id)
+        }
+        let taskStatus = currentTask?.status ?? task.status
+
+        if taskStatus == .passed {
             // Fix succeeded — reset deployment to pending so the Orchestrator re-deploys
             try? await logInfo(
                 taskId: task.id,
@@ -821,6 +827,13 @@ final class Orchestrator {
     /// If the deployment fails, automatically creates a Coder fix task using the error logs.
     private func handleDevOpsCompletion(task: AgentTask, result: AgentResult) async {
         do {
+            // Re-read task from DB to get current status (the parameter is a stale copy
+            // from before MultiBackendRunner updated it to .passed/.failed)
+            let currentTask = try await dbQueue.read { db in
+                try AgentTask.fetchOne(db, id: task.id)
+            }
+            let taskStatus = currentTask?.status ?? task.status
+
             // Find the pending deployment for this project
             let deployment = try await dbQueue.read { db in
                 try Deployment
@@ -837,7 +850,7 @@ final class Orchestrator {
             }
 
             // If devops agent task failed, mark deployment as failed and spawn fix task
-            guard task.status == .passed else {
+            guard taskStatus == .passed else {
                 let failLogs = task.errorMessage ?? result.output ?? "DevOps task failed with no output"
                 deployment.status = .failed
                 deployment.completedAt = Date()
@@ -879,24 +892,9 @@ final class Orchestrator {
                              message: "Local deployment completed on port \(port)")
 
         } catch {
-            // Mark deployment as failed BEFORE spawning fix task
-            if var failDeploy = try? await dbQueue.read({ db in
-                try Deployment
-                    .filter(Column("projectId") == task.projectId)
-                    .filter(Column("status") == Deployment.Status.pending.rawValue)
-                    .order(Column("createdAt").desc)
-                    .fetchOne(db)
-            }) {
-                failDeploy.status = .failed
-                failDeploy.completedAt = Date()
-                failDeploy.logs = error.localizedDescription
-                try? await dbQueue.write { db in
-                    var d = failDeploy
-                    try d.update(db)
-                }
-            }
-
-            // Local deploy itself failed — find the deployment and spawn fix task
+            // LocalDeploymentService already marks the deployment as .failed in its own
+            // catch block before re-throwing, so we don't need to update the status here.
+            // Just log and spawn the fix task.
             try? await logError(taskId: task.id, agent: .devops,
                               message: "Failed to deploy: \(error.localizedDescription)")
             await handleLocalDeployFailure(task: task, error: error)
