@@ -1,6 +1,6 @@
 # CreedFlow
 
-AI-powered project orchestration platform for macOS. Describe a project in natural language — CreedFlow analyzes it, creates tasks, routes them to AI backends, reviews code, and deploys.
+AI-powered project orchestration platform for macOS. Describe a project in natural language — CreedFlow analyzes it, creates tasks, routes them to cloud or local AI backends, reviews code, and deploys.
 
 ## How It Works
 
@@ -9,7 +9,7 @@ You: "Todo app with React + Node.js + SQLite"
   ↓
 CreedFlow: Analyzer agent decomposes into features & tasks
   ↓
-CreedFlow: Routes tasks to Claude / Codex / Gemini backends
+CreedFlow: Routes tasks to Claude / Codex / Gemini (+ local LLM fallback)
   ↓
 CreedFlow: Coder agents write code, open branches per task
   ↓
@@ -25,7 +25,7 @@ CreedFlow: Telegram notification → You approve → Deploy
 ## Features
 
 - **11 AI Agents** — Analyzer, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor, Publisher
-- **3 CLI Backends** — Claude, Codex, Gemini with smart routing and automatic fallback
+- **7 AI Backends** — Claude, Codex, Gemini (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
 - **Kanban Board** — Drag-and-drop task management with live agent output
 - **Dependency Graph** — Tasks execute in correct order (e.g., DB before API before UI)
 - **Auto-Retry** — Failed tasks retry up to 3 times before escalating
@@ -46,7 +46,7 @@ CreedFlow: Telegram notification → You approve → Deploy
 | Language | Swift 6.0 |
 | UI | SwiftUI (macOS 14+) |
 | Database | SQLite via GRDB.swift (13 migrations, 18 models) |
-| AI Backends | Claude CLI, Codex CLI, Gemini CLI |
+| AI Backends | Claude CLI, Codex CLI, Gemini CLI + Ollama, LM Studio, llama.cpp, MLX |
 | MCP | modelcontextprotocol/swift-sdk 0.11.0 |
 | Deployment | Docker / Docker Compose / Direct Process |
 | Notifications | Telegram Bot API |
@@ -73,7 +73,7 @@ cd CreedFlow && swift build
 ./Scripts/package-app.sh --dmg
 ```
 
-**Requirements:** macOS 14+, Swift 6.0, at least one AI CLI installed (claude, codex, or gemini).
+**Requirements:** macOS 14+, Swift 6.0, at least one AI backend available (claude, codex, gemini, ollama, lm studio, llama.cpp, or mlx).
 
 ## Architecture
 
@@ -97,14 +97,22 @@ cd CreedFlow && swift build
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│                    CLI Backends (Process)                     │
+│                    AI Backends                                │
 │                                                              │
+│  Cloud (preferred):                                          │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐              │
 │  │ Claude   │    │ Codex    │    │ Gemini   │              │
 │  │ CLI      │    │ CLI      │    │ CLI      │              │
 │  │ (MCP,    │    │ (exec    │    │ (-p -y   │              │
 │  │  tools)  │    │  --auto) │    │  -o text)│              │
 │  └──────────┘    └──────────┘    └──────────┘              │
+│                                                              │
+│  Local LLMs (fallback):                                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ Ollama   │  │ LM Studio│  │ llama.cpp│  │ MLX      │  │
+│  │ (run)    │  │ (HTTP)   │  │ (CLI)    │  │ (Apple   │  │
+│  │          │  │ :1234    │  │ + GGUF   │  │  Silicon)│  │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘  │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
@@ -141,7 +149,7 @@ cd CreedFlow && swift build
 | **VideoEditor** | Claude preferred | 15 min | Video/audio generation (Runway, ElevenLabs) |
 | **Publisher** | Claude preferred | 10 min | Publish to Medium, WordPress, Twitter, LinkedIn |
 
-**Backend routing:** Disabled or unavailable CLIs are never selected. If a preferred backend is unavailable, tasks automatically fall back to any active backend. Tasks only skip when zero backends are available.
+**Backend routing:** Disabled or unavailable backends are never selected. Cloud backends are preferred; local LLMs (Ollama, LM Studio, llama.cpp, MLX) serve as automatic fallback when no cloud backend is available. Tasks only skip when zero backends are available.
 
 ## Database
 
@@ -182,7 +190,7 @@ CreedFlow/
 │   │   ├── Models/                   # 18 domain models
 │   │   ├── Services/
 │   │   │   ├── Agents/               # 11 agent implementations
-│   │   │   ├── CLI/                  # Backend router + adapters (smart fallback)
+│   │   │   ├── CLI/                  # Backend router + 7 adapters (cloud + local LLM)
 │   │   │   ├── Claude/               # Claude process management
 │   │   │   ├── Deploy/               # Local deployment service
 │   │   │   ├── Git/                  # Git + GitHub integration
