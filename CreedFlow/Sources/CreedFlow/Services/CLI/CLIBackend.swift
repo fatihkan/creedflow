@@ -8,6 +8,10 @@ package enum CLIBackendType: String, Codable, CaseIterable, DatabaseValueConvert
     case claude
     case codex
     case gemini
+    case ollama
+    case lmstudio
+    case llamacpp
+    case mlx
 }
 
 // MARK: - Output Events

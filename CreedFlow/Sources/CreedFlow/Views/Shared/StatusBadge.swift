@@ -62,6 +62,10 @@ struct BackendBadge: View {
         case .claude: return .forgeInfo
         case .codex: return .forgeSuccess
         case .gemini: return .forgeAmber
+        case .ollama: return .orange
+        case .lmstudio: return .cyan
+        case .llamacpp: return .pink
+        case .mlx: return .mint
         }
     }
 }

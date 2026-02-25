@@ -12,6 +12,16 @@ final class EnvironmentDetector {
     var geminiPath: String = ""
     var geminiVersion: String = ""
 
+    // Local LLMs
+    var ollamaPath: String = ""
+    var ollamaVersion: String = ""
+    var lmstudioPath: String = ""
+    var lmstudioVersion: String = ""
+    var llamacppPath: String = ""
+    var llamacppVersion: String = ""
+    var mlxPath: String = ""
+    var mlxVersion: String = ""
+
     // Dev tools
     var ghPath: String = ""
     var ghVersion: String = ""
@@ -22,6 +32,10 @@ final class EnvironmentDetector {
     var claudeFound: Bool { !claudePath.isEmpty && !claudeVersion.isEmpty }
     var codexFound: Bool { !codexPath.isEmpty && !codexVersion.isEmpty }
     var geminiFound: Bool { !geminiPath.isEmpty && !geminiVersion.isEmpty }
+    var ollamaFound: Bool { !ollamaPath.isEmpty && !ollamaVersion.isEmpty }
+    var lmstudioFound: Bool { !lmstudioPath.isEmpty && !lmstudioVersion.isEmpty }
+    var llamacppFound: Bool { !llamacppPath.isEmpty && !llamacppVersion.isEmpty }
+    var mlxFound: Bool { !mlxPath.isEmpty && !mlxVersion.isEmpty }
     var ghFound: Bool { !ghPath.isEmpty && !ghVersion.isEmpty }
     var gitConfigured: Bool { !gitUserName.isEmpty && !gitUserEmail.isEmpty }
 
@@ -47,6 +61,28 @@ final class EnvironmentDetector {
         "\(home)/.npm-global/bin/gemini",
     ]
 
+    private static let ollamaCandidates = [
+        "/usr/local/bin/ollama",
+        "/opt/homebrew/bin/ollama",
+    ]
+
+    private static let lmstudioCandidates = [
+        "\(home)/.local/bin/lms",
+        "/usr/local/bin/lms",
+        "/opt/homebrew/bin/lms",
+    ]
+
+    private static let llamacppCandidates = [
+        "/opt/homebrew/bin/llama-cli",
+        "/usr/local/bin/llama-cli",
+    ]
+
+    private static let mlxCandidates = [
+        "\(home)/.local/bin/mlx_lm.generate",
+        "/opt/homebrew/bin/mlx_lm.generate",
+        "/usr/local/bin/mlx_lm.generate",
+    ]
+
     private static let ghCandidates = [
         "/usr/local/bin/gh",
         "/opt/homebrew/bin/gh",
@@ -54,11 +90,18 @@ final class EnvironmentDetector {
 
     /// Auto-detect all tools using candidate paths
     func detectAll() async {
-        await detectAll(claudeOverride: "", codexOverride: "", geminiOverride: "")
+        await detectAll(
+            claudeOverride: "", codexOverride: "", geminiOverride: "",
+            ollamaOverride: "", lmstudioOverride: "", llamacppOverride: "", mlxOverride: ""
+        )
     }
 
     /// Detect all tools, preferring user-provided override paths when non-empty
-    func detectAll(claudeOverride: String, codexOverride: String, geminiOverride: String) async {
+    func detectAll(
+        claudeOverride: String, codexOverride: String, geminiOverride: String,
+        ollamaOverride: String = "", lmstudioOverride: String = "",
+        llamacppOverride: String = "", mlxOverride: String = ""
+    ) async {
         isDetecting = true
         defer { isDetecting = false }
 
@@ -72,6 +115,18 @@ final class EnvironmentDetector {
             group.addTask { await self.detectCLI(override: geminiOverride, candidates: Self.geminiCandidates) { path, version in
                 self.geminiPath = path; self.geminiVersion = version
             }}
+            group.addTask { await self.detectCLI(override: ollamaOverride, candidates: Self.ollamaCandidates) { path, version in
+                self.ollamaPath = path; self.ollamaVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: lmstudioOverride, candidates: Self.lmstudioCandidates) { path, version in
+                self.lmstudioPath = path; self.lmstudioVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: llamacppOverride, candidates: Self.llamacppCandidates) { path, version in
+                self.llamacppPath = path; self.llamacppVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: mlxOverride, candidates: Self.mlxCandidates, versionArgs: ["--help"]) { path, version in
+                self.mlxPath = path; self.mlxVersion = version
+            }}
             group.addTask { await self.detectCLI(override: "", candidates: Self.ghCandidates) { path, version in
                 self.ghPath = path; self.ghVersion = version
             }}
@@ -84,6 +139,7 @@ final class EnvironmentDetector {
     private func detectCLI(
         override: String,
         candidates: [String],
+        versionArgs: [String] = ["--version"],
         apply: (String, String) -> Void
     ) async {
         var resolved = ""
@@ -115,7 +171,7 @@ final class EnvironmentDetector {
         }
 
         do {
-            let output = try await Process.run(resolved, arguments: ["--version"])
+            let output = try await Process.run(resolved, arguments: versionArgs)
             let version = output.trimmingCharacters(in: .whitespacesAndNewlines)
                 .components(separatedBy: "\n").first ?? ""
             apply(resolved, version)

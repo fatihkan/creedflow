@@ -61,6 +61,10 @@ final class Orchestrator {
             await router.register(ClaudeBackend(processManager: pm, claudePath: claudeResolvedPath))
             await router.register(CodexBackend())
             await router.register(GeminiBackend())
+            await router.register(OllamaBackend())
+            await router.register(LMStudioBackend())
+            await router.register(LlamaCppBackend())
+            await router.register(MLXBackend())
         }
     }
 

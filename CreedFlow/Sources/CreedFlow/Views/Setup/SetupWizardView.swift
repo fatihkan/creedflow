@@ -6,6 +6,10 @@ public struct SetupWizardView: View {
     @AppStorage("claudePath") private var storedClaudePath = ""
     @AppStorage("codexPath") private var storedCodexPath = ""
     @AppStorage("geminiPath") private var storedGeminiPath = ""
+    @AppStorage("ollamaPath") private var storedOllamaPath = ""
+    @AppStorage("lmstudioEnabled") private var storedLmstudioEnabled = false
+    @AppStorage("llamacppPath") private var storedLlamacppPath = ""
+    @AppStorage("mlxPath") private var storedMlxPath = ""
     @AppStorage("projectsBaseDir") private var storedProjectsBaseDir = ""
     @AppStorage("maxConcurrency") private var storedMaxConcurrency = 3
     @AppStorage("defaultMaxBudgetUSD") private var storedDefaultBudget = 5.0
@@ -22,6 +26,10 @@ public struct SetupWizardView: View {
     @State private var claudePathOverride = ""
     @State private var codexPathOverride = ""
     @State private var geminiPathOverride = ""
+    @State private var ollamaPathOverride = ""
+    @State private var lmstudioPathOverride = ""
+    @State private var llamacppPathOverride = ""
+    @State private var mlxPathOverride = ""
     @State private var projectsBaseDir = ""
     @State private var maxConcurrency = 3
     @State private var defaultBudget = 5.0
@@ -76,7 +84,11 @@ public struct SetupWizardView: View {
                         detector: detector,
                         claudePathOverride: $claudePathOverride,
                         codexPathOverride: $codexPathOverride,
-                        geminiPathOverride: $geminiPathOverride
+                        geminiPathOverride: $geminiPathOverride,
+                        ollamaPathOverride: $ollamaPathOverride,
+                        lmstudioPathOverride: $lmstudioPathOverride,
+                        llamacppPathOverride: $llamacppPathOverride,
+                        mlxPathOverride: $mlxPathOverride
                     )
                 case 1:
                     WizardProjectsStep(
@@ -100,6 +112,10 @@ public struct SetupWizardView: View {
                         claudePathOverride: claudePathOverride,
                         codexPathOverride: codexPathOverride,
                         geminiPathOverride: geminiPathOverride,
+                        ollamaPathOverride: ollamaPathOverride,
+                        lmstudioPathOverride: lmstudioPathOverride,
+                        llamacppPathOverride: llamacppPathOverride,
+                        mlxPathOverride: mlxPathOverride,
                         projectsBaseDir: projectsBaseDir,
                         maxConcurrency: maxConcurrency,
                         defaultBudget: defaultBudget,
@@ -177,6 +193,24 @@ public struct SetupWizardView: View {
             storedGeminiPath = geminiPathOverride
         } else if detector.geminiFound {
             storedGeminiPath = detector.geminiPath
+        }
+
+        if !ollamaPathOverride.isEmpty {
+            storedOllamaPath = ollamaPathOverride
+        } else if detector.ollamaFound {
+            storedOllamaPath = detector.ollamaPath
+        }
+
+        if !llamacppPathOverride.isEmpty {
+            storedLlamacppPath = llamacppPathOverride
+        } else if detector.llamacppFound {
+            storedLlamacppPath = detector.llamacppPath
+        }
+
+        if !mlxPathOverride.isEmpty {
+            storedMlxPath = mlxPathOverride
+        } else if detector.mlxFound {
+            storedMlxPath = detector.mlxPath
         }
 
         // Write projects settings

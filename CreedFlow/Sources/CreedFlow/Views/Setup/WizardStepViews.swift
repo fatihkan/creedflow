@@ -8,6 +8,10 @@ struct WizardEnvironmentStep: View {
     @Binding var claudePathOverride: String
     @Binding var codexPathOverride: String
     @Binding var geminiPathOverride: String
+    @Binding var ollamaPathOverride: String
+    @Binding var lmstudioPathOverride: String
+    @Binding var llamacppPathOverride: String
+    @Binding var mlxPathOverride: String
 
     var body: some View {
         Form {
@@ -44,13 +48,61 @@ struct WizardEnvironmentStep: View {
                 CLIPathOverrideRow(path: $geminiPathOverride, placeholder: "Gemini CLI custom path")
             }
 
+            Section("Local LLMs (Optional)") {
+                DetectionRow(
+                    label: "Ollama",
+                    found: detector.ollamaFound,
+                    detail: detector.ollamaFound
+                        ? "\(detector.ollamaPath) (v\(detector.ollamaVersion))"
+                        : "Not found — optional (brew install ollama)"
+                )
+                CLIPathOverrideRow(path: $ollamaPathOverride, placeholder: "Ollama custom path")
+
+                Divider()
+
+                DetectionRow(
+                    label: "LM Studio",
+                    found: detector.lmstudioFound,
+                    detail: detector.lmstudioFound
+                        ? "\(detector.lmstudioPath) (v\(detector.lmstudioVersion))"
+                        : "Not found — optional (lmstudio.ai)"
+                )
+                CLIPathOverrideRow(path: $lmstudioPathOverride, placeholder: "LM Studio (lms) custom path")
+
+                Divider()
+
+                DetectionRow(
+                    label: "llama.cpp",
+                    found: detector.llamacppFound,
+                    detail: detector.llamacppFound
+                        ? "\(detector.llamacppPath) (v\(detector.llamacppVersion))"
+                        : "Not found — optional (brew install llama.cpp)"
+                )
+                CLIPathOverrideRow(path: $llamacppPathOverride, placeholder: "llama-cli custom path")
+
+                Divider()
+
+                DetectionRow(
+                    label: "MLX-LM",
+                    found: detector.mlxFound,
+                    detail: detector.mlxFound
+                        ? "\(detector.mlxPath)"
+                        : "Not found — optional (pip install mlx-lm)"
+                )
+                CLIPathOverrideRow(path: $mlxPathOverride, placeholder: "mlx_lm.generate custom path")
+            }
+
             Section {
                 Button {
                     Task {
                         await detector.detectAll(
                             claudeOverride: claudePathOverride,
                             codexOverride: codexPathOverride,
-                            geminiOverride: geminiPathOverride
+                            geminiOverride: geminiPathOverride,
+                            ollamaOverride: ollamaPathOverride,
+                            lmstudioOverride: lmstudioPathOverride,
+                            llamacppOverride: llamacppPathOverride,
+                            mlxOverride: mlxPathOverride
                         )
                     }
                 } label: {
@@ -422,6 +474,10 @@ struct WizardSummaryStep: View {
     let claudePathOverride: String
     let codexPathOverride: String
     let geminiPathOverride: String
+    let ollamaPathOverride: String
+    let lmstudioPathOverride: String
+    let llamacppPathOverride: String
+    let mlxPathOverride: String
     let projectsBaseDir: String
     let maxConcurrency: Int
     let defaultBudget: Double
@@ -446,12 +502,43 @@ struct WizardSummaryStep: View {
         return "Not found"
     }
 
+    private var effectiveOllamaPath: String {
+        if !ollamaPathOverride.isEmpty { return ollamaPathOverride }
+        if detector.ollamaFound { return detector.ollamaPath }
+        return "Not found"
+    }
+
+    private var effectiveLmstudioPath: String {
+        if !lmstudioPathOverride.isEmpty { return lmstudioPathOverride }
+        if detector.lmstudioFound { return detector.lmstudioPath }
+        return "Not found"
+    }
+
+    private var effectiveLlamacppPath: String {
+        if !llamacppPathOverride.isEmpty { return llamacppPathOverride }
+        if detector.llamacppFound { return detector.llamacppPath }
+        return "Not found"
+    }
+
+    private var effectiveMlxPath: String {
+        if !mlxPathOverride.isEmpty { return mlxPathOverride }
+        if detector.mlxFound { return detector.mlxPath }
+        return "Not found"
+    }
+
     var body: some View {
         Form {
             Section("AI CLIs") {
                 SummaryRow(label: "Claude CLI", value: effectiveClaudePath, ok: detector.claudeFound || !claudePathOverride.isEmpty)
                 SummaryRow(label: "Codex CLI", value: effectiveCodexPath, ok: detector.codexFound || !codexPathOverride.isEmpty)
                 SummaryRow(label: "Gemini CLI", value: effectiveGeminiPath, ok: detector.geminiFound || !geminiPathOverride.isEmpty)
+            }
+
+            Section("Local LLMs") {
+                SummaryRow(label: "Ollama", value: effectiveOllamaPath, ok: detector.ollamaFound || !ollamaPathOverride.isEmpty)
+                SummaryRow(label: "LM Studio", value: effectiveLmstudioPath, ok: detector.lmstudioFound || !lmstudioPathOverride.isEmpty)
+                SummaryRow(label: "llama.cpp", value: effectiveLlamacppPath, ok: detector.llamacppFound || !llamacppPathOverride.isEmpty)
+                SummaryRow(label: "MLX-LM", value: effectiveMlxPath, ok: detector.mlxFound || !mlxPathOverride.isEmpty)
             }
 
             Section("Dev Tools") {
