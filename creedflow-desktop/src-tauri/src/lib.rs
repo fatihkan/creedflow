@@ -65,6 +65,15 @@ pub fn run() {
             // Publishing
             commands::publishing::list_channels,
             commands::publishing::list_publications,
+            // Deploy
+            commands::deploy::list_deployments,
+            commands::deploy::create_deployment,
+            commands::deploy::get_deployment,
+            // Prompts
+            commands::prompts::list_prompts,
+            commands::prompts::create_prompt,
+            commands::prompts::delete_prompt,
+            commands::prompts::toggle_favorite,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
