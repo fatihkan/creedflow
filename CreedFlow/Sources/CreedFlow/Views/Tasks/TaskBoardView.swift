@@ -13,8 +13,9 @@ struct TaskBoardView: View {
     @State private var projectName: String = ""
     @State private var errorMessage: String?
     @State private var showNewTask = false
+    @State private var showCleanupConfirm = false
 
-    private let columns: [KanbanColumn] = [
+    private static let allColumns: [KanbanColumn] = [
         KanbanColumn(title: "Queued", status: .queued, color: .forgeNeutral),
         KanbanColumn(title: "In Progress", status: .inProgress, color: .forgeInfo),
         KanbanColumn(title: "Review", status: .needsRevision, color: .forgeWarning),
@@ -23,14 +24,37 @@ struct TaskBoardView: View {
         KanbanColumn(title: "Cancelled", status: .cancelled, color: .forgeNeutral),
     ]
 
+    /// Only show columns that have tasks in them
+    private var visibleColumns: [KanbanColumn] {
+        Self.allColumns.filter { column in
+            tasks.contains { $0.status == column.status }
+        }
+    }
+
+    /// Count of tasks that can be cleaned up (done + failed + cancelled)
+    private var cleanableCount: Int {
+        tasks.filter { $0.status == .passed || $0.status == .failed || $0.status == .cancelled }.count
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
-                if projectId != nil {
-                    Button {
-                        showNewTask = true
-                    } label: {
-                        Label("New Task", systemImage: "plus")
+                HStack(spacing: 8) {
+                    if cleanableCount > 0 {
+                        Button {
+                            showCleanupConfirm = true
+                        } label: {
+                            Label("Clean Up", systemImage: "trash")
+                        }
+                        .help("Remove \(cleanableCount) completed, failed, and cancelled tasks")
+                    }
+
+                    if projectId != nil {
+                        Button {
+                            showNewTask = true
+                        } label: {
+                            Label("New Task", systemImage: "plus")
+                        }
                     }
                 }
             }
@@ -42,27 +66,46 @@ struct TaskBoardView: View {
                     .padding(.top, 8)
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(columns, id: \.title) { column in
-                        KanbanColumnView(
-                            column: column,
-                            tasks: tasks.filter { $0.status == column.status },
-                            selectedTaskId: $selectedTaskId,
-                            orchestrator: orchestrator,
-                            onMoveTask: { taskId, newStatus in
-                                moveTask(taskId: taskId, to: newStatus)
-                            }
-                        )
+            if tasks.isEmpty {
+                ForgeEmptyState(
+                    icon: "checklist",
+                    title: "No Tasks",
+                    subtitle: projectId != nil ? "Create a task or analyze the project to get started" : "Select a project to view its tasks"
+                )
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(visibleColumns, id: \.title) { column in
+                            KanbanColumnView(
+                                column: column,
+                                tasks: tasks.filter { $0.status == column.status },
+                                selectedTaskId: $selectedTaskId,
+                                orchestrator: orchestrator,
+                                onMoveTask: { taskId, newStatus in
+                                    moveTask(taskId: taskId, to: newStatus)
+                                }
+                            )
+                        }
                     }
+                    .padding(16)
                 }
-                .padding(16)
             }
         }
         .sheet(isPresented: $showNewTask) {
             if let projectId {
                 NewTaskSheet(projectId: projectId, appDatabase: appDatabase)
             }
+        }
+        .confirmationDialog(
+            "Clean Up Tasks",
+            isPresented: $showCleanupConfirm
+        ) {
+            Button("Remove Done, Failed & Cancelled (\(cleanableCount))", role: .destructive) {
+                cleanUpTasks()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all completed, failed, and cancelled tasks. Active and queued tasks will not be affected.")
         }
         .task(id: projectId) {
             await observeTasks()
@@ -92,6 +135,38 @@ struct TaskBoardView: View {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func cleanUpTasks() {
+        guard let db = appDatabase else { return }
+        let terminalStatuses: [AgentTask.Status] = [.passed, .failed, .cancelled]
+        try? db.dbQueue.write { dbConn in
+            let idsToDelete = tasks
+                .filter { terminalStatuses.contains($0.status) }
+                .map(\.id)
+            guard !idsToDelete.isEmpty else { return }
+            // Delete dependencies referencing these tasks
+            try TaskDependency
+                .filter(idsToDelete.contains(Column("taskId")) || idsToDelete.contains(Column("dependsOnTaskId")))
+                .deleteAll(dbConn)
+            // Delete agent logs for these tasks
+            try AgentLog
+                .filter(idsToDelete.contains(Column("taskId")))
+                .deleteAll(dbConn)
+            // Delete reviews for these tasks
+            try Review
+                .filter(idsToDelete.contains(Column("taskId")))
+                .deleteAll(dbConn)
+            // Delete the tasks themselves
+            try AgentTask
+                .filter(idsToDelete.contains(Column("id")))
+                .deleteAll(dbConn)
+        }
+        // Clear selection if the selected task was cleaned up
+        if let selected = selectedTaskId,
+           !tasks.contains(where: { $0.id == selected && ($0.status == .queued || $0.status == .inProgress || $0.status == .needsRevision) }) {
+            selectedTaskId = nil
         }
     }
 
