@@ -8,6 +8,7 @@ struct Feature: Codable, Identifiable, Equatable {
     var description: String
     var priority: Int
     var status: Status
+    var integrationPrNumber: Int?
     var createdAt: Date
     var updatedAt: Date
 
@@ -25,6 +26,7 @@ struct Feature: Codable, Identifiable, Equatable {
         description: String,
         priority: Int = 0,
         status: Status = .pending,
+        integrationPrNumber: Int? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -34,6 +36,7 @@ struct Feature: Codable, Identifiable, Equatable {
         self.description = description
         self.priority = priority
         self.status = status
+        self.integrationPrNumber = integrationPrNumber
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

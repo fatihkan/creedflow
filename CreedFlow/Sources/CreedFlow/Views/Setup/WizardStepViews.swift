@@ -14,6 +14,8 @@ struct WizardEnvironmentStep: View {
     @Binding var llamacppPathOverride: String
     @Binding var mlxPathOverride: String
     @Binding var selectedEditor: String
+    @Binding var gitUserNameInput: String
+    @Binding var gitUserEmailInput: String
 
     var body: some View {
         Form {
@@ -145,20 +147,31 @@ struct WizardEnvironmentStep: View {
             }
 
             Section("Git Configuration") {
-                DetectionRow(
-                    label: "Git user.name",
-                    found: detector.gitConfigured,
-                    detail: detector.gitConfigured
-                        ? detector.gitUserName
-                        : "Not configured"
-                )
-                DetectionRow(
-                    label: "Git user.email",
-                    found: !detector.gitUserEmail.isEmpty,
-                    detail: !detector.gitUserEmail.isEmpty
-                        ? detector.gitUserEmail
-                        : "Not configured"
-                )
+                if detector.gitConfigured {
+                    DetectionRow(label: "Git user.name", found: true, detail: detector.gitUserName)
+                    DetectionRow(label: "Git user.email", found: true, detail: detector.gitUserEmail)
+                } else {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.forgeWarning)
+                        Text("Git user not configured")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    TextField("Name", text: $gitUserNameInput)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("Email", text: $gitUserEmailInput)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Configure Git") {
+                        Task {
+                            await detector.configureGit(userName: gitUserNameInput, email: gitUserEmailInput)
+                        }
+                    }
+                    .disabled(gitUserNameInput.isEmpty || gitUserEmailInput.isEmpty)
+                }
+
+                Text("CreedFlow uses a 3-branch strategy: dev \u{2192} staging \u{2192} main with feature branches per coder task.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Code Editors") {

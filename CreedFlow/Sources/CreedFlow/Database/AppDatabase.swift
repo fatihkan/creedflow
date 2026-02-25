@@ -427,6 +427,15 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v16_branching_strategy") { db in
+            try db.alter(table: "feature") { t in
+                t.add(column: "integrationPrNumber", .integer)
+            }
+            try db.alter(table: "project") { t in
+                t.add(column: "stagingPrNumber", .integer)
+            }
+        }
+
         return migrator
     }
 }

@@ -59,6 +59,33 @@ actor GitService {
         try await run(["log", "--oneline", "-\(count)"], in: path)
     }
 
+    /// Check if a branch exists locally
+    func branchExists(_ name: String, in path: String) async throws -> Bool {
+        let output = try await run(["branch", "--list", name], in: path)
+        return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Merge a branch into the current branch
+    func merge(_ branch: String, message: String? = nil, in path: String) async throws {
+        var args = ["merge", branch]
+        if let message {
+            args += ["-m", message]
+        }
+        try await run(args, in: path)
+    }
+
+    /// Check if there are uncommitted changes (staged or unstaged)
+    func hasChanges(in path: String) async throws -> Bool {
+        let output = try await run(["status", "--porcelain"], in: path)
+        return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Get the HEAD commit hash (short)
+    func headCommitHash(in path: String) async throws -> String {
+        let output = try await run(["rev-parse", "--short", "HEAD"], in: path)
+        return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     @discardableResult
     private func run(_ arguments: [String], in directory: String) async throws -> String {
         try await Process.run(

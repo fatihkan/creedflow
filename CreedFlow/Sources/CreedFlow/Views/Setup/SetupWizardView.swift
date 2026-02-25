@@ -40,6 +40,8 @@ public struct SetupWizardView: View {
     @State private var telegramBotToken = ""
     @State private var telegramChatId = ""
     @State private var selectedEditor = ""
+    @State private var gitUserNameInput = ""
+    @State private var gitUserEmailInput = ""
 
     private let totalSteps = 6
     private let stepTitles = ["Environment", "Dependencies", "Projects & Budget", "Integrations", "MCP Servers", "Summary"]
@@ -95,7 +97,9 @@ public struct SetupWizardView: View {
                         lmstudioPathOverride: $lmstudioPathOverride,
                         llamacppPathOverride: $llamacppPathOverride,
                         mlxPathOverride: $mlxPathOverride,
-                        selectedEditor: $selectedEditor
+                        selectedEditor: $selectedEditor,
+                        gitUserNameInput: $gitUserNameInput,
+                        gitUserEmailInput: $gitUserEmailInput
                     )
                 case 1:
                     WizardDependenciesStep(installer: installer)

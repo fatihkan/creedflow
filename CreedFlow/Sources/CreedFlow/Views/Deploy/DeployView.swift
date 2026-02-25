@@ -114,12 +114,12 @@ struct DeployView: View {
         HStack(spacing: 12) {
             // Environment indicator
             VStack(spacing: 2) {
-                Image(systemName: deployment.environment == .production ? "globe" : "flask")
+                Image(systemName: environmentIcon(deployment.environment))
                     .font(.caption)
                 Text(deployment.environment.rawValue.uppercased())
                     .font(.system(size: 8, weight: .bold, design: .rounded))
             }
-            .foregroundStyle(deployment.environment == .production ? Color.forgeDanger : .forgeInfo)
+            .foregroundStyle(environmentColor(deployment.environment))
             .frame(width: 50)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -246,6 +246,22 @@ struct DeployView: View {
         }
     }
 
+    private func environmentIcon(_ env: Deployment.Environment) -> String {
+        switch env {
+        case .development: return "hammer"
+        case .staging: return "flask"
+        case .production: return "globe"
+        }
+    }
+
+    private func environmentColor(_ env: Deployment.Environment) -> Color {
+        switch env {
+        case .development: return .forgeNeutral
+        case .staging: return .forgeInfo
+        case .production: return .forgeDanger
+        }
+    }
+
     private func cleanUpDeployments() {
         guard let db = appDatabase else { return }
         let terminalStatuses: [Deployment.Status] = [.success, .failed, .rolledBack]
@@ -300,14 +316,15 @@ private struct DeployTriggerSheet: View {
     @State private var projects: [Project] = []
     @State private var selectedProjectId: UUID?
     @State private var environment: Deployment.Environment = .staging
+    @State private var deployMethod: String = "auto"
     @State private var version = ""
-    @State private var branch = "main"
-    @State private var port: Int = 3001
+    @State private var branch = "staging"
+    @State private var portText = "3001"
     @State private var showProductionConfirm = false
     @State private var errorMessage: String?
 
-    private var defaultPort: Int {
-        environment == .production ? 3000 : 3001
+    private var port: Int {
+        Int(portText) ?? 3001
     }
 
     var body: some View {
@@ -348,7 +365,24 @@ private struct DeployTriggerSheet: View {
                     }
                     .pickerStyle(.segmented)
                     .onChange(of: environment) { _, newValue in
-                        port = newValue == .production ? 3000 : 3001
+                        switch newValue {
+                        case .development:
+                            portText = "3002"
+                            branch = "dev"
+                        case .staging:
+                            portText = "3001"
+                            branch = "staging"
+                        case .production:
+                            portText = "3000"
+                            branch = "main"
+                        }
+                    }
+
+                    Picker("Deploy Method", selection: $deployMethod) {
+                        Text("Auto-detect").tag("auto")
+                        Label("Docker", systemImage: "shippingbox").tag("docker")
+                        Label("Docker Compose", systemImage: "square.stack.3d.up").tag("docker-compose")
+                        Label("Direct Process", systemImage: "terminal").tag("direct")
                     }
 
                     TextField("Version (e.g. v1.0.0)", text: $version)
@@ -359,7 +393,7 @@ private struct DeployTriggerSheet: View {
 
                     HStack {
                         Text("Port")
-                        TextField("Port", value: $port, format: .number)
+                        TextField("Port", text: $portText)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                     }
@@ -416,23 +450,26 @@ private struct DeployTriggerSheet: View {
         }
         do {
             try db.dbQueue.write { dbConn in
-                // Create deployment record with port
+                // Create deployment record with port and method
+                let method = deployMethod == "auto" ? nil : deployMethod
                 let deployment = Deployment(
                     projectId: projectId,
                     environment: environment,
                     version: version,
                     commitHash: nil,
                     deployedBy: "user",
+                    deployMethod: method,
                     port: port
                 )
                 try deployment.insert(dbConn)
 
                 // Create a devops agent task for deployment
+                let methodDesc = method ?? "auto-detect"
                 let task = AgentTask(
                     projectId: projectId,
                     agentType: .devops,
                     title: "Deploy \(version) to \(environment.rawValue)",
-                    description: "Deploy version \(version) from branch \(branch) to \(environment.rawValue) environment. Port: \(port)",
+                    description: "Deploy version \(version) from branch \(branch) to \(environment.rawValue) environment. Method: \(methodDesc). Port: \(port)",
                     priority: 10
                 )
                 try task.insert(dbConn)

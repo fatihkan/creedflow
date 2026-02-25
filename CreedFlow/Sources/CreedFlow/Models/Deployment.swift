@@ -21,6 +21,7 @@ struct Deployment: Codable, Identifiable, Equatable {
     var completedAt: Date?
 
     enum Environment: String, Codable, CaseIterable, DatabaseValueConvertible {
+        case development
         case staging
         case production
     }

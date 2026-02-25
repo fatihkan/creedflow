@@ -13,7 +13,7 @@ actor ProjectDirectoryService {
         }
     }
 
-    /// Create a new project directory and initialize git
+    /// Create a new project directory and initialize git with three-branch structure (main → staging → dev).
     func createProjectDirectory(name: String) async throws -> String {
         let sanitized = sanitizeDirectoryName(name)
         let path = "\(baseDirectory)/\(sanitized)"
@@ -39,6 +39,30 @@ actor ProjectDirectoryService {
             - Add comments only where logic is non-obvious
             """
         try claudeMD.write(toFile: "\(path)/CLAUDE.md", atomically: true, encoding: .utf8)
+
+        // Create .gitignore
+        let gitignore = """
+            .DS_Store
+            .build/
+            *.xcodeproj/
+            .swiftpm/
+            node_modules/
+            __pycache__/
+            *.pyc
+            .env
+            """
+        try gitignore.write(toFile: "\(path)/.gitignore", atomically: true, encoding: .utf8)
+
+        // Initial commit on main
+        try await git.addAll(in: path)
+        try await git.commit(message: "chore: initial project setup", in: path)
+
+        // Create staging branch from main
+        try await git.createBranch("staging", in: path)
+        try await git.checkout("main", in: path)
+
+        // Create dev branch from main and stay on it
+        try await git.createBranch("dev", in: path)
 
         return path
     }

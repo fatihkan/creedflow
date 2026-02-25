@@ -40,6 +40,13 @@ public struct SettingsView: View {
     @State private var mlxVersion = "Checking..."
     @State private var ghVersion = "Checking..."
 
+    // Git & Dependencies
+    @State private var gitDetector = EnvironmentDetector()
+    @State private var depInstaller = DependencyInstaller()
+    @State private var gitNameField = ""
+    @State private var gitEmailField = ""
+    @State private var isConfiguringGit = false
+
     public init() {}
 
     public var body: some View {
@@ -49,6 +56,9 @@ public struct SettingsView: View {
 
             aiCLIsTab
                 .tabItem { Label("AI CLIs", systemImage: "brain") }
+
+            gitAndToolsTab
+                .tabItem { Label("Git & Tools", systemImage: "arrow.triangle.branch") }
 
             telegramTab
                 .tabItem { Label("Telegram", systemImage: "paperplane") }
@@ -60,6 +70,10 @@ public struct SettingsView: View {
         .task {
             await checkToolVersions()
             await detectEditors()
+            await gitDetector.detectAll()
+            await depInstaller.detectAll()
+            gitNameField = gitDetector.gitUserName
+            gitEmailField = gitDetector.gitUserEmail
         }
     }
 
@@ -288,6 +302,164 @@ public struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var gitAndToolsTab: some View {
+        Form {
+            Section("Git User") {
+                HStack(spacing: 8) {
+                    Image(systemName: gitDetector.gitConfigured ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(gitDetector.gitConfigured ? .forgeSuccess : .forgeWarning)
+                    Text(gitDetector.gitConfigured ? "Configured" : "Not configured")
+                        .font(.subheadline.weight(.medium))
+                }
+                TextField("user.name", text: $gitNameField)
+                    .textFieldStyle(.roundedBorder)
+                TextField("user.email", text: $gitEmailField)
+                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    Button {
+                        isConfiguringGit = true
+                        Task {
+                            await gitDetector.configureGit(userName: gitNameField, email: gitEmailField)
+                            isConfiguringGit = false
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if isConfiguringGit {
+                                ProgressView().scaleEffect(0.6).frame(width: 14, height: 14)
+                            }
+                            Text("Save Git Config")
+                        }
+                    }
+                    .disabled(gitNameField.isEmpty || gitEmailField.isEmpty || isConfiguringGit)
+                    Spacer()
+                    Button("Refresh") {
+                        Task {
+                            await gitDetector.detectAll()
+                            gitNameField = gitDetector.gitUserName
+                            gitEmailField = gitDetector.gitUserEmail
+                        }
+                    }
+                }
+            }
+
+            Section("Branching Strategy") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("CreedFlow uses a 3-branch strategy for managed projects:")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        branchBadge("dev", color: .forgeInfo)
+                        Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                        branchBadge("staging", color: .forgeWarning)
+                        Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                        branchBadge("main", color: .forgeSuccess)
+                    }
+                    Text("Feature branches are created from dev. PRs auto-merge on review pass. Staging deploys promote to main.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            Section("GitHub CLI") {
+                LabeledContent("gh Version", value: ghVersion)
+            }
+
+            Section {
+                HStack(spacing: 8) {
+                    Image(systemName: depInstaller.brewDetected ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(depInstaller.brewDetected ? .forgeSuccess : .forgeWarning)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Homebrew")
+                            .font(.subheadline.weight(.medium))
+                        Text(depInstaller.brewDetected ? depInstaller.brewVersion : "Not found")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !depInstaller.brewDetected {
+                        if depInstaller.isInstallingBrew {
+                            ProgressView().scaleEffect(0.7).frame(width: 16, height: 16)
+                        } else {
+                            Button("Install") {
+                                Task { await depInstaller.installBrew() }
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
+            } header: {
+                Text("Package Manager")
+            }
+
+            Section {
+                if depInstaller.isDetecting {
+                    HStack(spacing: 8) {
+                        ProgressView().scaleEffect(0.7).frame(width: 16, height: 16)
+                        Text("Detecting...").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(depInstaller.dependencies) { dep in
+                        HStack(spacing: 8) {
+                            Image(systemName: dep.isInstalled ? "checkmark.circle.fill" : "circle.dashed")
+                                .foregroundStyle(dep.isInstalled ? .forgeSuccess : .forgeNeutral)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(dep.name).font(.subheadline.weight(.medium))
+                                Text(dep.isInstalled ? dep.detectedVersion : dep.description)
+                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer()
+                            if dep.isInstalling {
+                                ProgressView().scaleEffect(0.7).frame(width: 16, height: 16)
+                            } else if !dep.isInstalled && depInstaller.brewDetected {
+                                Button("Install") {
+                                    Task { await depInstaller.install(dep.id) }
+                                }
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+                }
+
+                HStack {
+                    Button {
+                        Task { await depInstaller.detectAll() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if depInstaller.isDetecting {
+                                ProgressView().scaleEffect(0.6).frame(width: 14, height: 14)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            Text("Refresh")
+                        }
+                    }
+                    .disabled(depInstaller.isDetecting || depInstaller.anyInstalling)
+                    Spacer()
+                    if depInstaller.missingCount > 0 && depInstaller.brewDetected {
+                        Button {
+                            Task { await depInstaller.installAllMissing() }
+                        } label: {
+                            Text("Install All Missing (\(depInstaller.missingCount))")
+                        }
+                        .disabled(depInstaller.anyInstalling)
+                    }
+                }
+            } header: {
+                Text("System Dependencies")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func branchBadge(_ name: String, color: Color) -> some View {
+        Text(name)
+            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+            .foregroundStyle(color)
     }
 
     private var telegramTab: some View {

@@ -41,6 +41,7 @@ final class Orchestrator {
     private let assetService: AssetStorageService
     private let thumbnailService: ThumbnailGeneratorService
     private let publishingService: ContentPublishingService
+    private let branchManager: GitBranchManager
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
@@ -75,6 +76,11 @@ final class Orchestrator {
         self.assetService = AssetStorageService(dbQueue: dbQueue)
         self.thumbnailService = ThumbnailGeneratorService()
         self.publishingService = ContentPublishingService(dbQueue: dbQueue)
+        self.branchManager = GitBranchManager(
+            gitService: self.gitService,
+            gitHubService: self.gitHubService,
+            dbQueue: dbQueue
+        )
 
         // Register backends (done after init to avoid capturing self before init completes)
         // All three are registered; BackendRouter checks isEnabled + isAvailable before selection.
@@ -327,18 +333,9 @@ final class Orchestrator {
         let project = try await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
         }
-        guard let project else { return }
+        guard let project, !project.directoryPath.isEmpty else { return }
 
-        let branchName = "feature/\(task.id.uuidString.prefix(8))-\(sanitize(task.title))"
-        try await gitService.createBranch(branchName, in: project.directoryPath)
-
-        // Update task with branch name
-        try await dbQueue.write { db in
-            var updated = task
-            updated.branchName = branchName
-            updated.updatedAt = Date()
-            try updated.update(db)
-        }
+        _ = try await branchManager.setupFeatureBranch(task: task, in: project.directoryPath)
     }
 
     /// Handle post-completion pipeline
@@ -367,6 +364,38 @@ final class Orchestrator {
         default:
             break
         }
+
+        // Universal auto-commit for non-coder tasks (coder has its own flow)
+        if task.agentType != .coder {
+            await autoCommitChanges(task: task)
+        }
+
+        // Check if all tasks for this feature are done → promote dev → staging
+        if let featureId = task.featureId {
+            await checkFeatureCompletionAndPromote(featureId: featureId, projectId: task.projectId)
+        }
+    }
+
+    /// Auto-commit any git changes after a task completes (best-effort).
+    private func autoCommitChanges(task: AgentTask) async {
+        let project = try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: task.projectId)
+        }
+        guard let project, !project.directoryPath.isEmpty else { return }
+        _ = await branchManager.autoCommitIfNeeded(task: task, in: project.directoryPath)
+    }
+
+    /// Check if all tasks for a feature passed and create a dev → staging PR.
+    private func checkFeatureCompletionAndPromote(featureId: UUID, projectId: UUID) async {
+        let project = try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: projectId)
+        }
+        guard let project, !project.directoryPath.isEmpty else { return }
+        _ = await branchManager.checkFeatureCompletionAndPromote(
+            featureId: featureId,
+            projectId: projectId,
+            in: project.directoryPath
+        )
     }
 
     /// Strip ANSI escape codes from CLI output (color codes, cursor movement, etc.)
@@ -770,7 +799,10 @@ final class Orchestrator {
 
             // Find the original coder task (the one this review task depends on)
             // and update its status based on the verdict
-            if verdict != .pass {
+            if verdict == .pass {
+                // Auto-merge the feature PR into dev
+                await mergeCoderPROnReviewPass(reviewTaskId: task.id, projectId: task.projectId)
+            } else {
                 let coderTaskStatus: AgentTask.Status = verdict == .needsRevision ? .needsRevision : .failed
                 try await dbQueue.write { db in
                     // Find dependency: this reviewer task depends on a coder task
@@ -807,56 +839,47 @@ final class Orchestrator {
         }
     }
 
+    /// When a review passes, find the coder task's PR and merge it into dev.
+    private func mergeCoderPROnReviewPass(reviewTaskId: UUID, projectId: UUID) async {
+        do {
+            // Find the coder task this review depends on
+            let coderTask = try await dbQueue.read { db -> AgentTask? in
+                let deps = try TaskDependency
+                    .filter(Column("taskId") == reviewTaskId)
+                    .fetchAll(db)
+                for dep in deps {
+                    if let task = try AgentTask.fetchOne(db, id: dep.dependsOnTaskId),
+                       task.agentType == .coder, task.prNumber != nil {
+                        return task
+                    }
+                }
+                return nil
+            }
+
+            guard let coderTask, let prNumber = coderTask.prNumber else { return }
+
+            let project = try await dbQueue.read { db in
+                try Project.fetchOne(db, id: projectId)
+            }
+            guard let project, !project.directoryPath.isEmpty else { return }
+
+            await branchManager.mergeFeatureToDev(prNumber: prNumber, in: project.directoryPath)
+        } catch {
+            // Best effort — logged inside branchManager
+        }
+    }
+
     private func handleCoderCompletion(task: AgentTask) async {
         // Check if this coder task is a deployment fix task — if so, handle redeploy
         let isDeployFix = await checkAndRedeployIfFixTask(task)
         if isDeployFix { return }  // Deploy fix tasks don't need review
 
-        // Always attempt a git commit after coder task completes
+        // Commit + push + create PR targeting dev via branch manager
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
         }
-        if let project {
-            do {
-                try await gitService.addAll(in: project.directoryPath)
-
-                let status = try await gitService.status(in: project.directoryPath)
-                if !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    try await gitService.commit(
-                        message: "task(coder): \(task.title)\n\nTask: \(task.id)",
-                        in: project.directoryPath
-                    )
-
-                    // If branch exists, push + create PR (best effort on top of the commit)
-                    if let branchName = task.branchName {
-                        try await gitHubService.push(branch: branchName, in: project.directoryPath)
-
-                        let pr = try await gitHubService.createPR(
-                            title: task.title,
-                            body: "Automated by CreedFlow\n\nTask: \(task.id)\n\n\(task.description)",
-                            head: branchName,
-                            in: project.directoryPath
-                        )
-
-                        try await dbQueue.write { db in
-                            var updated = task
-                            updated.prNumber = pr.number
-                            updated.updatedAt = Date()
-                            try updated.update(db)
-                        }
-                    }
-                }
-            } catch {
-                try? await dbQueue.write { db in
-                    let log = AgentLog(
-                        taskId: task.id,
-                        agentType: .coder,
-                        level: .error,
-                        message: "Git/PR error: \(error.localizedDescription)"
-                    )
-                    try log.insert(db)
-                }
-            }
+        if let project, !project.directoryPath.isEmpty {
+            _ = await branchManager.handleCoderBranchCompletion(task: task, in: project.directoryPath)
         }
 
         // Always queue reviewer task for non-deploy-fix coder completions
@@ -1012,7 +1035,16 @@ final class Orchestrator {
             }
             guard let project else { return }
 
-            let port = deployment.port ?? (deployment.environment == .production ? 3000 : 3001)
+            let port: Int
+            if let existingPort = deployment.port {
+                port = existingPort
+            } else {
+                switch deployment.environment {
+                case .production: port = 3000
+                case .staging: port = 3001
+                case .development: port = 3002
+                }
+            }
             deployment.port = port
 
             // Run actual local deployment
@@ -1032,6 +1064,15 @@ final class Orchestrator {
 
             try? await logInfo(taskId: task.id, agent: .devops,
                              message: "Local deployment completed on port \(port)")
+
+            // After successful staging deploy, promote staging → main
+            if deployment.environment == .staging {
+                _ = await branchManager.promoteStagingToMain(
+                    projectId: project.id,
+                    version: deployment.version,
+                    in: project.directoryPath
+                )
+            }
 
         } catch {
             // LocalDeploymentService already marks the deployment as .failed in its own

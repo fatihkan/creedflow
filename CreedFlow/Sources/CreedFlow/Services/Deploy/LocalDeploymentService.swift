@@ -104,6 +104,20 @@ actor LocalDeploymentService {
         )
     }
 
+    /// Build a DetectedProject for a user-selected deploy method, inferring build/run commands from project files.
+    private func buildDetectedProject(method: DeployMethod, at directoryPath: String) -> DetectedProject {
+        switch method {
+        case .docker:
+            return DetectedProject(method: .docker, buildCommand: "", runCommand: "")
+        case .dockerCompose:
+            return DetectedProject(method: .dockerCompose, buildCommand: "docker-compose build", runCommand: "docker-compose up -d")
+        case .direct:
+            // Auto-detect the run command based on project files
+            let auto = detectProjectType(at: directoryPath)
+            return DetectedProject(method: .direct, buildCommand: auto.buildCommand, runCommand: auto.runCommand)
+        }
+    }
+
     // MARK: - Deploy
 
     /// Execute a deployment for the given project and deployment record.
@@ -111,7 +125,15 @@ actor LocalDeploymentService {
     func deploy(project: Project, deployment: Deployment, port: Int) async throws -> Deployment {
         var deployment = deployment
         let directoryPath = project.directoryPath
-        let detected = detectProjectType(at: directoryPath)
+
+        // Use pre-set deploy method if specified, otherwise auto-detect
+        let detected: DetectedProject
+        if let presetMethod = deployment.deployMethod, let method = DeployMethod(rawValue: presetMethod) {
+            detected = buildDetectedProject(method: method, at: directoryPath)
+        } else {
+            detected = detectProjectType(at: directoryPath)
+        }
+
         let envName = deployment.environment.rawValue
         let safeName = project.name.lowercased()
             .replacingOccurrences(of: " ", with: "-")

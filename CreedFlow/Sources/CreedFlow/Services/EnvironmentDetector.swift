@@ -267,4 +267,15 @@ final class EnvironmentDetector {
             gitUserEmail = ""
         }
     }
+
+    /// Set git global user.name and user.email, then re-detect.
+    func configureGit(userName: String, email: String) async {
+        if !userName.isEmpty {
+            _ = try? await Process.run("/usr/bin/git", arguments: ["config", "--global", "user.name", userName])
+        }
+        if !email.isEmpty {
+            _ = try? await Process.run("/usr/bin/git", arguments: ["config", "--global", "user.email", email])
+        }
+        await detectGit()
+    }
 }
