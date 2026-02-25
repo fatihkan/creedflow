@@ -14,6 +14,8 @@ public struct SettingsView: View {
     @AppStorage("claudeEnabled") private var claudeEnabled = true
     @AppStorage("codexEnabled") private var codexEnabled = true
     @AppStorage("geminiEnabled") private var geminiEnabled = true
+    @AppStorage("opencodePath") private var opencodePath = ""
+    @AppStorage("opencodeEnabled") private var opencodeEnabled = true
     @AppStorage("ollamaPath") private var ollamaPath = ""
     @AppStorage("ollamaEnabled") private var ollamaEnabled = false
     @AppStorage("ollamaModel") private var ollamaModel = ""
@@ -29,6 +31,7 @@ public struct SettingsView: View {
     @State private var claudeVersion = "Checking..."
     @State private var codexVersion = "Checking..."
     @State private var geminiVersion = "Checking..."
+    @State private var opencodeVersion = "Checking..."
     @State private var ollamaVersion = "Checking..."
     @State private var lmstudioVersion = "Checking..."
     @State private var llamacppVersion = "Checking..."
@@ -81,13 +84,7 @@ public struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Budget") {
-                HStack {
-                    Text("Default Max Budget per Task:")
-                    TextField("USD", value: $defaultMaxBudgetUSD, format: .currency(code: "USD"))
-                        .frame(width: 100)
-                }
-            }
+            // Budget section hidden for now
 
             Section("Setup") {
                 Button("Re-run Setup Wizard") {
@@ -144,6 +141,23 @@ public struct SettingsView: View {
                 HStack {
                     Text("Gemini CLI")
                     if geminiEnabled {
+                        Text("Active").font(.caption2).foregroundStyle(.green)
+                    } else {
+                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
+                Toggle("Enabled", isOn: $opencodeEnabled)
+                CLISettingsRow(label: "OpenCode Path", path: $opencodePath, version: opencodeVersion, enabled: opencodeEnabled)
+                Text("Install: go install github.com/opencode-ai/opencode@latest")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                HStack {
+                    Text("OpenCode")
+                    if opencodeEnabled {
                         Text("Active").font(.caption2).foregroundStyle(.green)
                     } else {
                         Text("Disabled").font(.caption2).foregroundStyle(.secondary)
@@ -290,6 +304,10 @@ public struct SettingsView: View {
         // Check Gemini
         let resolvedGeminiPath = geminiPath.isEmpty ? "/usr/local/bin/gemini" : geminiPath
         geminiVersion = await Self.checkCLIVersion(at: resolvedGeminiPath)
+
+        // Check OpenCode
+        let resolvedOpencodePath = opencodePath.isEmpty ? "/usr/local/bin/opencode" : opencodePath
+        opencodeVersion = await Self.checkCLIVersion(at: resolvedOpencodePath)
 
         // Check Ollama
         let resolvedOllamaPath = ollamaPath.isEmpty ? "/usr/local/bin/ollama" : ollamaPath

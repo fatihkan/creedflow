@@ -12,6 +12,10 @@ final class EnvironmentDetector {
     var geminiPath: String = ""
     var geminiVersion: String = ""
 
+    // OpenCode
+    var opencodePath: String = ""
+    var opencodeVersion: String = ""
+
     // Local LLMs
     var ollamaPath: String = ""
     var ollamaVersion: String = ""
@@ -32,6 +36,7 @@ final class EnvironmentDetector {
     var claudeFound: Bool { !claudePath.isEmpty && !claudeVersion.isEmpty }
     var codexFound: Bool { !codexPath.isEmpty && !codexVersion.isEmpty }
     var geminiFound: Bool { !geminiPath.isEmpty && !geminiVersion.isEmpty }
+    var opencodeFound: Bool { !opencodePath.isEmpty && !opencodeVersion.isEmpty }
     var ollamaFound: Bool { !ollamaPath.isEmpty && !ollamaVersion.isEmpty }
     var lmstudioFound: Bool { !lmstudioPath.isEmpty && !lmstudioVersion.isEmpty }
     var llamacppFound: Bool { !llamacppPath.isEmpty && !llamacppVersion.isEmpty }
@@ -59,6 +64,13 @@ final class EnvironmentDetector {
         "/usr/local/bin/gemini",
         "/opt/homebrew/bin/gemini",
         "\(home)/.npm-global/bin/gemini",
+    ]
+
+    private static let opencodeCandidates = [
+        "\(home)/.local/bin/opencode",
+        "/usr/local/bin/opencode",
+        "/opt/homebrew/bin/opencode",
+        "\(home)/go/bin/opencode",
     ]
 
     private static let ollamaCandidates = [
@@ -92,6 +104,7 @@ final class EnvironmentDetector {
     func detectAll() async {
         await detectAll(
             claudeOverride: "", codexOverride: "", geminiOverride: "",
+            opencodeOverride: "",
             ollamaOverride: "", lmstudioOverride: "", llamacppOverride: "", mlxOverride: ""
         )
     }
@@ -99,6 +112,7 @@ final class EnvironmentDetector {
     /// Detect all tools, preferring user-provided override paths when non-empty
     func detectAll(
         claudeOverride: String, codexOverride: String, geminiOverride: String,
+        opencodeOverride: String = "",
         ollamaOverride: String = "", lmstudioOverride: String = "",
         llamacppOverride: String = "", mlxOverride: String = ""
     ) async {
@@ -114,6 +128,9 @@ final class EnvironmentDetector {
             }}
             group.addTask { await self.detectCLI(override: geminiOverride, candidates: Self.geminiCandidates) { path, version in
                 self.geminiPath = path; self.geminiVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: opencodeOverride, candidates: Self.opencodeCandidates) { path, version in
+                self.opencodePath = path; self.opencodeVersion = version
             }}
             group.addTask { await self.detectCLI(override: ollamaOverride, candidates: Self.ollamaCandidates) { path, version in
                 self.ollamaPath = path; self.ollamaVersion = version

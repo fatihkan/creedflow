@@ -6,6 +6,7 @@ public struct SetupWizardView: View {
     @AppStorage("claudePath") private var storedClaudePath = ""
     @AppStorage("codexPath") private var storedCodexPath = ""
     @AppStorage("geminiPath") private var storedGeminiPath = ""
+    @AppStorage("opencodePath") private var storedOpencodePath = ""
     @AppStorage("ollamaPath") private var storedOllamaPath = ""
     @AppStorage("lmstudioEnabled") private var storedLmstudioEnabled = false
     @AppStorage("llamacppPath") private var storedLlamacppPath = ""
@@ -26,6 +27,7 @@ public struct SetupWizardView: View {
     @State private var claudePathOverride = ""
     @State private var codexPathOverride = ""
     @State private var geminiPathOverride = ""
+    @State private var opencodePathOverride = ""
     @State private var ollamaPathOverride = ""
     @State private var lmstudioPathOverride = ""
     @State private var llamacppPathOverride = ""
@@ -85,6 +87,7 @@ public struct SetupWizardView: View {
                         claudePathOverride: $claudePathOverride,
                         codexPathOverride: $codexPathOverride,
                         geminiPathOverride: $geminiPathOverride,
+                        opencodePathOverride: $opencodePathOverride,
                         ollamaPathOverride: $ollamaPathOverride,
                         lmstudioPathOverride: $lmstudioPathOverride,
                         llamacppPathOverride: $llamacppPathOverride,
@@ -112,6 +115,7 @@ public struct SetupWizardView: View {
                         claudePathOverride: claudePathOverride,
                         codexPathOverride: codexPathOverride,
                         geminiPathOverride: geminiPathOverride,
+                        opencodePathOverride: opencodePathOverride,
                         ollamaPathOverride: ollamaPathOverride,
                         lmstudioPathOverride: lmstudioPathOverride,
                         llamacppPathOverride: llamacppPathOverride,
@@ -193,6 +197,12 @@ public struct SetupWizardView: View {
             storedGeminiPath = geminiPathOverride
         } else if detector.geminiFound {
             storedGeminiPath = detector.geminiPath
+        }
+
+        if !opencodePathOverride.isEmpty {
+            storedOpencodePath = opencodePathOverride
+        } else if detector.opencodeFound {
+            storedOpencodePath = detector.opencodePath
         }
 
         if !ollamaPathOverride.isEmpty {

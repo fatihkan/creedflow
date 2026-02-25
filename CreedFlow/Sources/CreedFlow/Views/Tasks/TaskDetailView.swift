@@ -85,9 +85,6 @@ struct TaskDetailView: View {
                         if let pr = task.prNumber {
                             metadataItem(label: "PR", value: "#\(pr)", icon: "arrow.triangle.pull")
                         }
-                        if let cost = task.costUSD {
-                            metadataItem(label: "Cost", value: String(format: "$%.4f", cost), icon: "dollarsign.circle")
-                        }
                         if let duration = task.durationMs {
                             metadataItem(label: "Duration", value: ForgeDuration.format(ms: duration), icon: "clock")
                         }

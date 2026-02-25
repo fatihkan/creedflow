@@ -8,6 +8,7 @@ struct WizardEnvironmentStep: View {
     @Binding var claudePathOverride: String
     @Binding var codexPathOverride: String
     @Binding var geminiPathOverride: String
+    @Binding var opencodePathOverride: String
     @Binding var ollamaPathOverride: String
     @Binding var lmstudioPathOverride: String
     @Binding var llamacppPathOverride: String
@@ -46,6 +47,17 @@ struct WizardEnvironmentStep: View {
                         : "Not found — optional (npm i -g @anthropic-ai/gemini-cli)"
                 )
                 CLIPathOverrideRow(path: $geminiPathOverride, placeholder: "Gemini CLI custom path")
+
+                Divider()
+
+                DetectionRow(
+                    label: "OpenCode",
+                    found: detector.opencodeFound,
+                    detail: detector.opencodeFound
+                        ? "\(detector.opencodePath) (v\(detector.opencodeVersion))"
+                        : "Not found — optional (go install github.com/opencode-ai/opencode@latest)"
+                )
+                CLIPathOverrideRow(path: $opencodePathOverride, placeholder: "OpenCode custom path")
             }
 
             Section("Local LLMs (Optional)") {
@@ -99,6 +111,7 @@ struct WizardEnvironmentStep: View {
                             claudeOverride: claudePathOverride,
                             codexOverride: codexPathOverride,
                             geminiOverride: geminiPathOverride,
+                            opencodeOverride: opencodePathOverride,
                             ollamaOverride: ollamaPathOverride,
                             lmstudioOverride: lmstudioPathOverride,
                             llamacppOverride: llamacppPathOverride,
@@ -185,16 +198,7 @@ struct WizardProjectsStep: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Budget") {
-                HStack {
-                    Text("Default Max Budget per Task:")
-                    TextField("USD", value: $defaultBudget, format: .currency(code: "USD"))
-                        .frame(width: 100)
-                }
-                Text("Maximum Claude API cost allowed per individual task")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            // Budget section hidden for now
         }
         .formStyle(.grouped)
     }
@@ -474,6 +478,7 @@ struct WizardSummaryStep: View {
     let claudePathOverride: String
     let codexPathOverride: String
     let geminiPathOverride: String
+    let opencodePathOverride: String
     let ollamaPathOverride: String
     let lmstudioPathOverride: String
     let llamacppPathOverride: String
@@ -499,6 +504,12 @@ struct WizardSummaryStep: View {
     private var effectiveGeminiPath: String {
         if !geminiPathOverride.isEmpty { return geminiPathOverride }
         if detector.geminiFound { return detector.geminiPath }
+        return "Not found"
+    }
+
+    private var effectiveOpencodePath: String {
+        if !opencodePathOverride.isEmpty { return opencodePathOverride }
+        if detector.opencodeFound { return detector.opencodePath }
         return "Not found"
     }
 
@@ -532,6 +543,7 @@ struct WizardSummaryStep: View {
                 SummaryRow(label: "Claude CLI", value: effectiveClaudePath, ok: detector.claudeFound || !claudePathOverride.isEmpty)
                 SummaryRow(label: "Codex CLI", value: effectiveCodexPath, ok: detector.codexFound || !codexPathOverride.isEmpty)
                 SummaryRow(label: "Gemini CLI", value: effectiveGeminiPath, ok: detector.geminiFound || !geminiPathOverride.isEmpty)
+                SummaryRow(label: "OpenCode", value: effectiveOpencodePath, ok: detector.opencodeFound || !opencodePathOverride.isEmpty)
             }
 
             Section("Local LLMs") {
@@ -546,10 +558,9 @@ struct WizardSummaryStep: View {
                 SummaryRow(label: "Git user", value: detector.gitConfigured ? "\(detector.gitUserName) <\(detector.gitUserEmail)>" : "Not configured", ok: detector.gitConfigured)
             }
 
-            Section("Projects & Budget") {
+            Section("Projects") {
                 SummaryRow(label: "Projects directory", value: projectsBaseDir.isEmpty ? "~/CreedFlow/projects/" : projectsBaseDir, ok: true)
                 SummaryRow(label: "Max concurrency", value: "\(maxConcurrency) agents", ok: true)
-                SummaryRow(label: "Budget per task", value: String(format: "$%.2f", defaultBudget), ok: true)
             }
 
             Section("Integrations") {

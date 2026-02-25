@@ -61,6 +61,7 @@ final class Orchestrator {
             await router.register(ClaudeBackend(processManager: pm, claudePath: claudeResolvedPath))
             await router.register(CodexBackend())
             await router.register(GeminiBackend())
+            await router.register(OpenCodeBackend())
             await router.register(OllamaBackend())
             await router.register(LMStudioBackend())
             await router.register(LlamaCppBackend())
@@ -665,80 +666,75 @@ final class Orchestrator {
     private func handleCoderCompletion(task: AgentTask) async {
         // Check if this coder task is a deployment fix task — if so, handle redeploy
         let isDeployFix = await checkAndRedeployIfFixTask(task)
+        if isDeployFix { return }  // Deploy fix tasks don't need review
 
-        guard let branchName = task.branchName else {
-            // Deployment fix tasks may not have a branch — if it was a fix task, we're done
-            if isDeployFix { return }
-            return
+        // Try git/PR flow if branch exists (best effort)
+        if let branchName = task.branchName {
+            let project = try? await dbQueue.read { db in
+                try Project.fetchOne(db, id: task.projectId)
+            }
+            if let project {
+                do {
+                    try await gitService.addAll(in: project.directoryPath)
+
+                    let status = try await gitService.status(in: project.directoryPath)
+                    if !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        try await gitService.commit(
+                            message: "feat: \(task.title)\n\nTask: \(task.id)",
+                            in: project.directoryPath
+                        )
+                        try await gitHubService.push(branch: branchName, in: project.directoryPath)
+
+                        let pr = try await gitHubService.createPR(
+                            title: task.title,
+                            body: "Automated by CreedFlow\n\nTask: \(task.id)\n\n\(task.description)",
+                            head: branchName,
+                            in: project.directoryPath
+                        )
+
+                        try await dbQueue.write { db in
+                            var updated = task
+                            updated.prNumber = pr.number
+                            updated.updatedAt = Date()
+                            try updated.update(db)
+                        }
+                    }
+                } catch {
+                    try? await dbQueue.write { db in
+                        let log = AgentLog(
+                            taskId: task.id,
+                            agentType: .coder,
+                            level: .error,
+                            message: "Git/PR error: \(error.localizedDescription)"
+                        )
+                        try log.insert(db)
+                    }
+                }
+            }
         }
 
-        let project = try? await dbQueue.read { db in
-            try Project.fetchOne(db, id: task.projectId)
+        // Always queue reviewer task for non-deploy-fix coder completions
+        let reviewDescription: String
+        if let branch = task.branchName {
+            reviewDescription = "Review the code changes in branch \(branch) for task: \(task.title)"
+        } else {
+            reviewDescription = "Review the code changes for task: \(task.title)\n\nResult:\n\(task.result?.prefix(2000) ?? "No output")"
         }
-        guard let project else { return }
 
-        do {
-            // Stage all changes first
-            try await gitService.addAll(in: project.directoryPath)
-
-            // Check for empty diff before committing (#34)
-            let status = try await gitService.status(in: project.directoryPath)
-            guard !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                try? await logInfo(taskId: task.id, agent: .coder,
-                                  message: "No changes to commit — skipping PR and review")
-                return
-            }
-
-            try await gitService.commit(
-                message: "feat: \(task.title)\n\nTask: \(task.id)",
-                in: project.directoryPath
+        try? await dbQueue.write { db in
+            let reviewTask = AgentTask(
+                projectId: task.projectId,
+                featureId: task.featureId,
+                agentType: .reviewer,
+                title: "Review: \(task.title)",
+                description: reviewDescription,
+                priority: task.priority + 1,
+                branchName: task.branchName
             )
-            try await gitHubService.push(branch: branchName, in: project.directoryPath)
+            try reviewTask.insert(db)
 
-            // Create PR
-            let pr = try await gitHubService.createPR(
-                title: task.title,
-                body: "Automated by CreedFlow\n\nTask: \(task.id)\n\n\(task.description)",
-                head: branchName,
-                in: project.directoryPath
-            )
-
-            // Update task with PR number
-            try await dbQueue.write { db in
-                var updated = task
-                updated.prNumber = pr.number
-                updated.updatedAt = Date()
-                try updated.update(db)
-            }
-
-            // Queue reviewer task
-            try await dbQueue.write { db in
-                let reviewTask = AgentTask(
-                    projectId: task.projectId,
-                    featureId: task.featureId,
-                    agentType: .reviewer,
-                    title: "Review: \(task.title)",
-                    description: "Review the code changes in branch \(branchName) for task: \(task.title)",
-                    priority: task.priority + 1,
-                    branchName: branchName
-                )
-                try reviewTask.insert(db)
-
-                // Add dependency: review depends on coder task
-                let dep = TaskDependency(taskId: reviewTask.id, dependsOnTaskId: task.id)
-                try dep.insert(db)
-            }
-        } catch {
-            // Log git/PR errors but don't fail the task
-            try? await dbQueue.write { db in
-                let log = AgentLog(
-                    taskId: task.id,
-                    agentType: .coder,
-                    level: .error,
-                    message: "Post-completion error: \(error.localizedDescription)"
-                )
-                try log.insert(db)
-            }
+            let dep = TaskDependency(taskId: reviewTask.id, dependsOnTaskId: task.id)
+            try dep.insert(db)
         }
     }
 

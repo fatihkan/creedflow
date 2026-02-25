@@ -74,8 +74,7 @@ public struct ContentView: View {
                 case "3": selectedSection = .agents; return nil
                 case "4": selectedSection = .reviews; return nil
                 case "5": selectedSection = .deploys; return nil
-                case "6": selectedSection = .costs; return nil
-                case "7": selectedSection = .prompts; return nil
+                case "6": selectedSection = .prompts; return nil
                 default: return event
                 }
             }
@@ -114,22 +113,12 @@ public struct ContentView: View {
                 }
             )
         case .tasks:
-            if let projectId = selectedProjectId {
-                TaskBoardView(
-                    projectId: projectId,
-                    selectedTaskId: $selectedTaskId,
-                    appDatabase: appDatabase,
-                    orchestrator: orchestrator
-                )
-            } else {
-                ForgeEmptyState(
-                    icon: "folder",
-                    title: "Select a Project",
-                    subtitle: "Choose a project from the sidebar to see its task board",
-                    actionTitle: "Go to Projects",
-                    action: { selectedSection = .projects }
-                )
-            }
+            TaskBoardView(
+                projectId: selectedProjectId,
+                selectedTaskId: $selectedTaskId,
+                appDatabase: appDatabase,
+                orchestrator: orchestrator
+            )
         case .agents:
             AgentStatusView(
                 orchestrator: orchestrator,
@@ -138,7 +127,7 @@ public struct ContentView: View {
                 onNavigateToTasks: { selectedSection = .tasks }
             )
         case .costs:
-            CostDashboardView(appDatabase: appDatabase)
+            EmptyView() // Cost dashboard hidden for now
         case .reviews:
             ReviewApprovalView(appDatabase: appDatabase)
         case .deploys:

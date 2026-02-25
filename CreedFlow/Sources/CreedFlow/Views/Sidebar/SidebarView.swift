@@ -150,9 +150,6 @@ struct SidebarView: View {
                 agentIndicator
             }
             .tag(SidebarSection.agents)
-
-            Label("Costs", systemImage: "dollarsign.circle")
-                .tag(SidebarSection.costs)
         }
     }
 
@@ -222,6 +219,7 @@ struct SidebarView: View {
         guard let db = appDatabase else { return }
         let observation = ValueObservation.tracking { db in
             try Review
+                .filter(Column("isApproved") == false)
                 .filter(Column("verdict") != Review.Verdict.pass.rawValue)
                 .fetchCount(db)
         }

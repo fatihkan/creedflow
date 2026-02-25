@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 /// Kanban-style board showing tasks grouped by status with real-time updates.
 struct TaskBoardView: View {
-    let projectId: UUID
+    let projectId: UUID?
     @Binding var selectedTaskId: UUID?
     let appDatabase: AppDatabase?
     let orchestrator: Orchestrator?
@@ -26,10 +26,12 @@ struct TaskBoardView: View {
     var body: some View {
         VStack(spacing: 0) {
             ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
-                Button {
-                    showNewTask = true
-                } label: {
-                    Label("New Task", systemImage: "plus")
+                if projectId != nil {
+                    Button {
+                        showNewTask = true
+                    } label: {
+                        Label("New Task", systemImage: "plus")
+                    }
                 }
             }
             Divider()
@@ -58,7 +60,9 @@ struct TaskBoardView: View {
             }
         }
         .sheet(isPresented: $showNewTask) {
-            NewTaskSheet(projectId: projectId, appDatabase: appDatabase)
+            if let projectId {
+                NewTaskSheet(projectId: projectId, appDatabase: appDatabase)
+            }
         }
         .task(id: projectId) {
             await observeTasks()
@@ -68,15 +72,19 @@ struct TaskBoardView: View {
     private func observeTasks() async {
         guard let db = appDatabase else { return }
         // Fetch project name
-        if let project = try? await db.dbQueue.read({ db in try Project.fetchOne(db, id: projectId) }) {
+        if let pid = projectId,
+           let project = try? await db.dbQueue.read({ db in try Project.fetchOne(db, id: pid) }) {
             projectName = project.name
+        } else {
+            projectName = "All Projects"
         }
         let pid = projectId
         let observation = ValueObservation.tracking { db in
-            try AgentTask
-                .filter(Column("projectId") == pid)
-                .order(Column("priority").desc, Column("createdAt").asc)
-                .fetchAll(db)
+            var query = AgentTask.order(Column("priority").desc, Column("createdAt").asc)
+            if let pid {
+                query = query.filter(Column("projectId") == pid)
+            }
+            return try query.fetchAll(db)
         }
         do {
             for try await value in observation.values(in: db.dbQueue) {
@@ -316,11 +324,6 @@ struct TaskCardView: View {
                         .help("Priority \(task.priority) (1=low, 10=critical)")
                 }
                 Spacer()
-                if let cost = task.costUSD {
-                    Text(String(format: "$%.4f", cost))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-                }
                 if let duration = task.durationMs {
                     Text(ForgeDuration.format(ms: duration))
                         .font(.system(size: 9, design: .monospaced))
@@ -342,6 +345,11 @@ struct TaskCardView: View {
         case "claude": return .purple
         case "codex": return .green
         case "gemini": return .blue
+        case "opencode": return .teal
+        case "ollama": return .orange
+        case "lmstudio": return .cyan
+        case "llamacpp": return .pink
+        case "mlx": return .mint
         default: return .secondary
         }
     }

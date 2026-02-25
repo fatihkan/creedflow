@@ -62,6 +62,7 @@ struct BackendBadge: View {
         case .claude: return .forgeInfo
         case .codex: return .forgeSuccess
         case .gemini: return .forgeAmber
+        case .opencode: return .teal
         case .ollama: return .orange
         case .lmstudio: return .cyan
         case .llamacpp: return .pink
@@ -86,12 +87,6 @@ struct TaskRowCompactView: View {
                 .lineLimit(1)
 
             Spacer()
-
-            if let cost = task.costUSD {
-                Text(String(format: "$%.4f", cost))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-            }
 
             Text(task.status.displayName)
                 .forgeBadge(color: task.status.themeColor)

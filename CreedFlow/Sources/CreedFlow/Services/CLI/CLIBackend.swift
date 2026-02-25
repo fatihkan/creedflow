@@ -8,6 +8,7 @@ package enum CLIBackendType: String, Codable, CaseIterable, DatabaseValueConvert
     case claude
     case codex
     case gemini
+    case opencode
     case ollama
     case lmstudio
     case llamacpp
@@ -88,7 +89,7 @@ struct BackendPreferences: Sendable {
     let requiresClaudeFeatures: Bool
 
     static let `default` = BackendPreferences(
-        preferred: [.claude, .codex, .gemini],
+        preferred: [.claude, .codex, .gemini, .opencode],
         requiresClaudeFeatures: false
     )
 
@@ -98,13 +99,13 @@ struct BackendPreferences: Sendable {
     )
 
     static let anyBackend = BackendPreferences(
-        preferred: [.claude, .codex, .gemini],
+        preferred: [.claude, .codex, .gemini, .opencode],
         requiresClaudeFeatures: false
     )
 
     /// Prefers Claude (for MCP support) but falls back to other backends if unavailable
     static let claudePreferred = BackendPreferences(
-        preferred: [.claude, .codex, .gemini],
+        preferred: [.claude, .codex, .gemini, .opencode],
         requiresClaudeFeatures: false
     )
 }
