@@ -9,7 +9,6 @@ struct SidebarView: View {
 
     @State private var projects: [Project] = []
     @State private var totalProjectCount: Int = 0
-    @State private var pendingReviewCount: Int = 0
     @State private var activeTaskCount: Int = 0
     @State private var pendingDeployCount: Int = 0
 
@@ -46,9 +45,6 @@ struct SidebarView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .task {
             await observeProjects()
-        }
-        .task {
-            await observeReviewCount()
         }
         .task {
             await observeActiveTaskCount()
@@ -112,20 +108,6 @@ struct SidebarView: View {
 
     private var pipelineSection: some View {
         Section("Pipeline") {
-            HStack {
-                Label("Reviews", systemImage: "checkmark.shield")
-                Spacer()
-                if pendingReviewCount > 0 {
-                    Text("\(pendingReviewCount)")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.forgeWarning, in: Capsule())
-                }
-            }
-            .tag(SidebarSection.reviews)
-
             HStack {
                 Label("Deployments", systemImage: "arrow.up.circle")
                 Spacer()
@@ -211,21 +193,6 @@ struct SidebarView: View {
             for try await (value, count) in observation.values(in: db.dbQueue) {
                 projects = value
                 totalProjectCount = count
-            }
-        } catch { /* observation error — sidebar badges may be stale */ }
-    }
-
-    private func observeReviewCount() async {
-        guard let db = appDatabase else { return }
-        let observation = ValueObservation.tracking { db in
-            try Review
-                .filter(Column("isApproved") == false)
-                .filter(Column("verdict") != Review.Verdict.pass.rawValue)
-                .fetchCount(db)
-        }
-        do {
-            for try await count in observation.values(in: db.dbQueue) {
-                pendingReviewCount = count
             }
         } catch { /* observation error — sidebar badges may be stale */ }
     }
