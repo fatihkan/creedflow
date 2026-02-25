@@ -26,7 +26,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 ```bash
 cd CreedFlow && swift build          # Build (0 errors expected)
 .build/debug/CreedFlow               # Run the app
-.build/debug/CreedFlowTests          # Run 104 tests
+.build/debug/CreedFlowTests          # Run 111 tests
 .build/debug/CreedFlowMCPServer      # Run MCP server (stdio)
 ./Scripts/package-app.sh             # Create .app bundle
 ./Scripts/package-app.sh --dmg       # Create DMG installer
