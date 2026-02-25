@@ -211,6 +211,7 @@ private struct DeployTriggerSheet: View {
     @State private var branch = "main"
     @State private var port: Int = 3001
     @State private var showProductionConfirm = false
+    @State private var errorMessage: String?
 
     private var defaultPort: Int {
         environment == .production ? 3000 : 3001
@@ -218,6 +219,24 @@ private struct DeployTriggerSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if let errorMessage {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Button { self.errorMessage = nil } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .padding(8)
+                .background(.red.opacity(0.1))
+            }
+
             Form {
                 Section("Project") {
                     Picker("Project", selection: $selectedProjectId) {
@@ -277,7 +296,7 @@ private struct DeployTriggerSheet: View {
             }
             .padding()
         }
-        .frame(width: 420, height: 380)
+        .frame(width: 420, height: 420)
         .task {
             await loadProjects()
         }
@@ -298,29 +317,36 @@ private struct DeployTriggerSheet: View {
     }
 
     private func triggerDeploy() {
-        guard let db = appDatabase, let projectId = selectedProjectId else { return }
-        try? db.dbQueue.write { dbConn in
-            // Create deployment record with port
-            let deployment = Deployment(
-                projectId: projectId,
-                environment: environment,
-                version: version,
-                commitHash: nil,
-                deployedBy: "user",
-                port: port
-            )
-            try deployment.insert(dbConn)
-
-            // Create a devops agent task for deployment
-            let task = AgentTask(
-                projectId: projectId,
-                agentType: .devops,
-                title: "Deploy \(version) to \(environment.rawValue)",
-                description: "Deploy version \(version) from branch \(branch) to \(environment.rawValue) environment. Port: \(port)",
-                priority: 10
-            )
-            try task.insert(dbConn)
+        guard let db = appDatabase, let projectId = selectedProjectId else {
+            errorMessage = "Database not available"
+            return
         }
-        dismiss()
+        do {
+            try db.dbQueue.write { dbConn in
+                // Create deployment record with port
+                let deployment = Deployment(
+                    projectId: projectId,
+                    environment: environment,
+                    version: version,
+                    commitHash: nil,
+                    deployedBy: "user",
+                    port: port
+                )
+                try deployment.insert(dbConn)
+
+                // Create a devops agent task for deployment
+                let task = AgentTask(
+                    projectId: projectId,
+                    agentType: .devops,
+                    title: "Deploy \(version) to \(environment.rawValue)",
+                    description: "Deploy version \(version) from branch \(branch) to \(environment.rawValue) environment. Port: \(port)",
+                    priority: 10
+                )
+                try task.insert(dbConn)
+            }
+            dismiss()
+        } catch {
+            errorMessage = "Deploy failed: \(error.localizedDescription)"
+        }
     }
 }
