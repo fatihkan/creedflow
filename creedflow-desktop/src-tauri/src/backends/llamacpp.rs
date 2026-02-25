@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::sync::mpsc;
@@ -14,8 +14,8 @@ use crate::services::process_tracker::PROCESS_TRACKER;
 pub struct LlamaCppBackend {
     cli_path: Mutex<Option<String>>,
     model_path: Mutex<Option<String>>,
-    active: AtomicUsize,
-    children: Mutex<HashMap<Uuid, u32>>,
+    active: Arc<AtomicUsize>,
+    children: Arc<Mutex<HashMap<Uuid, u32>>>,
 }
 
 impl LlamaCppBackend {
@@ -23,8 +23,8 @@ impl LlamaCppBackend {
         Self {
             cli_path: Mutex::new(detect::find_cli("llama-cli")),
             model_path: Mutex::new(None),
-            active: AtomicUsize::new(0),
-            children: Mutex::new(HashMap::new()),
+            active: Arc::new(AtomicUsize::new(0)),
+            children: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -43,7 +43,6 @@ impl CliBackend for LlamaCppBackend {
         let id = Uuid::new_v4();
         let (tx, rx) = mpsc::channel(256);
 
-        // llama-cli -m <model> -p "<prompt>" -n 4096 -sys "<system>"
         let mut args = vec![
             "-m".to_string(), model,
             "-p".to_string(), input.prompt,

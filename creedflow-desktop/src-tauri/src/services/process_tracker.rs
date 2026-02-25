@@ -3,14 +3,15 @@ use std::sync::Mutex;
 
 /// Global singleton tracking all spawned CLI child processes.
 /// On app exit, all children receive termination signals — no orphans.
-pub static PROCESS_TRACKER: ProcessTracker = ProcessTracker::new();
+pub static PROCESS_TRACKER: once_cell::sync::Lazy<ProcessTracker> =
+    once_cell::sync::Lazy::new(ProcessTracker::new);
 
 pub struct ProcessTracker {
     pids: Mutex<HashSet<u32>>,
 }
 
 impl ProcessTracker {
-    const fn new() -> Self {
+    fn new() -> Self {
         Self {
             pids: Mutex::new(HashSet::new()),
         }
@@ -32,9 +33,6 @@ impl ProcessTracker {
         }
     }
 }
-
-// Const Mutex::new is unstable — use lazy_static alternative
-// Actually in Rust 1.63+ Mutex::new is const, so this works.
 
 #[cfg(unix)]
 pub fn terminate_process(pid: u32) {

@@ -9,11 +9,11 @@ pub mod mlx;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::db::models::{AgentType, BackendType};
+use crate::db::models::BackendType;
 
 // ─── CLI Backend Trait ───────────────────────────────────────────────────────
 

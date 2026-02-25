@@ -4,6 +4,7 @@ use crate::engine::task_queue::TaskQueue;
 use crate::engine::retry::RetryPolicy;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::Emitter;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
 

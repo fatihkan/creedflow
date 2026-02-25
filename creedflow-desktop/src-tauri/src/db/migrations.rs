@@ -12,9 +12,10 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let applied: Vec<i32> = {
         let mut stmt = conn.prepare("SELECT version FROM creedflow_migrations ORDER BY version")?;
-        stmt.query_map([], |row| row.get(0))?
+        let result = stmt.query_map([], |row| row.get(0))?
             .filter_map(|r| r.ok())
-            .collect()
+            .collect();
+        result
     };
 
     let migrations: Vec<(i32, &str)> = vec![
@@ -31,6 +32,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (11, V11_GENERATED_ASSETS),
         (12, V12_ASSET_VERSIONING),
         (13, V13_PUBLISHING),
+        (14, V14_DEPLOYMENT_AUTO_FIX),
     ];
 
     for (version, sql) in migrations {
@@ -345,4 +347,9 @@ CREATE TABLE IF NOT EXISTS publication (
 CREATE INDEX IF NOT EXISTS idx_publication_assetId ON publication(assetId);
 CREATE INDEX IF NOT EXISTS idx_publication_projectId ON publication(projectId);
 CREATE INDEX IF NOT EXISTS idx_publication_status ON publication(status);
+"#;
+
+const V14_DEPLOYMENT_AUTO_FIX: &str = r#"
+ALTER TABLE deployment ADD COLUMN fixTaskId TEXT;
+ALTER TABLE deployment ADD COLUMN autoFixAttempts INTEGER NOT NULL DEFAULT 0;
 "#;

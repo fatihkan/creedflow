@@ -9,6 +9,7 @@ pub mod util;
 
 use state::AppState;
 use std::sync::Arc;
+use tauri::Manager;
 use tokio::sync::Mutex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

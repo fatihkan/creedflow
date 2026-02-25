@@ -1,7 +1,5 @@
-use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, Row};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -649,6 +647,8 @@ pub struct Deployment {
     pub port: Option<i32>,
     pub container_id: Option<String>,
     pub process_id: Option<i32>,
+    pub fix_task_id: Option<String>,
+    pub auto_fix_attempts: i32,
     pub created_at: String,
     pub completed_at: Option<String>,
 }

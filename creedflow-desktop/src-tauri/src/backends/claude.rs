@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tokio::io::AsyncBufReadExt;
 use tokio::process::Command;
 use tokio::sync::mpsc;
@@ -13,16 +13,16 @@ use crate::services::process_tracker::PROCESS_TRACKER;
 
 pub struct ClaudeBackend {
     cli_path: Mutex<Option<String>>,
-    active: AtomicUsize,
-    children: Mutex<HashMap<Uuid, u32>>,
+    active: Arc<AtomicUsize>,
+    children: Arc<Mutex<HashMap<Uuid, u32>>>,
 }
 
 impl ClaudeBackend {
     pub fn new() -> Self {
         Self {
             cli_path: Mutex::new(detect::find_cli("claude")),
-            active: AtomicUsize::new(0),
-            children: Mutex::new(HashMap::new()),
+            active: Arc::new(AtomicUsize::new(0)),
+            children: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -56,11 +56,9 @@ impl CliBackend for ClaudeBackend {
             "stream-json".to_string(),
         ];
 
-        if let Some(ref system) = Some(input.system_prompt.clone()) {
-            if !system.is_empty() {
-                args.push("--system-prompt".to_string());
-                args.push(system.clone());
-            }
+        if !input.system_prompt.is_empty() {
+            args.push("--system-prompt".to_string());
+            args.push(input.system_prompt.clone());
         }
 
         if let Some(ref tools) = input.allowed_tools {
@@ -109,7 +107,6 @@ impl CliBackend for ClaudeBackend {
                     if line.trim().is_empty() {
                         continue;
                     }
-                    // Parse NDJSON events from Claude CLI
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
                         match json.get("type").and_then(|t| t.as_str()) {
                             Some("assistant") => {
@@ -166,7 +163,6 @@ impl CliBackend for ClaudeBackend {
                                 let _ = tx.send(OutputEvent::System { session_id, model }).await;
                             }
                             _ => {
-                                // Pass through unknown events as text
                                 let _ = tx.send(OutputEvent::Text(line)).await;
                             }
                         }

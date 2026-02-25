@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capability set for CreedFlow","local":true,"windows":["main"],"permissions":["core:default","dialog:default","shell:default","core:event:default","core:event:allow-emit","core:event:allow-listen"]}}

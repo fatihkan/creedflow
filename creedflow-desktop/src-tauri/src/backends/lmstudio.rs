@@ -1,23 +1,22 @@
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::{AgentResult, CliBackend, OutputEvent, TaskInput};
 use crate::db::models::BackendType;
 
-/// LM Studio backend — connects to local HTTP API (OpenAI-compatible)
-/// at localhost:1234/v1/chat/completions
 pub struct LMStudioBackend {
     base_url: String,
-    active: AtomicUsize,
+    active: Arc<AtomicUsize>,
 }
 
 impl LMStudioBackend {
     pub fn new() -> Self {
         Self {
             base_url: "http://localhost:1234".to_string(),
-            active: AtomicUsize::new(0),
+            active: Arc::new(AtomicUsize::new(0)),
         }
     }
 }
@@ -27,7 +26,6 @@ impl CliBackend for LMStudioBackend {
     fn backend_type(&self) -> BackendType { BackendType::LmStudio }
 
     async fn is_available(&self) -> bool {
-        // Check if LM Studio is running by hitting the models endpoint
         let url = format!("{}/v1/models", self.base_url);
         reqwest::get(&url).await.map(|r| r.status().is_success()).unwrap_or(false)
     }
@@ -77,7 +75,6 @@ impl CliBackend for LMStudioBackend {
     }
 
     async fn cancel(&self, _id: Uuid) {
-        // HTTP requests can't be easily cancelled; just decrement
         self.active.fetch_sub(1, Ordering::SeqCst);
     }
 
