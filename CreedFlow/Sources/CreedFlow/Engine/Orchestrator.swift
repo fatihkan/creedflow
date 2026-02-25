@@ -204,6 +204,14 @@ final class Orchestrator {
                         promptOverride = resolved + "\n\n" + agentPrompt
                     }
 
+                    // Inject revision memory for retry tasks
+                    if task.retryCount > 0 || task.revisionPrompt != nil {
+                        if let memory = await self.buildRevisionMemory(for: task) {
+                            let base = promptOverride ?? agent.buildPrompt(for: task)
+                            promptOverride = memory + base
+                        }
+                    }
+
                     result = try await runner.execute(
                         task: task,
                         agent: agent,
@@ -859,10 +867,35 @@ final class Orchestrator {
                 port: port
             )
 
+            // Mark deployment as successful
+            deployment.status = .success
+            deployment.completedAt = Date()
+            try await dbQueue.write { db in
+                var d = deployment
+                try d.update(db)
+            }
+
             try? await logInfo(taskId: task.id, agent: .devops,
                              message: "Local deployment completed on port \(port)")
 
         } catch {
+            // Mark deployment as failed BEFORE spawning fix task
+            if var failDeploy = try? await dbQueue.read({ db in
+                try Deployment
+                    .filter(Column("projectId") == task.projectId)
+                    .filter(Column("status") == Deployment.Status.pending.rawValue)
+                    .order(Column("createdAt").desc)
+                    .fetchOne(db)
+            }) {
+                failDeploy.status = .failed
+                failDeploy.completedAt = Date()
+                failDeploy.logs = error.localizedDescription
+                try? await dbQueue.write { db in
+                    var d = failDeploy
+                    try d.update(db)
+                }
+            }
+
             // Local deploy itself failed — find the deployment and spawn fix task
             try? await logError(taskId: task.id, agent: .devops,
                               message: "Failed to deploy: \(error.localizedDescription)")
@@ -1252,6 +1285,76 @@ final class Orchestrator {
             try? await logError(taskId: task.id, agent: task.agentType,
                                message: "Failed to queue creative review: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Revision Memory
+
+    /// Build contextual memory from previous attempts, reviews, and user instructions for retry tasks.
+    private func buildRevisionMemory(for task: AgentTask) async -> String? {
+        var sections: [String] = []
+
+        // 1. Previous reviews for this task
+        let reviews = try? await dbQueue.read { db in
+            try Review
+                .filter(Column("taskId") == task.id)
+                .order(Column("createdAt").desc)
+                .limit(3)
+                .fetchAll(db)
+        }
+        if let reviews, !reviews.isEmpty {
+            var reviewBlock = "## Previous Reviews"
+            for review in reviews {
+                reviewBlock += "\n- Score: \(review.score)/10 | Verdict: \(review.verdict.rawValue)"
+                reviewBlock += "\n  Summary: \(review.summary)"
+                if let issues = review.issues, !issues.isEmpty {
+                    reviewBlock += "\n  Issues: \(issues)"
+                }
+                if let suggestions = review.suggestions, !suggestions.isEmpty {
+                    reviewBlock += "\n  Suggestions: \(suggestions)"
+                }
+            }
+            sections.append(reviewBlock)
+        }
+
+        // 2. Recent error/warning logs for this task
+        let errorLogs = try? await dbQueue.read { db in
+            try AgentLog
+                .filter(Column("taskId") == task.id)
+                .filter(Column("level") == "error" || Column("level") == "warning")
+                .order(Column("createdAt").desc)
+                .limit(10)
+                .fetchAll(db)
+        }
+        if let errorLogs, !errorLogs.isEmpty {
+            var logBlock = "## Previous Errors/Warnings"
+            for log in errorLogs {
+                logBlock += "\n- [\(log.level.rawValue.uppercased())] \(log.message)"
+            }
+            sections.append(logBlock)
+        }
+
+        // 3. Previous output (truncated)
+        if let result = task.result, !result.isEmpty {
+            let truncated = String(result.prefix(2000))
+            sections.append("## Previous Output (truncated)\n\(truncated)")
+        }
+
+        // 4. User's custom revision instructions
+        if let revisionPrompt = task.revisionPrompt, !revisionPrompt.isEmpty {
+            sections.append("## User Revision Instructions\n\(revisionPrompt)")
+        }
+
+        guard !sections.isEmpty else { return nil }
+
+        return """
+        <revision_context>
+        # REVISION CONTEXT — Attempt #\(task.retryCount)
+        This task has been attempted before. Use the context below to avoid repeating mistakes and follow any user instructions.
+
+        \(sections.joined(separator: "\n\n"))
+        </revision_context>
+
+        """
     }
 
     private func extensionForAssetType(_ type: GeneratedAsset.AssetType) -> String {

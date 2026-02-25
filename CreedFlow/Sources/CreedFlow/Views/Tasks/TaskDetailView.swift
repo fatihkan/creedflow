@@ -13,6 +13,7 @@ struct TaskDetailView: View {
     @State private var showTerminal = true
     @State private var errorMessage: String?
     @State private var showCancelConfirm = false
+    @State private var revisionText: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -156,6 +157,25 @@ struct TaskDetailView: View {
                         }
                     }
 
+                    // Revision prompt (for failed/needs_revision tasks)
+                    if task.status == .failed || task.status == .needsRevision {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Revision Instructions (optional)")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.secondary)
+                            TextEditor(text: $revisionText)
+                                .font(.system(size: 12, design: .monospaced))
+                                .frame(minHeight: 60, maxHeight: 120)
+                                .padding(4)
+                                .background(.quaternary.opacity(0.3))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(.quaternary, lineWidth: 1)
+                                )
+                        }
+                    }
+
                     // Actions
                     HStack(spacing: 8) {
                         if task.status == .failed || task.status == .needsRevision {
@@ -253,15 +273,20 @@ struct TaskDetailView: View {
 
     private func retryTask() async {
         guard let db = appDatabase else { return }
+        let revision = revisionText.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             try await db.dbQueue.write { dbConn in
                 guard var t = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
                 t.status = .queued
                 t.retryCount += 1
                 t.errorMessage = nil
+                if !revision.isEmpty {
+                    t.revisionPrompt = revision
+                }
                 t.updatedAt = Date()
                 try t.update(dbConn)
             }
+            revisionText = ""
         } catch {
             errorMessage = error.localizedDescription
         }

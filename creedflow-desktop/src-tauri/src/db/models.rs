@@ -485,6 +485,7 @@ pub struct AgentTask {
     pub completed_at: Option<String>,
     pub backend: Option<String>,
     pub prompt_chain_id: Option<String>,
+    pub revision_prompt: Option<String>,
 }
 
 impl AgentTask {
@@ -513,6 +514,7 @@ impl AgentTask {
             completed_at: row.get("completedAt")?,
             backend: row.get("backend")?,
             prompt_chain_id: row.get("promptChainId")?,
+            revision_prompt: row.get("revisionPrompt")?,
         })
     }
 

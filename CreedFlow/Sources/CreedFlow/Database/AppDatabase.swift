@@ -421,6 +421,12 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v15_revision_prompt") { db in
+            try db.alter(table: "agentTask") { t in
+                t.add(column: "revisionPrompt", .text)
+            }
+        }
+
         return migrator
     }
 }

@@ -33,6 +33,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (12, V12_ASSET_VERSIONING),
         (13, V13_PUBLISHING),
         (14, V14_DEPLOYMENT_AUTO_FIX),
+        (15, V15_REVISION_PROMPT),
     ];
 
     for (version, sql) in migrations {
@@ -352,4 +353,8 @@ CREATE INDEX IF NOT EXISTS idx_publication_status ON publication(status);
 const V14_DEPLOYMENT_AUTO_FIX: &str = r#"
 ALTER TABLE deployment ADD COLUMN fixTaskId TEXT;
 ALTER TABLE deployment ADD COLUMN autoFixAttempts INTEGER NOT NULL DEFAULT 0;
+"#;
+
+const V15_REVISION_PROMPT: &str = r#"
+ALTER TABLE agentTask ADD COLUMN revisionPrompt TEXT;
 "#;
