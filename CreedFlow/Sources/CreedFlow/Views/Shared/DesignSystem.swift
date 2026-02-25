@@ -191,23 +191,36 @@ extension Project.Status {
 /// Card surface with subtle border and shadow
 struct ForgeCardModifier: ViewModifier {
     var isSelected: Bool = false
+    var isHovered: Bool = false
     var cornerRadius: CGFloat = 8
+
+    private var borderColor: Color {
+        if isSelected {
+            return Color.forgeAmber.opacity(isHovered ? 0.8 : 0.6)
+        } else if isHovered {
+            return Color.primary.opacity(0.15)
+        } else {
+            return Color.primary.opacity(0.06)
+        }
+    }
+
+    private var borderWidth: CGFloat {
+        isSelected ? 1.5 : (isHovered ? 1 : 0.5)
+    }
 
     func body(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(.background)
-                    .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(isHovered ? 0.12 : 0.08), radius: isHovered ? 4 : 2, y: 1)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(
-                        isSelected ? Color.forgeAmber.opacity(0.6) : Color.primary.opacity(0.06),
-                        lineWidth: isSelected ? 1 : 0.5
-                    )
+                    .strokeBorder(borderColor, lineWidth: borderWidth)
             }
-            .animation(.easeInOut(duration: 0.15), value: isSelected)
+            .animation(.easeOut(duration: 0.15), value: isSelected)
+            .animation(.easeOut(duration: 0.15), value: isHovered)
     }
 }
 
@@ -251,8 +264,8 @@ struct ForgeBadgeModifier: ViewModifier {
 }
 
 extension View {
-    func forgeCard(selected: Bool = false, cornerRadius: CGFloat = 8) -> some View {
-        modifier(ForgeCardModifier(isSelected: selected, cornerRadius: cornerRadius))
+    func forgeCard(selected: Bool = false, hovered: Bool = false, cornerRadius: CGFloat = 8) -> some View {
+        modifier(ForgeCardModifier(isSelected: selected, isHovered: hovered, cornerRadius: cornerRadius))
     }
 
     func forgeMetricCard(accent: Color = .forgeAmber) -> some View {

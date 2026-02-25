@@ -394,11 +394,8 @@ struct TaskCardView: View {
             }
         }
         .padding(8)
-        .forgeCard(selected: isSelected, cornerRadius: 8)
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .shadow(color: isHovered ? .black.opacity(0.12) : .black.opacity(0.06), radius: isHovered ? 4 : 2)
+        .forgeCard(selected: isSelected, hovered: isHovered, cornerRadius: 8)
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.15), value: isHovered)
         .contextMenu { taskContextMenu }
     }
 
