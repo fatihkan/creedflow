@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-**CreedFlow** is a macOS native AI orchestration platform (Swift + SwiftUI) that autonomously manages software projects. It analyzes project descriptions, decomposes them into tasks, routes work to multiple AI CLI backends (Claude, Codex, Gemini), runs automated review, and deploys locally — all from a native desktop app.
+**CreedFlow** is a macOS native AI orchestration platform (Swift + SwiftUI) that autonomously manages software projects. It analyzes project descriptions, decomposes them into tasks, routes work to multiple AI CLI backends (Claude, Codex, Gemini) with local LLM fallback (Ollama, LM Studio, llama.cpp, MLX), runs automated review, and deploys locally — all from a native desktop app.
 
 **Domain:** creedflow.com | **Bundle ID:** com.creedflow.app
 
@@ -15,7 +15,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 | Language | Swift 6.0 (language mode v5 per target) |
 | UI | SwiftUI (macOS 14+) |
 | Database | SQLite via GRDB.swift |
-| AI Backends | Claude CLI, Codex CLI, Gemini CLI |
+| AI Backends | Claude CLI, Codex CLI, Gemini CLI + Ollama, LM Studio, llama.cpp, MLX |
 | MCP | modelcontextprotocol/swift-sdk 0.11.0 |
 | Deployment | Docker / Docker Compose / Direct Process |
 | Notifications | Telegram Bot API |
@@ -46,19 +46,29 @@ Platform: macOS 14+ (arm64). Database at `~/Library/Application Support/CreedFlo
 
 ### Multi-CLI Backend System
 
-`CLIBackend` protocol with 3 implementations:
+`CLIBackend` protocol with 7 implementations:
+
+**Cloud backends (preferred):**
 - **ClaudeBackend** — Wraps `ClaudeProcessManager`, supports MCP/tools/JSON schema
 - **CodexBackend** — Spawns `codex exec "<prompt>" --full-auto --skip-git-repo-check`
 - **GeminiBackend** — Spawns `gemini -p "<prompt>" -y -o text`
 
+**Local LLM backends (fallback):**
+- **OllamaBackend** — Spawns `ollama run <model> "<prompt>"` (default model: `llama3.2`)
+- **LMStudioBackend** — HTTP POST to `localhost:1234/v1/chat/completions` (OpenAI-compatible API)
+- **LlamaCppBackend** — Spawns `llama-cli -m <model> -p "<prompt>" -n 4096` with native `-sys` flag; requires GGUF model file
+- **MLXBackend** — Spawns `mlx_lm.generate --model <model> --prompt "<prompt>"` (Apple Silicon only)
+
+Local backends are **not** in any agent's `preferred` list. They are picked up via `allUsableBackends()` fallback in BackendRouter when no preferred cloud backend is available. They default to disabled and must be opted-in via Settings.
+
 `BackendRouter` selects backend per task with smart fallback:
 1. If agent requires Claude features → try Claude first
 2. Collect enabled+available backends from agent's preference list
-3. If no preferred backend is usable → fall back to ANY active backend
+3. If no preferred backend is usable → fall back to ANY active backend (including local LLMs)
 4. Round-robin across the resulting pool
 5. Returns `nil` only when zero backends are enabled and available system-wide
 
-**Hard rules:** A disabled backend (UserDefaults `claudeEnabled`/`codexEnabled`/`geminiEnabled`) or one whose CLI binary is missing is NEVER selected. Tasks are deferred (not skipped) when no backend is available.
+**Hard rules:** A disabled backend (UserDefaults `<type>Enabled`) or one whose CLI binary is missing is NEVER selected. Tasks are deferred (not skipped) when no backend is available. LlamaCppBackend also requires a valid GGUF model path. LMStudioBackend requires `localhost:1234` to be reachable.
 
 ### 11 AI Agents
 
@@ -110,7 +120,7 @@ All conform to `AgentProtocol` with `backendPreferences`:
 - Models use `package` access level for cross-target visibility
 - `extractJSON()` in Orchestrator strips ANSI codes, handles markdown blocks, validates JSON before returning
 - Backend field written to DB on dispatch (not just completion) so UI shows it during in_progress
-- `BackendPreferences.claudePreferred` — prefers Claude for MCP but falls back to Codex/Gemini
+- `BackendPreferences.claudePreferred` — prefers Claude for MCP but falls back to Codex/Gemini (and local LLMs if cloud is unavailable)
 - Creative agents output structured JSON `{"assets": [...]}` for asset pipeline; fallback saves raw output as text
 - Asset versioning via `parentAssetId` linked-list chain with SHA256 checksums
 - Content publishing: `ContentPublishingService` actor polls for scheduled publications every 60s
@@ -127,6 +137,10 @@ Sources/CreedFlow/Services/CLI/MultiBackendRunner.swift — Generic task executo
 Sources/CreedFlow/Services/CLI/ClaudeBackend.swift  — Claude CLI adapter
 Sources/CreedFlow/Services/CLI/CodexBackend.swift   — Codex CLI adapter
 Sources/CreedFlow/Services/CLI/GeminiBackend.swift  — Gemini CLI adapter
+Sources/CreedFlow/Services/CLI/OllamaBackend.swift  — Ollama local LLM adapter
+Sources/CreedFlow/Services/CLI/LMStudioBackend.swift — LM Studio HTTP API adapter
+Sources/CreedFlow/Services/CLI/LlamaCppBackend.swift — llama.cpp CLI adapter
+Sources/CreedFlow/Services/CLI/MLXBackend.swift      — MLX-LM CLI adapter (Apple Silicon)
 Sources/CreedFlow/Services/Claude/ClaudeProcessManager.swift — Process spawning
 Sources/CreedFlow/Services/ProcessTracker.swift     — Global child process cleanup
 Sources/CreedFlow/Services/Agents/AgentProtocol.swift — Agent interface
@@ -152,7 +166,7 @@ Scripts/package-app.sh                              — .app + DMG packaging
 1. User creates project (natural language description) via UI
 2. Analyzer agent decomposes into features + tasks with dependency graph
 3. Tasks queued by priority, dispatched when dependencies met
-4. BackendRouter selects Claude/Codex/Gemini per agent preferences
+4. BackendRouter selects Claude/Codex/Gemini per agent preferences (local LLMs as fallback)
 5. MultiBackendRunner streams output, captures result
 6. On completion: Reviewer scores code (>= 7.0 PASS, 5.0-6.9 NEEDS_REVISION, < 5.0 FAIL)
 7. Creative agents: output parsed for assets → saved to `~/CreedFlow/projects/{name}/assets/` → thumbnails generated → review queued
