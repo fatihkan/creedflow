@@ -6,6 +6,7 @@ public struct ContentView: View {
     @State private var selectedSection: SidebarSection? = .projects
     @State private var selectedProjectId: UUID?
     @State private var selectedTaskId: UUID?
+    @State private var selectedDeploymentId: UUID?
     @State private var orchestrator: Orchestrator?
     @State private var telegramService = TelegramBotService()
     @State private var keyboardMonitor: Any?
@@ -37,6 +38,11 @@ public struct ContentView: View {
             .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
         }
         .frame(minWidth: 960, minHeight: 640)
+        .onChange(of: selectedSection) { _, newSection in
+            if newSection != .deploys {
+                selectedDeploymentId = nil
+            }
+        }
         .task {
             if let db = appDatabase {
                 let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)
@@ -60,6 +66,10 @@ public struct ContentView: View {
                 if event.keyCode == 53 {
                     if selectedTaskId != nil {
                         selectedTaskId = nil
+                        return nil
+                    }
+                    if selectedDeploymentId != nil {
+                        selectedDeploymentId = nil
                         return nil
                     }
                     return event
@@ -95,7 +105,9 @@ public struct ContentView: View {
     // MARK: - Detail Panel Visibility
 
     private var showDetailPanel: Bool {
-        selectedTaskId != nil || (selectedProjectId != nil && selectedSection == .projects)
+        selectedTaskId != nil
+            || (selectedProjectId != nil && selectedSection == .projects)
+            || (selectedDeploymentId != nil && selectedSection == .deploys)
     }
 
     // MARK: - Content Panel
@@ -131,7 +143,7 @@ public struct ContentView: View {
         case .reviews:
             ReviewApprovalView(appDatabase: appDatabase)
         case .deploys:
-            DeployView(appDatabase: appDatabase)
+            DeployView(appDatabase: appDatabase, selectedDeploymentId: $selectedDeploymentId)
         case .prompts:
             PromptsLibraryView(appDatabase: appDatabase)
         case .projectTasks(let projectId):
@@ -163,6 +175,12 @@ public struct ContentView: View {
                 appDatabase: appDatabase,
                 orchestrator: orchestrator,
                 onDismiss: { selectedTaskId = nil }
+            )
+        } else if let deploymentId = selectedDeploymentId, selectedSection == .deploys {
+            DeploymentDetailView(
+                deploymentId: deploymentId,
+                appDatabase: appDatabase,
+                onDismiss: { selectedDeploymentId = nil }
             )
         } else if let projectId = selectedProjectId, selectedSection == .projects {
             ProjectDetailView(

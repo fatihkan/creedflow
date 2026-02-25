@@ -3,6 +3,7 @@ import GRDB
 
 struct DeployView: View {
     let appDatabase: AppDatabase?
+    @Binding var selectedDeploymentId: UUID?
     @State private var deployments: [Deployment] = []
     @State private var projectNames: [UUID: String] = [:]
     @State private var errorMessage: String?
@@ -85,6 +86,17 @@ struct DeployView: View {
 
                         ForEach(filteredDeployments) { deployment in
                             deploymentCard(deployment)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedDeploymentId = deployment.id
+                                }
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(
+                                            selectedDeploymentId == deployment.id ? Color.forgeAmber : .clear,
+                                            lineWidth: 2
+                                        )
+                                )
                         }
                     }
                     .padding(16)
