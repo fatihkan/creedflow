@@ -27,8 +27,10 @@ public struct SettingsView: View {
     @AppStorage("mlxPath") private var mlxPath = ""
     @AppStorage("mlxEnabled") private var mlxEnabled = false
     @AppStorage("mlxModel") private var mlxModel = ""
+    @AppStorage("preferredEditor") private var preferredEditor = ""
 
     @State private var claudeVersion = "Checking..."
+    @State private var detectedEditors: [(name: String, command: String, path: String)] = []
     @State private var codexVersion = "Checking..."
     @State private var geminiVersion = "Checking..."
     @State private var opencodeVersion = "Checking..."
@@ -57,6 +59,7 @@ public struct SettingsView: View {
         .frame(width: 550, height: 600)
         .task {
             await checkToolVersions()
+            await detectEditors()
         }
     }
 
@@ -85,6 +88,18 @@ public struct SettingsView: View {
             }
 
             // Budget section hidden for now
+
+            Section("Code Editor") {
+                Picker("Preferred Editor", selection: $preferredEditor) {
+                    Text("None").tag("")
+                    ForEach(detectedEditors, id: \.command) { editor in
+                        Text("\(editor.name) (\(editor.command))").tag(editor.command)
+                    }
+                }
+                Text("Used for \"Open in Editor\" buttons throughout the app")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Section("Setup") {
                 Button("Re-run Setup Wizard") {
@@ -326,6 +341,12 @@ public struct SettingsView: View {
 
         // Check gh
         ghVersion = await Self.checkCLIVersion(at: "/usr/local/bin/gh")
+    }
+
+    private func detectEditors() async {
+        let detector = EnvironmentDetector()
+        await detector.detectAll()
+        detectedEditors = detector.detectedEditors
     }
 
     private static func checkCLIVersion(at path: String, args: [String] = ["--version"]) async -> String {

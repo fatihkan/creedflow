@@ -12,6 +12,7 @@ struct ProjectListView: View {
     @State private var errorMessage: String?
     @State private var searchText = ""
     @State private var projectToDelete: Project?
+    @AppStorage("preferredEditor") private var preferredEditor = ""
 
     private var filteredProjects: [Project] {
         if searchText.isEmpty { return projects }
@@ -105,6 +106,14 @@ struct ProjectListView: View {
                                     Label("Open in Terminal", systemImage: "terminal")
                                 }
 
+                                if !preferredEditor.isEmpty {
+                                    Button {
+                                        openInEditor(at: project.directoryPath)
+                                    } label: {
+                                        Label("Open in Editor", systemImage: "chevron.left.forwardslash.chevron.right")
+                                    }
+                                }
+
                                 Divider()
 
                                 Button(role: .destructive) {
@@ -163,6 +172,15 @@ struct ProjectListView: View {
             var error: NSDictionary?
             appleScript.executeAndReturnError(&error)
         }
+    }
+
+    private func openInEditor(at path: String) {
+        guard !preferredEditor.isEmpty else { return }
+        let process = Foundation.Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [preferredEditor, path]
+        process.environment = ProcessInfo.processInfo.environment
+        try? process.run()
     }
 
     private func deleteProject(_ project: Project) {

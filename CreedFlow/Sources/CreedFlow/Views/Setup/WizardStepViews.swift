@@ -13,6 +13,7 @@ struct WizardEnvironmentStep: View {
     @Binding var lmstudioPathOverride: String
     @Binding var llamacppPathOverride: String
     @Binding var mlxPathOverride: String
+    @Binding var selectedEditor: String
 
     var body: some View {
         Form {
@@ -158,6 +159,32 @@ struct WizardEnvironmentStep: View {
                         ? detector.gitUserEmail
                         : "Not configured"
                 )
+            }
+
+            Section("Code Editors") {
+                if detector.detectedEditors.isEmpty && !detector.isDetecting {
+                    Text("No code editors found")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(detector.detectedEditors, id: \.command) { editor in
+                        DetectionRow(
+                            label: editor.name,
+                            found: true,
+                            detail: editor.path
+                        )
+                    }
+                }
+
+                if !detector.detectedEditors.isEmpty {
+                    Picker("Preferred Editor", selection: $selectedEditor) {
+                        Text("None").tag("")
+                        ForEach(detector.detectedEditors, id: \.command) { editor in
+                            Text(editor.name).tag(editor.command)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
             }
         }
         .formStyle(.grouped)
@@ -488,6 +515,11 @@ struct WizardSummaryStep: View {
     let defaultBudget: Double
     let telegramConfigured: Bool
     let mcpConfigs: [MCPServerConfig]
+    let selectedEditor: String
+
+    private var editorDisplayName: String {
+        detector.detectedEditors.first(where: { $0.command == selectedEditor })?.name ?? selectedEditor
+    }
 
     private var effectiveClaudePath: String {
         if !claudePathOverride.isEmpty { return claudePathOverride }
@@ -556,6 +588,11 @@ struct WizardSummaryStep: View {
             Section("Dev Tools") {
                 SummaryRow(label: "gh CLI", value: detector.ghFound ? detector.ghPath : "Not found", ok: detector.ghFound)
                 SummaryRow(label: "Git user", value: detector.gitConfigured ? "\(detector.gitUserName) <\(detector.gitUserEmail)>" : "Not configured", ok: detector.gitConfigured)
+                SummaryRow(
+                    label: "Code Editor",
+                    value: selectedEditor.isEmpty ? "None" : editorDisplayName,
+                    ok: !selectedEditor.isEmpty
+                )
             }
 
             Section("Projects") {

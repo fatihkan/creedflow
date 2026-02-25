@@ -31,6 +31,10 @@ final class EnvironmentDetector {
     var ghVersion: String = ""
     var gitUserName: String = ""
     var gitUserEmail: String = ""
+
+    // Code editors
+    var detectedEditors: [(name: String, command: String, path: String)] = []
+
     var isDetecting = false
 
     var claudeFound: Bool { !claudePath.isEmpty && !claudeVersion.isEmpty }
@@ -100,6 +104,15 @@ final class EnvironmentDetector {
         "/opt/homebrew/bin/gh",
     ]
 
+    /// Editor candidates: (display name, CLI command name, candidate paths)
+    private static let editorCandidates: [(name: String, command: String, paths: [String])] = [
+        ("VS Code", "code", ["/usr/local/bin/code", "\(home)/.local/bin/code", "/opt/homebrew/bin/code"]),
+        ("Cursor", "cursor", ["/usr/local/bin/cursor", "\(home)/.local/bin/cursor", "/opt/homebrew/bin/cursor"]),
+        ("Zed", "zed", ["/usr/local/bin/zed", "\(home)/.local/bin/zed", "/opt/homebrew/bin/zed"]),
+        ("Sublime Text", "subl", ["/usr/local/bin/subl", "/opt/homebrew/bin/subl", "/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl"]),
+        ("Xcode", "xed", ["/usr/bin/xed"]),
+    ]
+
     /// Auto-detect all tools using candidate paths
     func detectAll() async {
         await detectAll(
@@ -148,6 +161,7 @@ final class EnvironmentDetector {
                 self.ghPath = path; self.ghVersion = version
             }}
             group.addTask { await self.detectGit() }
+            group.addTask { await self.detectEditors() }
         }
     }
 
@@ -195,6 +209,21 @@ final class EnvironmentDetector {
         } catch {
             apply(resolved, "")
         }
+    }
+
+    // MARK: - Code Editor Detection
+
+    private func detectEditors() async {
+        var found: [(name: String, command: String, path: String)] = []
+        for editor in Self.editorCandidates {
+            for candidate in editor.paths {
+                if FileManager.default.isExecutableFile(atPath: candidate) {
+                    found.append((name: editor.name, command: editor.command, path: candidate))
+                    break
+                }
+            }
+        }
+        detectedEditors = found
     }
 
     // MARK: - Git Config

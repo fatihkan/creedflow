@@ -16,6 +16,7 @@ public struct SetupWizardView: View {
     @AppStorage("defaultMaxBudgetUSD") private var storedDefaultBudget = 5.0
     @AppStorage("telegramBotToken") private var storedTelegramToken = ""
     @AppStorage("telegramChatId") private var storedTelegramChatId = ""
+    @AppStorage("preferredEditor") private var storedPreferredEditor = ""
 
     @Environment(\.appDatabase) private var appDatabase
 
@@ -37,6 +38,7 @@ public struct SetupWizardView: View {
     @State private var defaultBudget = 5.0
     @State private var telegramBotToken = ""
     @State private var telegramChatId = ""
+    @State private var selectedEditor = ""
 
     private let totalSteps = 5
     private let stepTitles = ["Environment", "Projects & Budget", "Integrations", "MCP Servers", "Summary"]
@@ -91,7 +93,8 @@ public struct SetupWizardView: View {
                         ollamaPathOverride: $ollamaPathOverride,
                         lmstudioPathOverride: $lmstudioPathOverride,
                         llamacppPathOverride: $llamacppPathOverride,
-                        mlxPathOverride: $mlxPathOverride
+                        mlxPathOverride: $mlxPathOverride,
+                        selectedEditor: $selectedEditor
                     )
                 case 1:
                     WizardProjectsStep(
@@ -124,7 +127,8 @@ public struct SetupWizardView: View {
                         maxConcurrency: maxConcurrency,
                         defaultBudget: defaultBudget,
                         telegramConfigured: !telegramBotToken.isEmpty,
-                        mcpConfigs: mcpStore.configs
+                        mcpConfigs: mcpStore.configs,
+                        selectedEditor: selectedEditor
                     )
                 default:
                     EmptyView()
@@ -222,6 +226,9 @@ public struct SetupWizardView: View {
         } else if detector.mlxFound {
             storedMlxPath = detector.mlxPath
         }
+
+        // Write preferred editor
+        storedPreferredEditor = selectedEditor
 
         // Write projects settings
         storedProjectsBaseDir = projectsBaseDir

@@ -668,21 +668,23 @@ final class Orchestrator {
         let isDeployFix = await checkAndRedeployIfFixTask(task)
         if isDeployFix { return }  // Deploy fix tasks don't need review
 
-        // Try git/PR flow if branch exists (best effort)
-        if let branchName = task.branchName {
-            let project = try? await dbQueue.read { db in
-                try Project.fetchOne(db, id: task.projectId)
-            }
-            if let project {
-                do {
-                    try await gitService.addAll(in: project.directoryPath)
+        // Always attempt a git commit after coder task completes
+        let project = try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: task.projectId)
+        }
+        if let project {
+            do {
+                try await gitService.addAll(in: project.directoryPath)
 
-                    let status = try await gitService.status(in: project.directoryPath)
-                    if !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        try await gitService.commit(
-                            message: "feat: \(task.title)\n\nTask: \(task.id)",
-                            in: project.directoryPath
-                        )
+                let status = try await gitService.status(in: project.directoryPath)
+                if !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    try await gitService.commit(
+                        message: "task(coder): \(task.title)\n\nTask: \(task.id)",
+                        in: project.directoryPath
+                    )
+
+                    // If branch exists, push + create PR (best effort on top of the commit)
+                    if let branchName = task.branchName {
                         try await gitHubService.push(branch: branchName, in: project.directoryPath)
 
                         let pr = try await gitHubService.createPR(
@@ -699,16 +701,16 @@ final class Orchestrator {
                             try updated.update(db)
                         }
                     }
-                } catch {
-                    try? await dbQueue.write { db in
-                        let log = AgentLog(
-                            taskId: task.id,
-                            agentType: .coder,
-                            level: .error,
-                            message: "Git/PR error: \(error.localizedDescription)"
-                        )
-                        try log.insert(db)
-                    }
+                }
+            } catch {
+                try? await dbQueue.write { db in
+                    let log = AgentLog(
+                        taskId: task.id,
+                        agentType: .coder,
+                        level: .error,
+                        message: "Git/PR error: \(error.localizedDescription)"
+                    )
+                    try log.insert(db)
                 }
             }
         }

@@ -13,6 +13,7 @@ struct ProjectDetailView: View {
     @State private var showAnalyze = false
     @State private var showRevisionSheet = false
     @State private var errorMessage: String?
+    @AppStorage("preferredEditor") private var preferredEditor = ""
 
     var body: some View {
         ScrollView {
@@ -110,6 +111,16 @@ struct ProjectDetailView: View {
                         }
                         .buttonStyle(.bordered)
                         .disabled(!FileManager.default.fileExists(atPath: project.directoryPath))
+
+                        if !preferredEditor.isEmpty {
+                            Button {
+                                openInEditor(at: project.directoryPath)
+                            } label: {
+                                Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(!FileManager.default.fileExists(atPath: project.directoryPath))
+                        }
                     }
 
                     // Recent tasks
@@ -221,6 +232,15 @@ struct ProjectDetailView: View {
             var error: NSDictionary?
             appleScript.executeAndReturnError(&error)
         }
+    }
+
+    private func openInEditor(at path: String) {
+        guard !preferredEditor.isEmpty else { return }
+        let process = Foundation.Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [preferredEditor, path]
+        process.environment = ProcessInfo.processInfo.environment
+        try? process.run()
     }
 
 }
