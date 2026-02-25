@@ -655,7 +655,14 @@ final class Orchestrator {
     }
 
     private func handleCoderCompletion(task: AgentTask) async {
-        guard let branchName = task.branchName else { return }
+        // Check if this coder task is a deployment fix task — if so, handle redeploy
+        let isDeployFix = await checkAndRedeployIfFixTask(task)
+
+        guard let branchName = task.branchName else {
+            // Deployment fix tasks may not have a branch — if it was a fix task, we're done
+            if isDeployFix { return }
+            return
+        }
 
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
@@ -727,7 +734,83 @@ final class Orchestrator {
         }
     }
 
-    /// Update deployment status after devops task completes, then run actual deployment (#30)
+    // MARK: - Deployment Auto-Recovery
+
+    /// Check if a completed coder task is linked to a failed deployment as a fix task.
+    /// If the coder task passed, reset the deployment to pending and re-trigger it.
+    /// Returns true if this task was a deployment fix task.
+    @discardableResult
+    private func checkAndRedeployIfFixTask(_ task: AgentTask) async -> Bool {
+        // Find any deployment whose fixTaskId matches this task
+        let deployment = try? await dbQueue.read { db in
+            try Deployment
+                .filter(Column("fixTaskId") == task.id.uuidString)
+                .fetchOne(db)
+        }
+        guard var deployment else { return false }
+
+        if task.status == .passed {
+            // Fix succeeded — reset deployment to pending so the Orchestrator re-deploys
+            try? await logInfo(
+                taskId: task.id,
+                agent: .coder,
+                message: "Deployment fix passed — re-queuing deployment \(deployment.id) for redeploy"
+            )
+
+            deployment.status = .pending
+            deployment.completedAt = nil
+            deployment.logs = (deployment.logs ?? "") + "\n--- Fix applied (task \(task.id)) — retrying deployment ---\n"
+            let updated = deployment
+
+            try? await dbQueue.write { db in
+                var d = updated
+                try d.update(db)
+            }
+
+            // Queue a new DevOps task to actually run the deployment again
+            let project = try? await dbQueue.read { db in
+                try Project.fetchOne(db, id: deployment.projectId)
+            }
+
+            try? await dbQueue.write { [deployment] db in
+                let redeployTask = AgentTask(
+                    projectId: deployment.projectId,
+                    agentType: .devops,
+                    title: "Redeploy: \(project?.name ?? "project") (\(deployment.environment.rawValue))",
+                    description: """
+                        Retry deployment after fix was applied.
+                        Previous failure was fixed by task \(task.id).
+                        Deployment ID: \(deployment.id)
+                        Method: \(deployment.deployMethod ?? "auto-detect")
+                        Port: \(deployment.port.map(String.init) ?? "auto")
+                        """,
+                    priority: 10
+                )
+                try redeployTask.insert(db)
+
+                // Redeploy depends on the fix task being done
+                let dep = TaskDependency(taskId: redeployTask.id, dependsOnTaskId: task.id)
+                try dep.insert(db)
+            }
+        } else {
+            // Fix task itself failed — spawn another fix attempt (if under limit)
+            let failLogs = task.errorMessage ?? task.result ?? "Coder fix task failed with no output"
+            try? await logError(
+                taskId: task.id,
+                agent: .coder,
+                message: "Deployment fix task failed — will attempt another fix if under limit"
+            )
+            await spawnDeploymentFixTask(deployment: deployment, errorLogs: failLogs)
+        }
+
+        return true
+    }
+
+    /// Maximum number of auto-fix attempts per deployment before giving up.
+    private static let maxDeployAutoFixAttempts = 3
+
+    /// Update deployment status after devops task completes, then run actual deployment (#30).
+    /// If the deployment fails, automatically creates a Coder fix task using the error logs.
     private func handleDevOpsCompletion(task: AgentTask, result: AgentResult) async {
         do {
             // Find the pending deployment for this project
@@ -745,16 +828,18 @@ final class Orchestrator {
                 return
             }
 
-            // If devops agent task failed, mark deployment as failed
+            // If devops agent task failed, mark deployment as failed and spawn fix task
             guard task.status == .passed else {
+                let failLogs = task.errorMessage ?? result.output ?? "DevOps task failed with no output"
                 deployment.status = .failed
                 deployment.completedAt = Date()
-                deployment.logs = task.errorMessage ?? result.output
+                deployment.logs = failLogs
                 let failedDeployment = deployment
                 try await dbQueue.write { db in
                     var d = failedDeployment
                     try d.update(db)
                 }
+                await spawnDeploymentFixTask(deployment: deployment, errorLogs: failLogs)
                 return
             }
 
@@ -778,8 +863,109 @@ final class Orchestrator {
                              message: "Local deployment completed on port \(port)")
 
         } catch {
+            // Local deploy itself failed — find the deployment and spawn fix task
             try? await logError(taskId: task.id, agent: .devops,
                               message: "Failed to deploy: \(error.localizedDescription)")
+            await handleLocalDeployFailure(task: task, error: error)
+        }
+    }
+
+    /// When local deployment fails, find the deployment record and spawn a coder fix task.
+    private func handleLocalDeployFailure(task: AgentTask, error: Error) async {
+        do {
+            let deployment = try await dbQueue.read { db in
+                try Deployment
+                    .filter(Column("projectId") == task.projectId)
+                    .filter(Column("status") == Deployment.Status.failed.rawValue)
+                    .order(Column("createdAt").desc)
+                    .fetchOne(db)
+            }
+            guard let deployment else { return }
+            await spawnDeploymentFixTask(deployment: deployment, errorLogs: error.localizedDescription)
+        } catch {
+            // Non-critical — already logged above
+        }
+    }
+
+    /// Create a Coder task to fix a failed deployment. The task description includes the full error logs
+    /// so the coder agent has context to diagnose and fix the issue.
+    private func spawnDeploymentFixTask(deployment: Deployment, errorLogs: String) async {
+        // Guard: don't exceed max auto-fix attempts
+        guard deployment.autoFixAttempts < Self.maxDeployAutoFixAttempts else {
+            try? await dbQueue.write { [deployment] db in
+                let log = AgentLog(
+                    taskId: deployment.fixTaskId ?? UUID(),
+                    agentType: .devops,
+                    level: .error,
+                    message: "Deployment \(deployment.id) exhausted \(Self.maxDeployAutoFixAttempts) auto-fix attempts — manual intervention required"
+                )
+                try log.insert(db)
+            }
+            return
+        }
+
+        // Guard: don't create duplicate fix task if one already exists and is still active
+        if let existingFixId = deployment.fixTaskId {
+            let existingTask = try? await dbQueue.read { db in
+                try AgentTask.fetchOne(db, id: existingFixId)
+            }
+            if let existingTask, existingTask.status == .queued || existingTask.status == .inProgress {
+                return // Fix task already in flight
+            }
+        }
+
+        // Fetch project name for a descriptive title
+        let projectName = (try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: deployment.projectId)?.name
+        }) ?? "Unknown"
+
+        let truncatedLogs = String(errorLogs.prefix(3000))
+        let attempt = deployment.autoFixAttempts + 1
+
+        do {
+            let fixTask = AgentTask(
+                projectId: deployment.projectId,
+                agentType: .coder,
+                title: "Fix deployment failure: \(projectName) (\(deployment.environment.rawValue)) [attempt \(attempt)]",
+                description: """
+                    The deployment for project "\(projectName)" to \(deployment.environment.rawValue) has failed.
+                    Deployment method: \(deployment.deployMethod ?? "unknown")
+                    Port: \(deployment.port.map(String.init) ?? "N/A")
+
+                    ERROR LOGS:
+                    \(truncatedLogs)
+
+                    INSTRUCTIONS:
+                    1. Analyze the error logs above to identify the root cause.
+                    2. Fix the issue in the project source code (Dockerfile, package.json, config files, source code, etc.).
+                    3. Ensure the project can build and run successfully.
+                    4. Do NOT attempt to deploy — deployment will be triggered automatically after this fix passes.
+                    """,
+                priority: 10 // High priority — deployment is broken
+            )
+
+            try await dbQueue.write { [fixTask, deployment] db in
+                var task = fixTask
+                try task.insert(db)
+
+                // Link fix task to deployment and increment attempt counter
+                var d = deployment
+                d.fixTaskId = task.id
+                d.autoFixAttempts += 1
+                try d.update(db)
+            }
+
+            try? await logInfo(
+                taskId: fixTask.id,
+                agent: .coder,
+                message: "Auto-created fix task for failed deployment \(deployment.id) (attempt \(attempt)/\(Self.maxDeployAutoFixAttempts))"
+            )
+        } catch {
+            try? await logError(
+                taskId: UUID(),
+                agent: .devops,
+                message: "Failed to create deployment fix task: \(error.localizedDescription)"
+            )
         }
     }
 

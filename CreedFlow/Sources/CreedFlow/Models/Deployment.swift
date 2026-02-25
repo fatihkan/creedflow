@@ -15,6 +15,8 @@ struct Deployment: Codable, Identifiable, Equatable {
     var port: Int?
     var containerId: String?
     var processId: Int?
+    var fixTaskId: UUID?
+    var autoFixAttempts: Int
     var createdAt: Date
     var completedAt: Date?
 
@@ -45,6 +47,8 @@ struct Deployment: Codable, Identifiable, Equatable {
         port: Int? = nil,
         containerId: String? = nil,
         processId: Int? = nil,
+        fixTaskId: UUID? = nil,
+        autoFixAttempts: Int = 0,
         createdAt: Date = Date(),
         completedAt: Date? = nil
     ) {
@@ -61,6 +65,8 @@ struct Deployment: Codable, Identifiable, Equatable {
         self.port = port
         self.containerId = containerId
         self.processId = processId
+        self.fixTaskId = fixTaskId
+        self.autoFixAttempts = autoFixAttempts
         self.createdAt = createdAt
         self.completedAt = completedAt
     }

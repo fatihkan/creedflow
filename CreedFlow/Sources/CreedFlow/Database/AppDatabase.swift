@@ -410,6 +410,17 @@ public struct AppDatabase {
             try db.create(index: "publication_on_status", on: "publication", columns: ["status"])
         }
 
+        migrator.registerMigration("v14_deployment_auto_fix") { db in
+            // Track the coder fix task spawned to repair a failed deployment
+            try db.alter(table: "deployment") { t in
+                t.add(column: "fixTaskId", .text)
+            }
+            // Track how many auto-fix attempts have been made
+            try db.alter(table: "deployment") { t in
+                t.add(column: "autoFixAttempts", .integer).notNull().defaults(to: 0)
+            }
+        }
+
         return migrator
     }
 }
