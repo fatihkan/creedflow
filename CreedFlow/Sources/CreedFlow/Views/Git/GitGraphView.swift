@@ -2,11 +2,12 @@ import SwiftUI
 import GRDB
 
 struct GitGraphView: View {
-    let projectId: UUID
     let appDatabase: AppDatabase?
 
+    @State private var projects: [Project] = []
+    @State private var selectedProjectId: UUID?
     @State private var graphData: GitGraphData = .empty
-    @State private var isLoading = true
+    @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var selectedBranch: String = "All"
 
@@ -17,7 +18,13 @@ struct GitGraphView: View {
             toolbar
             Divider()
 
-            if isLoading {
+            if selectedProjectId == nil {
+                ForgeEmptyState(
+                    icon: "arrow.triangle.branch",
+                    title: "Git History",
+                    subtitle: "Select a project to view its git history"
+                )
+            } else if isLoading {
                 ProgressView("Loading git history...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = errorMessage {
@@ -42,8 +49,11 @@ struct GitGraphView: View {
                 )
             }
         }
-        .task(id: projectId) {
-            await loadGraph()
+        .task {
+            await observeProjects()
+        }
+        .onChange(of: selectedProjectId) { _, _ in
+            Task { await loadGraph() }
         }
     }
 
@@ -51,6 +61,14 @@ struct GitGraphView: View {
 
     private var toolbar: some View {
         ForgeToolbar(title: "Git History") {
+            Picker("Project", selection: $selectedProjectId) {
+                Text("Select Project").tag(UUID?.none)
+                ForEach(projects) { project in
+                    Text(project.name).tag(UUID?.some(project.id))
+                }
+            }
+            .frame(maxWidth: 200)
+
             if !graphData.allBranches.isEmpty {
                 Picker("Branch", selection: $selectedBranch) {
                     Text("All").tag("All")
@@ -69,6 +87,7 @@ struct GitGraphView: View {
                 Image(systemName: "arrow.clockwise")
             }
             .help("Refresh")
+            .disabled(selectedProjectId == nil)
         }
     }
 
@@ -77,13 +96,10 @@ struct GitGraphView: View {
     private var filteredGraphData: GitGraphData {
         guard selectedBranch != "All" else { return graphData }
 
-        // Filter to show only commits that have the selected branch decoration
-        // or are ancestors visible in the graph
         let filtered = graphData.rows.filter { row in
             row.commit.decorations.contains(where: { $0.name == selectedBranch })
         }
 
-        // If filter yields nothing, show all (branch may be on older commits)
         if filtered.isEmpty { return graphData }
 
         return GitGraphData(
@@ -96,9 +112,27 @@ struct GitGraphView: View {
 
     // MARK: - Data Loading
 
+    private func observeProjects() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try Project.order(Column("name")).fetchAll(db)
+        }
+        do {
+            for try await value in observation.values(in: db.dbQueue) {
+                projects = value
+            }
+        } catch { /* observation error */ }
+    }
+
     private func loadGraph() async {
+        guard let projectId = selectedProjectId else {
+            graphData = .empty
+            return
+        }
+
         isLoading = true
         errorMessage = nil
+        selectedBranch = "All"
 
         guard let db = appDatabase else {
             errorMessage = "Database not available"
@@ -106,7 +140,6 @@ struct GitGraphView: View {
             return
         }
 
-        // Fetch project directory path
         do {
             let project = try await db.dbQueue.read { dbConn in
                 try Project.fetchOne(dbConn, key: projectId)
