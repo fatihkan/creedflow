@@ -85,6 +85,7 @@ public struct ContentView: View {
                 case "4": selectedSection = .reviews; return nil
                 case "5": selectedSection = .deploys; return nil
                 case "6": selectedSection = .prompts; return nil
+                case "7": selectedSection = .gitGraph; return nil
                 default: return event
                 }
             }
@@ -148,6 +149,16 @@ public struct ContentView: View {
             DeployView(appDatabase: appDatabase, selectedDeploymentId: $selectedDeploymentId)
         case .prompts:
             PromptsLibraryView(appDatabase: appDatabase)
+        case .gitGraph:
+            if let projectId = selectedProjectId {
+                GitGraphView(projectId: projectId, appDatabase: appDatabase)
+            } else {
+                ForgeEmptyState(
+                    icon: "arrow.triangle.branch",
+                    title: "Git History",
+                    subtitle: "Select a project first to view its git history"
+                )
+            }
         case .projectTasks(let projectId):
             TaskBoardView(
                 projectId: projectId,
@@ -242,5 +253,6 @@ enum SidebarSection: Hashable {
     case deploys
     case settings
     case prompts
+    case gitGraph
     case projectTasks(UUID)
 }

@@ -142,6 +142,9 @@ struct SidebarView: View {
 
     private var pipelineSection: some View {
         Section("Pipeline") {
+            Label("Git History", systemImage: "arrow.triangle.branch")
+                .tag(SidebarSection.gitGraph)
+
             HStack {
                 Label("Deployments", systemImage: "arrow.up.circle")
                 Spacer()

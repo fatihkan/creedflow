@@ -70,6 +70,30 @@ extension ShapeStyle where Self == Color {
     static var agentMonitor: Color { Color(red: 0.88, green: 0.42, blue: 0.62) }
 }
 
+// MARK: - Git Branch Colors
+
+extension Color {
+    /// Returns a consistent color for a git branch name.
+    static func gitBranchColor(for name: String) -> Color {
+        switch name {
+        case "main", "master":
+            return .forgeSuccess
+        case "staging":
+            return .forgeInfo
+        case "dev", "develop", "development":
+            return .forgeAmber
+        default:
+            if name.hasPrefix("feature/") || name.hasPrefix("feat/") {
+                // Cycle through a palette based on branch name hash
+                let palette: [Color] = [.purple, .teal, .orange, .pink, .indigo, .mint]
+                let hash = abs(name.hashValue)
+                return palette[hash % palette.count]
+            }
+            return .forgeNeutral
+        }
+    }
+}
+
 // MARK: - Typography Scale
 
 extension Font {

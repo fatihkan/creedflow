@@ -91,6 +91,25 @@ actor GitService {
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Get structured log with all branches for graph visualization
+    func structuredLog(count: Int = 200, in path: String) async throws -> String {
+        try await run(
+            ["log", "--all", "--format=%H|%P|%D|%an|%at|%s", "-\(count)"],
+            in: path
+        )
+    }
+
+    /// Get all branch names (local + remote)
+    func allBranches(in path: String) async throws -> [String] {
+        let output = try await run(
+            ["branch", "-a", "--format=%(refname:short)"],
+            in: path
+        )
+        return output
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+    }
+
     @discardableResult
     private func run(_ arguments: [String], in directory: String) async throws -> String {
         try await Process.run(
