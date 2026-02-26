@@ -411,6 +411,15 @@ final class Orchestrator {
             await autoCommitChanges(task: task)
         }
 
+        // Universal merge: if task ran on a branch, merge it into dev
+        // Re-read task from DB to get current branchName (parameter may be stale)
+        let currentTask = (try? await dbQueue.read { db in
+            try AgentTask.fetchOne(db, id: task.id)
+        }) ?? task
+        if let branchName = currentTask.branchName {
+            await mergeTaskBranchToDev(branchName: branchName, projectId: task.projectId)
+        }
+
         // Check if all tasks for this feature are done → promote dev → staging
         if let featureId = task.featureId {
             await checkFeatureCompletionAndPromote(featureId: featureId, projectId: task.projectId)
@@ -424,6 +433,17 @@ final class Orchestrator {
         }
         guard let project, !project.directoryPath.isEmpty else { return }
         _ = await branchManager.autoCommitIfNeeded(task: task, in: project.directoryPath)
+    }
+
+    /// Merge a task's branch into dev after completion (best-effort).
+    /// This is the universal merge step — ensures every task's changes end up in dev,
+    /// even if the GitHub PR flow failed or was skipped.
+    private func mergeTaskBranchToDev(branchName: String, projectId: UUID) async {
+        let project = try? await dbQueue.read { db in
+            try Project.fetchOne(db, id: projectId)
+        }
+        guard let project, !project.directoryPath.isEmpty else { return }
+        await branchManager.mergeTaskBranchToDev(branchName: branchName, in: project.directoryPath)
     }
 
     /// Check if all tasks for a feature passed, merge dev → staging, and auto-create staging deployment.

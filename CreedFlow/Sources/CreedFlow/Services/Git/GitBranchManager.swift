@@ -166,6 +166,32 @@ actor GitBranchManager {
 
     // MARK: - Merge & Promotion
 
+    /// Merge a task's branch into dev using local git merge (fallback when no PR exists).
+    /// Called universally after every task completion that has a branchName.
+    /// Skips if the branch is dev/staging/main itself.
+    func mergeTaskBranchToDev(branchName: String, in path: String) async {
+        // Don't merge dev/staging/main into themselves
+        let protectedBranches = ["dev", "staging", "main", "master", "develop"]
+        guard !protectedBranches.contains(branchName) else { return }
+
+        do {
+            // Commit any remaining changes on the task branch first
+            try await gitService.addAll(in: path)
+            if try await gitService.hasChanges(in: path) {
+                try await gitService.commit(message: "chore: auto-commit before merge to dev", in: path)
+            }
+
+            // Switch to dev and merge the task branch
+            try await gitService.checkout("dev", in: path)
+            try await gitService.merge(branchName, message: "merge: \(branchName) into dev", in: path)
+            logger.info("Merged branch \(branchName) into dev (local)")
+        } catch {
+            // Best effort — try to get back to dev even if merge failed
+            try? await gitService.checkout("dev", in: path)
+            logger.error("Local merge of \(branchName) into dev failed: \(error.localizedDescription)")
+        }
+    }
+
     /// Merge a feature PR into dev (squash merge).
     func mergeFeatureToDev(prNumber: Int, in path: String) async {
         do {
