@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useTaskStore } from "../../store/taskStore";
 import { TaskCard } from "./TaskCard";
-import type { TaskStatus } from "../../types/models";
+import { Archive } from "lucide-react";
+import type { AgentTask, TaskStatus } from "../../types/models";
 
 interface Props {
   projectId: string;
@@ -12,33 +13,108 @@ const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
   { status: "in_progress", label: "In Progress", color: "border-blue-500" },
   { status: "passed", label: "Passed", color: "border-green-500" },
   { status: "failed", label: "Failed", color: "border-red-500" },
-  { status: "needs_revision", label: "Needs Revision", color: "border-yellow-500" },
+  {
+    status: "needs_revision",
+    label: "Needs Revision",
+    color: "border-yellow-500",
+  },
 ];
 
+const ARCHIVABLE: TaskStatus[] = ["passed", "failed", "cancelled"];
+
+const VALID_TRANSITIONS: Record<string, TaskStatus[]> = {
+  queued: ["in_progress", "cancelled"],
+  in_progress: ["passed", "failed", "needs_revision"],
+  passed: [],
+  failed: ["queued"],
+  needs_revision: ["queued"],
+  cancelled: ["queued"],
+};
+
 export function TaskBoard({ projectId }: Props) {
-  const { tasks, fetchTasks, selectTask } = useTaskStore();
+  const {
+    tasks,
+    fetchTasks,
+    selectTask,
+    selectionMode,
+    setSelectionMode,
+    selectedIds,
+    toggleSelection,
+    archiveSelected,
+    clearSelection,
+    updateTaskStatus,
+  } = useTaskStore();
 
   useEffect(() => {
     fetchTasks(projectId);
   }, [projectId, fetchTasks]);
 
+  const handleDragStart = (e: React.DragEvent, task: AgentTask) => {
+    e.dataTransfer.setData("text/plain", task.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStatus: TaskStatus) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData("text/plain");
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const allowed = VALID_TRANSITIONS[task.status] || [];
+    if (allowed.includes(targetStatus)) {
+      await updateTaskStatus(taskId, targetStatus);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col">
-      <div className="px-4 py-3 border-b border-zinc-800">
-        <h2 className="text-sm font-semibold text-zinc-200">Task Board</h2>
-        <p className="text-xs text-zinc-500 mt-0.5">
-          {tasks.length} task{tasks.length !== 1 ? "s" : ""}
-        </p>
+      <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-200">Task Board</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {selectionMode && selectedIds.size > 0 && (
+            <button
+              onClick={archiveSelected}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-700 text-zinc-200 rounded-md hover:bg-zinc-600"
+            >
+              <Archive className="w-3 h-3" />
+              Archive ({selectedIds.size})
+            </button>
+          )}
+          <button
+            onClick={() =>
+              selectionMode ? clearSelection() : setSelectionMode(true)
+            }
+            className={`px-3 py-1.5 text-xs rounded-md ${
+              selectionMode
+                ? "bg-zinc-700 text-zinc-200"
+                : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            {selectionMode ? "Cancel" : "Select to Archive"}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-x-auto">
         <div className="flex gap-3 p-4 min-w-max h-full">
           {COLUMNS.map(({ status, label, color }) => {
             const columnTasks = tasks.filter((t) => t.status === status);
+            const isArchivableColumn = ARCHIVABLE.includes(status);
             return (
               <div
                 key={status}
                 className={`w-[260px] flex flex-col bg-zinc-900/30 rounded-lg border-t-2 ${color}`}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, status)}
               >
                 <div className="px-3 py-2 flex items-center justify-between">
                   <span className="text-xs font-medium text-zinc-400">
@@ -50,11 +126,41 @@ export function TaskBoard({ projectId }: Props) {
                 </div>
                 <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
                   {columnTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      onClick={() => selectTask(task.id)}
-                    />
+                    <div key={task.id} className="relative">
+                      {selectionMode && isArchivableColumn && (
+                        <div
+                          className="absolute inset-0 z-10 flex items-start justify-start p-2 cursor-pointer"
+                          onClick={() => toggleSelection(task.id)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(task.id)}
+                            onChange={() => toggleSelection(task.id)}
+                            className="w-4 h-4 rounded border-zinc-600 bg-zinc-800"
+                          />
+                        </div>
+                      )}
+                      <div
+                        draggable={!selectionMode}
+                        onDragStart={(e) => handleDragStart(e, task)}
+                        className={
+                          selectionMode && isArchivableColumn
+                            ? selectedIds.has(task.id)
+                              ? "opacity-75"
+                              : ""
+                            : ""
+                        }
+                      >
+                        <TaskCard
+                          task={task}
+                          onClick={() =>
+                            selectionMode
+                              ? isArchivableColumn && toggleSelection(task.id)
+                              : selectTask(task.id)
+                          }
+                        />
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>

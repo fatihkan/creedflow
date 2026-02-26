@@ -34,6 +34,9 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (13, V13_PUBLISHING),
         (14, V14_DEPLOYMENT_AUTO_FIX),
         (15, V15_REVISION_PROMPT),
+        (16, V16_GIT_BRANCHING),
+        (17, V17_SKILL_PERSONA),
+        (18, V18_TASK_ARCHIVE),
     ];
 
     for (version, sql) in migrations {
@@ -357,4 +360,18 @@ ALTER TABLE deployment ADD COLUMN autoFixAttempts INTEGER NOT NULL DEFAULT 0;
 
 const V15_REVISION_PROMPT: &str = r#"
 ALTER TABLE agentTask ADD COLUMN revisionPrompt TEXT;
+"#;
+
+const V16_GIT_BRANCHING: &str = r#"
+ALTER TABLE feature ADD COLUMN integrationPrNumber INTEGER;
+ALTER TABLE project ADD COLUMN stagingPrNumber INTEGER;
+"#;
+
+const V17_SKILL_PERSONA: &str = r#"
+ALTER TABLE agentTask ADD COLUMN skillPersona TEXT;
+"#;
+
+const V18_TASK_ARCHIVE: &str = r#"
+ALTER TABLE agentTask ADD COLUMN archivedAt TEXT;
+CREATE INDEX IF NOT EXISTS idx_agentTask_archivedAt ON agentTask(archivedAt);
 "#;

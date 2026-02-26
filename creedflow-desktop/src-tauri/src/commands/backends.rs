@@ -15,6 +15,15 @@ pub struct BackendInfo {
     pub is_local: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DependencyStatus {
+    pub name: String,
+    pub installed: bool,
+    pub version: Option<String>,
+    pub path: Option<String>,
+}
+
 #[tauri::command]
 pub async fn list_backends() -> Result<Vec<BackendInfo>, String> {
     let backends = vec![
@@ -103,4 +112,92 @@ pub async fn toggle_backend(
     // Settings are persisted via the settings command; this is a convenience wrapper
     log::info!("Backend {} set to enabled={}", backend_type, enabled);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn detect_dependencies() -> Result<Vec<DependencyStatus>, String> {
+    let deps = vec!["git", "docker", "gh", "node", "claude", "codex", "gemini", "brew"];
+    let mut results = Vec::new();
+    for name in deps {
+        let path = backends::detect::find_cli(name);
+        let installed = path.is_some();
+        let version = if installed {
+            get_version(name).await.ok()
+        } else {
+            None
+        };
+        results.push(DependencyStatus {
+            name: name.to_string(),
+            installed,
+            version,
+            path,
+        });
+    }
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn install_dependency(name: String) -> Result<String, String> {
+    use tokio::process::Command;
+
+    // Check if brew is available (macOS)
+    let brew_path = backends::detect::find_cli("brew");
+    if brew_path.is_none() {
+        return Err(format!(
+            "Homebrew not found. Install {} manually or install Homebrew first: https://brew.sh",
+            name
+        ));
+    }
+
+    let formula = match name.as_str() {
+        "git" => "git",
+        "docker" => "docker",
+        "gh" => "gh",
+        "node" => "node",
+        "claude" => return Err("Install Claude CLI from https://claude.ai/cli".to_string()),
+        "codex" => return Err("Install Codex CLI via npm: npm install -g @openai/codex".to_string()),
+        "gemini" => return Err("Install Gemini CLI via npm: npm install -g @google/gemini-cli".to_string()),
+        "brew" => return Err("Install Homebrew from https://brew.sh".to_string()),
+        _ => return Err(format!("Unknown dependency: {}", name)),
+    };
+
+    let output = Command::new("brew")
+        .args(["install", formula])
+        .output()
+        .await
+        .map_err(|e| format!("brew install failed: {}", e))?;
+
+    if output.status.success() {
+        Ok(format!("Successfully installed {}", name))
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
+async fn get_version(name: &str) -> Result<String, String> {
+    use tokio::process::Command;
+
+    let (cmd, args): (&str, &[&str]) = match name {
+        "git" => ("git", &["--version"]),
+        "docker" => ("docker", &["--version"]),
+        "gh" => ("gh", &["--version"]),
+        "node" => ("node", &["--version"]),
+        "brew" => ("brew", &["--version"]),
+        "claude" => ("claude", &["--version"]),
+        "codex" => ("codex", &["--version"]),
+        "gemini" => ("gemini", &["--version"]),
+        _ => return Err("Unknown".to_string()),
+    };
+
+    let output = Command::new(cmd)
+        .args(args)
+        .output()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().lines().next().unwrap_or("").to_string())
+    } else {
+        Err("Failed to get version".to_string())
+    }
 }

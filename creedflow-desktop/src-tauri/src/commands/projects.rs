@@ -33,6 +33,7 @@ pub async fn create_project(
         directory_path: String::new(),
         project_type,
         telegram_chat_id: None,
+        staging_pr_number: None,
         created_at: now.clone(),
         updated_at: now,
     };

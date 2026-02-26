@@ -1,9 +1,12 @@
 import type { SidebarSection } from "./Sidebar";
 import { ProjectList } from "../projects/ProjectList";
 import { TaskBoard } from "../tasks/TaskBoard";
+import { ArchivedTasksView } from "../tasks/ArchivedTasksView";
 import { AgentStatus } from "../agents/AgentStatus";
 import { SettingsDialog } from "../settings/SettingsDialog";
 import { CostDashboard } from "../settings/CostDashboard";
+import { DeployList } from "../deploy/DeployList";
+import { ReviewList } from "../reviews/ReviewList";
 
 interface ContentAreaProps {
   section: SidebarSection;
@@ -20,14 +23,16 @@ export function ContentArea({ section, selectedProjectId }: ContentAreaProps) {
       ) : (
         <EmptyState message="Select a project to view tasks" />
       );
+    case "archive":
+      return <ArchivedTasksView />;
     case "agents":
       return <AgentStatus />;
     case "costs":
       return <CostDashboard />;
     case "reviews":
-      return <EmptyState message="Reviews will appear here" />;
+      return <ReviewList />;
     case "deploys":
-      return <EmptyState message="Deployment management coming soon" />;
+      return <DeployList />;
     case "settings":
       return <SettingsDialog />;
     case "prompts":

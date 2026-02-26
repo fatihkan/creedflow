@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   FolderKanban,
   LayoutDashboard,
@@ -7,7 +8,10 @@ import {
   Rocket,
   Settings,
   BookOpen,
+  Archive,
 } from "lucide-react";
+import { useTaskStore } from "../../store/taskStore";
+import { useReviewStore } from "../../store/reviewStore";
 
 export type SidebarSection =
   | "projects"
@@ -17,16 +21,22 @@ export type SidebarSection =
   | "reviews"
   | "deploys"
   | "settings"
-  | "prompts";
+  | "prompts"
+  | "archive";
 
 interface SidebarProps {
   selected: SidebarSection;
   onSelect: (section: SidebarSection) => void;
 }
 
-const SECTIONS: { id: SidebarSection; label: string; icon: React.FC<{ className?: string }> }[] = [
+const SECTIONS: {
+  id: SidebarSection;
+  label: string;
+  icon: React.FC<{ className?: string }>;
+}[] = [
   { id: "projects", label: "Projects", icon: FolderKanban },
   { id: "tasks", label: "Tasks", icon: LayoutDashboard },
+  { id: "archive", label: "Archive", icon: Archive },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "costs", label: "Costs", icon: DollarSign },
   { id: "reviews", label: "Reviews", icon: FileCheck },
@@ -36,6 +46,16 @@ const SECTIONS: { id: SidebarSection; label: string; icon: React.FC<{ className?
 ];
 
 export function Sidebar({ selected, onSelect }: SidebarProps) {
+  const archivedCount = useTaskStore((s) => s.archivedTasks.length);
+  const fetchArchivedTasks = useTaskStore((s) => s.fetchArchivedTasks);
+  const pendingReviewCount = useReviewStore((s) => s.pendingCount);
+  const fetchPendingCount = useReviewStore((s) => s.fetchPendingCount);
+
+  useEffect(() => {
+    fetchArchivedTasks();
+    fetchPendingCount();
+  }, [fetchArchivedTasks, fetchPendingCount]);
+
   return (
     <aside className="w-[200px] min-w-[180px] max-w-[280px] bg-zinc-900/50 border-r border-zinc-800 flex flex-col">
       {/* App title */}
@@ -47,20 +67,34 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto">
-        {SECTIONS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => onSelect(id)}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-              selected === id
-                ? "bg-brand-600/20 text-brand-400"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-            }`}
-          >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {label}
-          </button>
-        ))}
+        {SECTIONS.map(({ id, label, icon: Icon }) => {
+          const badge =
+            id === "archive" && archivedCount > 0
+              ? archivedCount
+              : id === "reviews" && pendingReviewCount && pendingReviewCount > 0
+                ? pendingReviewCount
+                : null;
+
+          return (
+            <button
+              key={id}
+              onClick={() => onSelect(id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
+                selected === id
+                  ? "bg-brand-600/20 text-brand-400"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+              }`}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1 text-left">{label}</span>
+              {badge != null && (
+                <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded-full">
+                  {badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Version */}

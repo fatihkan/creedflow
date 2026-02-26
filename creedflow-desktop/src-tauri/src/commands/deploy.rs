@@ -99,3 +99,18 @@ pub async fn get_deployment(
         |row| DeploymentInfo::from_row(row),
     ).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn delete_deployments(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    for id in &ids {
+        db.conn.execute(
+            "DELETE FROM deployment WHERE id = ?1 AND status IN ('success', 'failed', 'rolled_back')",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

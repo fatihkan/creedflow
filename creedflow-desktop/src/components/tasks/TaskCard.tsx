@@ -11,7 +11,7 @@ export function TaskCard({ task, onClick }: Props) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left p-2.5 bg-zinc-800/50 hover:bg-zinc-800 rounded-md border border-zinc-800 hover:border-zinc-700 transition-colors"
+      className="w-full text-left p-2.5 bg-zinc-800/50 hover:bg-zinc-800 rounded-md border border-zinc-800 hover:border-zinc-700 transition-colors cursor-grab active:cursor-grabbing"
     >
       <p className="text-xs text-zinc-200 font-medium leading-snug line-clamp-2">
         {task.title}

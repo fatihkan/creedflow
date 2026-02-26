@@ -45,21 +45,33 @@ pub fn run() {
             commands::tasks::create_task,
             commands::tasks::update_task_status,
             commands::tasks::get_task_dependencies,
+            commands::tasks::archive_tasks,
+            commands::tasks::restore_tasks,
+            commands::tasks::permanently_delete_tasks,
+            commands::tasks::list_archived_tasks,
+            commands::tasks::retry_task_with_revision,
             // Backends
             commands::backends::list_backends,
             commands::backends::check_backend,
             commands::backends::toggle_backend,
+            commands::backends::detect_dependencies,
+            commands::backends::install_dependency,
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,
+            commands::settings::open_stripe_checkout,
             // Costs
             commands::costs::get_cost_summary,
             commands::costs::get_costs_by_project,
             // Reviews
             commands::reviews::list_reviews,
             commands::reviews::approve_review,
+            commands::reviews::reject_review,
+            commands::reviews::list_reviews_for_task,
+            commands::reviews::get_pending_review_count,
             // Agents
             commands::agents::list_agent_types,
+            commands::agents::get_agent_backend_info,
             // Assets
             commands::assets::list_assets,
             // Publishing
@@ -69,6 +81,7 @@ pub fn run() {
             commands::deploy::list_deployments,
             commands::deploy::create_deployment,
             commands::deploy::get_deployment,
+            commands::deploy::delete_deployments,
             // Prompts
             commands::prompts::list_prompts,
             commands::prompts::create_prompt,

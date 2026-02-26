@@ -10,6 +10,14 @@ pub struct AgentTypeInfo {
     pub has_mcp: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentBackendInfo {
+    pub agent_type: String,
+    pub default_preference: String,
+    pub allowed_backends: Vec<String>,
+}
+
 #[tauri::command]
 pub async fn list_agent_types() -> Result<Vec<AgentTypeInfo>, String> {
     Ok(vec![
@@ -24,5 +32,26 @@ pub async fn list_agent_types() -> Result<Vec<AgentTypeInfo>, String> {
         AgentTypeInfo { agent_type: "imageGenerator".into(), display_name: "Image Generator".into(), timeout_seconds: 600, backend_preference: "claudePreferred".into(), has_mcp: true },
         AgentTypeInfo { agent_type: "videoEditor".into(), display_name: "Video Editor".into(), timeout_seconds: 900, backend_preference: "claudePreferred".into(), has_mcp: true },
         AgentTypeInfo { agent_type: "publisher".into(), display_name: "Publisher".into(), timeout_seconds: 600, backend_preference: "claudePreferred".into(), has_mcp: true },
+    ])
+}
+
+#[tauri::command]
+pub async fn get_agent_backend_info() -> Result<Vec<AgentBackendInfo>, String> {
+    let all_backends = vec!["claude", "codex", "gemini", "ollama", "lmStudio", "llamaCpp", "mlx"];
+    let cloud_backends = vec!["claude", "codex", "gemini"];
+    let claude_only = vec!["claude"];
+
+    Ok(vec![
+        AgentBackendInfo { agent_type: "analyzer".into(), default_preference: "anyBackend".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "coder".into(), default_preference: "claudeOnly".into(), allowed_backends: claude_only.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "reviewer".into(), default_preference: "claudeOnly".into(), allowed_backends: claude_only.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "tester".into(), default_preference: "claudeOnly".into(), allowed_backends: claude_only.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "devops".into(), default_preference: "default".into(), allowed_backends: cloud_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "monitor".into(), default_preference: "default".into(), allowed_backends: cloud_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "contentWriter".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "designer".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "imageGenerator".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "videoEditor".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "publisher".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
     ])
 }

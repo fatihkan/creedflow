@@ -9,6 +9,7 @@ export interface Project {
   directoryPath: string;
   projectType: ProjectType;
   telegramChatId: number | null;
+  stagingPrNumber: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +25,18 @@ export type ProjectStatus =
   | "paused";
 
 export type ProjectType = "software" | "content" | "image" | "video" | "general";
+
+export interface Feature {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  priority: number;
+  status: string;
+  integrationPrNumber: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface AgentTask {
   id: string;
@@ -49,6 +62,9 @@ export interface AgentTask {
   completedAt: string | null;
   backend: string | null;
   promptChainId: string | null;
+  revisionPrompt: string | null;
+  skillPersona: string | null;
+  archivedAt: string | null;
 }
 
 export type AgentType =
@@ -125,6 +141,20 @@ export interface AgentTypeInfo {
   hasMcp: boolean;
 }
 
+export interface AgentBackendOverrides {
+  analyzer: string | null;
+  coder: string | null;
+  reviewer: string | null;
+  tester: string | null;
+  devops: string | null;
+  monitor: string | null;
+  contentWriter: string | null;
+  designer: string | null;
+  imageGenerator: string | null;
+  videoEditor: string | null;
+  publisher: string | null;
+}
+
 export interface AppSettings {
   projectsDir: string;
   maxConcurrency: number;
@@ -138,6 +168,8 @@ export interface AppSettings {
   mlxEnabled: boolean;
   telegramBotToken: string | null;
   telegramChatId: string | null;
+  hasCompletedSetup: boolean;
+  agentBackendOverrides: AgentBackendOverrides | null;
 }
 
 export interface GeneratedAsset {
@@ -173,4 +205,30 @@ export interface Publication {
   status: "scheduled" | "publishing" | "published" | "failed";
   publishedUrl: string | null;
   createdAt: string;
+}
+
+export interface DeploymentInfo {
+  id: string;
+  projectId: string;
+  environment: string;
+  status: string;
+  version: string;
+  commitHash: string | null;
+  deployedBy: string;
+  deployMethod: string | null;
+  port: number | null;
+  containerId: string | null;
+  processId: number | null;
+  logs: string | null;
+  fixTaskId: string | null;
+  autoFixAttempts: number;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface DependencyStatus {
+  name: string;
+  installed: boolean;
+  version: string | null;
+  path: string | null;
 }

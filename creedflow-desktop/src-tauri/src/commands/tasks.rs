@@ -1,5 +1,6 @@
 use crate::db::models::{AgentTask, TaskDependency};
 use crate::state::AppState;
+use rusqlite::params;
 use tauri::State;
 use uuid::Uuid;
 
@@ -9,7 +10,12 @@ pub async fn list_tasks(
     project_id: String,
 ) -> Result<Vec<AgentTask>, String> {
     let db = state.db.lock().await;
-    AgentTask::all_for_project(&db.conn, &project_id).map_err(|e| e.to_string())
+    let mut stmt = db.conn.prepare(
+        "SELECT * FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL ORDER BY priority DESC, createdAt ASC"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([&project_id], |row| AgentTask::from_row(row))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -52,6 +58,9 @@ pub async fn create_task(
         completed_at: None,
         backend: None,
         prompt_chain_id: None,
+        revision_prompt: None,
+        skill_persona: None,
+        archived_at: None,
     };
     let db = state.db.lock().await;
     AgentTask::insert(&db.conn, &task).map_err(|e| e.to_string())?;
@@ -75,4 +84,88 @@ pub async fn get_task_dependencies(
 ) -> Result<Vec<TaskDependency>, String> {
     let db = state.db.lock().await;
     TaskDependency::for_task(&db.conn, &task_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn archive_tasks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    for id in &ids {
+        db.conn.execute(
+            "UPDATE agentTask SET archivedAt = ?2, updatedAt = datetime('now')
+             WHERE id = ?1 AND status IN ('passed', 'failed', 'cancelled')",
+            params![id, now],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn restore_tasks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    for id in &ids {
+        db.conn.execute(
+            "UPDATE agentTask SET archivedAt = NULL, updatedAt = datetime('now') WHERE id = ?1",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn permanently_delete_tasks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    for id in &ids {
+        // CASCADE handles taskDependency, review, agentLog
+        db.conn.execute("DELETE FROM agentTask WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_archived_tasks(
+    state: State<'_, AppState>,
+    project_id: Option<String>,
+) -> Result<Vec<AgentTask>, String> {
+    let db = state.db.lock().await;
+    if let Some(pid) = project_id {
+        let mut stmt = db.conn.prepare(
+            "SELECT * FROM agentTask WHERE archivedAt IS NOT NULL AND projectId = ?1 ORDER BY archivedAt DESC"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([&pid], |row| AgentTask::from_row(row))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    } else {
+        let mut stmt = db.conn.prepare(
+            "SELECT * FROM agentTask WHERE archivedAt IS NOT NULL ORDER BY archivedAt DESC"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |row| AgentTask::from_row(row))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn retry_task_with_revision(
+    state: State<'_, AppState>,
+    id: String,
+    revision_prompt: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.conn.execute(
+        "UPDATE agentTask SET status = 'queued', retryCount = retryCount + 1,
+         revisionPrompt = ?2, updatedAt = datetime('now') WHERE id = ?1",
+        params![id, revision_prompt],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
 }

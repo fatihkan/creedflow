@@ -11,6 +11,8 @@ import type {
   GeneratedAsset,
   PublishingChannel,
   Publication,
+  DeploymentInfo,
+  DependencyStatus,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -64,6 +66,24 @@ export const createTask = (
 export const updateTaskStatus = (id: string, status: string) =>
   invoke<void>("update_task_status", { id, status });
 
+export const archiveTasks = (ids: string[]) =>
+  invoke<void>("archive_tasks", { ids });
+
+export const restoreTasks = (ids: string[]) =>
+  invoke<void>("restore_tasks", { ids });
+
+export const permanentlyDeleteTasks = (ids: string[]) =>
+  invoke<void>("permanently_delete_tasks", { ids });
+
+export const listArchivedTasks = (projectId?: string) =>
+  invoke<AgentTask[]>("list_archived_tasks", { projectId: projectId ?? null });
+
+export const retryTaskWithRevision = (id: string, revisionPrompt?: string) =>
+  invoke<void>("retry_task_with_revision", {
+    id,
+    revisionPrompt: revisionPrompt ?? null,
+  });
+
 // ─── Backends ────────────────────────────────────────────────────────────────
 
 export const listBackends = () => invoke<BackendInfo[]>("list_backends");
@@ -81,6 +101,9 @@ export const getSettings = () => invoke<AppSettings>("get_settings");
 export const updateSettings = (settings: AppSettings) =>
   invoke<void>("update_settings", { settings });
 
+export const openStripeCheckout = (plan: string) =>
+  invoke<void>("open_stripe_checkout", { plan });
+
 // ─── Costs ───────────────────────────────────────────────────────────────────
 
 export const getCostSummary = () => invoke<CostSummary>("get_cost_summary");
@@ -95,9 +118,23 @@ export const listReviews = () => invoke<Review[]>("list_reviews");
 export const approveReview = (id: string) =>
   invoke<void>("approve_review", { id });
 
+export const rejectReview = (id: string) =>
+  invoke<void>("reject_review", { id });
+
+export const listReviewsForTask = (taskId: string) =>
+  invoke<Review[]>("list_reviews_for_task", { taskId });
+
+export const getPendingReviewCount = () =>
+  invoke<number>("get_pending_review_count");
+
 // ─── Agents ──────────────────────────────────────────────────────────────────
 
 export const listAgentTypes = () => invoke<AgentTypeInfo[]>("list_agent_types");
+
+export const getAgentBackendInfo = () =>
+  invoke<
+    { agentType: string; defaultPreference: string; allowedBackends: string[] }[]
+  >("get_agent_backend_info");
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
 
@@ -110,3 +147,32 @@ export const listChannels = () => invoke<PublishingChannel[]>("list_channels");
 
 export const listPublications = () =>
   invoke<Publication[]>("list_publications");
+
+// ─── Deploy ──────────────────────────────────────────────────────────────────
+
+export const listDeployments = (projectId: string) =>
+  invoke<DeploymentInfo[]>("list_deployments", { projectId });
+
+export const createDeployment = (
+  projectId: string,
+  environment: string,
+  version: string,
+  deployMethod: string,
+) =>
+  invoke<DeploymentInfo>("create_deployment", {
+    projectId,
+    environment,
+    version,
+    deployMethod,
+  });
+
+export const deleteDeployments = (ids: string[]) =>
+  invoke<void>("delete_deployments", { ids });
+
+// ─── Dependencies ────────────────────────────────────────────────────────────
+
+export const detectDependencies = () =>
+  invoke<DependencyStatus[]>("detect_dependencies");
+
+export const installDependency = (name: string) =>
+  invoke<string>("install_dependency", { name });

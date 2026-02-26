@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { useSettingsStore } from "../../store/settingsStore";
 import { BackendSettings } from "./BackendSettings";
+import { AgentPreferences } from "./AgentPreferences";
 
 export function SettingsDialog() {
-  const { settings, fetchSettings } = useSettingsStore();
+  const { settings, fetchSettings, updateSettings } = useSettingsStore();
 
   useEffect(() => {
     fetchSettings();
@@ -31,7 +32,9 @@ export function SettingsDialog() {
               <input
                 type="text"
                 value={settings.projectsDir}
-                readOnly
+                onChange={(e) =>
+                  updateSettings({ ...settings, projectsDir: e.target.value })
+                }
                 className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
               />
             </div>
@@ -43,7 +46,12 @@ export function SettingsDialog() {
                 <input
                   type="number"
                   value={settings.maxConcurrency}
-                  readOnly
+                  onChange={(e) =>
+                    updateSettings({
+                      ...settings,
+                      maxConcurrency: parseInt(e.target.value) || 3,
+                    })
+                  }
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
                 />
               </div>
@@ -54,7 +62,12 @@ export function SettingsDialog() {
                 <input
                   type="number"
                   value={settings.monthlyBudgetUsd}
-                  readOnly
+                  onChange={(e) =>
+                    updateSettings({
+                      ...settings,
+                      monthlyBudgetUsd: parseFloat(e.target.value) || 50,
+                    })
+                  }
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
                 />
               </div>
@@ -64,6 +77,9 @@ export function SettingsDialog() {
 
         {/* Backends */}
         <BackendSettings />
+
+        {/* Agent Preferences */}
+        <AgentPreferences />
       </div>
     </div>
   );

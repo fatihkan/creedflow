@@ -4,9 +4,13 @@ import * as api from "../tauri";
 
 interface TaskStore {
   tasks: AgentTask[];
+  archivedTasks: AgentTask[];
   selectedTaskId: string | null;
+  selectedIds: Set<string>;
+  selectionMode: boolean;
   loading: boolean;
   fetchTasks: (projectId: string) => Promise<void>;
+  fetchArchivedTasks: (projectId?: string) => Promise<void>;
   selectTask: (id: string | null) => void;
   createTask: (
     projectId: string,
@@ -17,11 +21,20 @@ interface TaskStore {
   ) => Promise<AgentTask>;
   updateTaskStatus: (id: string, status: string) => Promise<void>;
   updateTask: (task: AgentTask) => void;
+  toggleSelection: (id: string) => void;
+  setSelectionMode: (mode: boolean) => void;
+  clearSelection: () => void;
+  archiveSelected: () => Promise<void>;
+  restoreSelected: () => Promise<void>;
+  deleteSelected: () => Promise<void>;
 }
 
-export const useTaskStore = create<TaskStore>((set) => ({
+export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
+  archivedTasks: [],
   selectedTaskId: null,
+  selectedIds: new Set(),
+  selectionMode: false,
   loading: false,
 
   fetchTasks: async (projectId) => {
@@ -32,6 +45,15 @@ export const useTaskStore = create<TaskStore>((set) => ({
     } catch (e) {
       console.error("Failed to fetch tasks:", e);
       set({ loading: false });
+    }
+  },
+
+  fetchArchivedTasks: async (projectId?) => {
+    try {
+      const archivedTasks = await api.listArchivedTasks(projectId);
+      set({ archivedTasks });
+    } catch (e) {
+      console.error("Failed to fetch archived tasks:", e);
     }
   },
 
@@ -52,13 +74,65 @@ export const useTaskStore = create<TaskStore>((set) => ({
   updateTaskStatus: async (id, status) => {
     await api.updateTaskStatus(id, status);
     set((s) => ({
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, status: status as AgentTask["status"] } : t)),
+      tasks: s.tasks.map((t) =>
+        t.id === id ? { ...t, status: status as AgentTask["status"] } : t,
+      ),
     }));
   },
 
   updateTask: (task) => {
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === task.id ? task : t)),
+    }));
+  },
+
+  toggleSelection: (id) => {
+    set((s) => {
+      const next = new Set(s.selectedIds);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return { selectedIds: next };
+    });
+  },
+
+  setSelectionMode: (mode) =>
+    set({ selectionMode: mode, selectedIds: new Set() }),
+
+  clearSelection: () => set({ selectedIds: new Set(), selectionMode: false }),
+
+  archiveSelected: async () => {
+    const ids = Array.from(get().selectedIds);
+    if (ids.length === 0) return;
+    await api.archiveTasks(ids);
+    set((s) => ({
+      tasks: s.tasks.filter((t) => !s.selectedIds.has(t.id)),
+      selectedIds: new Set(),
+      selectionMode: false,
+    }));
+  },
+
+  restoreSelected: async () => {
+    const ids = Array.from(get().selectedIds);
+    if (ids.length === 0) return;
+    await api.restoreTasks(ids);
+    set((s) => ({
+      archivedTasks: s.archivedTasks.filter((t) => !s.selectedIds.has(t.id)),
+      selectedIds: new Set(),
+      selectionMode: false,
+    }));
+  },
+
+  deleteSelected: async () => {
+    const ids = Array.from(get().selectedIds);
+    if (ids.length === 0) return;
+    await api.permanentlyDeleteTasks(ids);
+    set((s) => ({
+      archivedTasks: s.archivedTasks.filter((t) => !s.selectedIds.has(t.id)),
+      selectedIds: new Set(),
+      selectionMode: false,
     }));
   },
 }));

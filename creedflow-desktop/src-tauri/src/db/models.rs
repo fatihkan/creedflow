@@ -236,6 +236,7 @@ pub enum LogLevel {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum DeployEnvironment {
+    Development,
     Staging,
     Production,
 }
@@ -362,6 +363,7 @@ pub struct Project {
     pub directory_path: String,
     pub project_type: String,
     pub telegram_chat_id: Option<i64>,
+    pub staging_pr_number: Option<i32>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -377,6 +379,7 @@ impl Project {
             directory_path: row.get("directoryPath")?,
             project_type: row.get("projectType")?,
             telegram_chat_id: row.get("telegramChatId")?,
+            staging_pr_number: row.get("stagingPrNumber")?,
             created_at: row.get("createdAt")?,
             updated_at: row.get("updatedAt")?,
         })
@@ -440,6 +443,7 @@ pub struct Feature {
     pub description: String,
     pub priority: i32,
     pub status: String,
+    pub integration_pr_number: Option<i32>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -453,6 +457,7 @@ impl Feature {
             description: row.get("description")?,
             priority: row.get("priority")?,
             status: row.get("status")?,
+            integration_pr_number: row.get("integrationPrNumber")?,
             created_at: row.get("createdAt")?,
             updated_at: row.get("updatedAt")?,
         })
@@ -486,6 +491,8 @@ pub struct AgentTask {
     pub backend: Option<String>,
     pub prompt_chain_id: Option<String>,
     pub revision_prompt: Option<String>,
+    pub skill_persona: Option<String>,
+    pub archived_at: Option<String>,
 }
 
 impl AgentTask {
@@ -515,6 +522,8 @@ impl AgentTask {
             backend: row.get("backend")?,
             prompt_chain_id: row.get("promptChainId")?,
             revision_prompt: row.get("revisionPrompt")?,
+            skill_persona: row.get("skillPersona")?,
+            archived_at: row.get("archivedAt")?,
         })
     }
 
@@ -956,6 +965,24 @@ pub struct AppSettings {
     pub mlx_enabled: bool,
     pub telegram_bot_token: Option<String>,
     pub telegram_chat_id: Option<String>,
+    pub has_completed_setup: bool,
+    pub agent_backend_overrides: Option<AgentBackendOverrides>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentBackendOverrides {
+    pub analyzer: Option<String>,
+    pub coder: Option<String>,
+    pub reviewer: Option<String>,
+    pub tester: Option<String>,
+    pub devops: Option<String>,
+    pub monitor: Option<String>,
+    pub content_writer: Option<String>,
+    pub designer: Option<String>,
+    pub image_generator: Option<String>,
+    pub video_editor: Option<String>,
+    pub publisher: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -979,6 +1006,8 @@ impl Default for AppSettings {
             mlx_enabled: false,
             telegram_bot_token: None,
             telegram_chat_id: None,
+            has_completed_setup: false,
+            agent_backend_overrides: None,
         }
     }
 }

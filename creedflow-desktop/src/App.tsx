@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Sidebar, type SidebarSection } from "./components/layout/Sidebar";
 import { ContentArea } from "./components/layout/ContentArea";
 import { DetailPanel } from "./components/layout/DetailPanel";
+import { SetupWizard } from "./components/setup/SetupWizard";
 import { useProjectStore } from "./store/projectStore";
 import { useTaskStore } from "./store/taskStore";
+import { useSettingsStore } from "./store/settingsStore";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 
 function App() {
@@ -12,6 +14,12 @@ function App() {
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId);
   const updateTask = useTaskStore((s) => s.updateTask);
+  const settings = useSettingsStore((s) => s.settings);
+  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   // Auto-switch to tasks view when a project is selected
   useEffect(() => {
@@ -32,7 +40,13 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey) {
         const sections: SidebarSection[] = [
-          "projects", "tasks", "agents", "costs", "reviews", "deploys", "prompts",
+          "projects",
+          "tasks",
+          "agents",
+          "costs",
+          "reviews",
+          "deploys",
+          "prompts",
         ];
         const num = parseInt(e.key);
         if (num >= 1 && num <= sections.length) {
@@ -65,11 +79,30 @@ function App() {
 
   useTauriEvent("task-status-changed", handleTaskStatusChanged);
 
+  // Show setup wizard if setup is not completed
+  if (settings && !settings.hasCompletedSetup) {
+    return <SetupWizard />;
+  }
+
+  // Wait for settings to load
+  if (!settings) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center text-zinc-500 text-sm">
+        Loading...
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <Sidebar selected={section} onSelect={setSection} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <ContentArea section={section} selectedProjectId={selectedProjectId} />
+      <div className="flex-1 flex flex-row min-w-0">
+        <div className="flex-1 flex flex-col min-w-0">
+          <ContentArea
+            section={section}
+            selectedProjectId={selectedProjectId}
+          />
+        </div>
         {showDetail && <DetailPanel onClose={() => setShowDetail(false)} />}
       </div>
     </div>
