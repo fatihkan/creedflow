@@ -176,3 +176,54 @@ export const detectDependencies = () =>
 
 export const installDependency = (name: string) =>
   invoke<string>("install_dependency", { name });
+
+// ─── Git ────────────────────────────────────────────────────────────────────
+
+export interface GitLogEntry {
+  hash: string;
+  shortHash: string;
+  parents: string[];
+  decorations: string;
+  author: string;
+  timestamp: number;
+  message: string;
+}
+
+export const gitEnsureBranchStructure = (projectId: string) =>
+  invoke<void>("git_ensure_branch_structure", { projectId });
+
+export const gitSetupFeatureBranch = (
+  projectId: string,
+  taskId: string,
+  title: string,
+) => invoke<string>("git_setup_feature_branch", { projectId, taskId, title });
+
+export const gitAutoCommit = (
+  projectId: string,
+  taskId: string,
+  title: string,
+  agentType: string,
+) =>
+  invoke<string | null>("git_auto_commit", {
+    projectId,
+    taskId,
+    title,
+    agentType,
+  });
+
+export const gitMergeFeatureToDev = (
+  projectId: string,
+  branchName: string,
+) => invoke<void>("git_merge_feature_to_dev", { projectId, branchName });
+
+export const gitPromoteDevToStaging = (projectId: string) =>
+  invoke<string>("git_promote_dev_to_staging", { projectId });
+
+export const gitPromoteStagingToMain = (projectId: string) =>
+  invoke<string>("git_promote_staging_to_main", { projectId });
+
+export const gitCurrentBranch = (projectId: string) =>
+  invoke<string>("git_current_branch", { projectId });
+
+export const gitLog = (projectId: string, count?: number) =>
+  invoke<GitLogEntry[]>("git_log", { projectId, count: count ?? null });

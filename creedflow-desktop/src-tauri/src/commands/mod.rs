@@ -9,3 +9,4 @@ pub mod assets;
 pub mod publishing;
 pub mod deploy;
 pub mod prompts;
+pub mod git;

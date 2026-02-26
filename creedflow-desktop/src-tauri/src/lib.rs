@@ -87,6 +87,15 @@ pub fn run() {
             commands::prompts::create_prompt,
             commands::prompts::delete_prompt,
             commands::prompts::toggle_favorite,
+            // Git
+            commands::git::git_ensure_branch_structure,
+            commands::git::git_setup_feature_branch,
+            commands::git::git_auto_commit,
+            commands::git::git_merge_feature_to_dev,
+            commands::git::git_promote_dev_to_staging,
+            commands::git::git_promote_staging_to_main,
+            commands::git::git_current_branch,
+            commands::git::git_log,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
