@@ -18,6 +18,7 @@ struct TaskBoardView: View {
     @State private var showArchiveConfirm = false
     @State private var archiveSelection: Set<UUID> = []
     @State private var isArchiveSelectionMode = false
+    @State private var searchText: String = ""
 
     init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?) {
         self.projectId = projectId
@@ -43,10 +44,46 @@ struct TaskBoardView: View {
 
     private var archivableCount: Int { archivableTasks.count }
 
+    /// Tasks filtered by search text (matches title, description, agent type, backend)
+    private var filteredTasks: [AgentTask] {
+        guard !searchText.isEmpty else { return tasks }
+        let query = searchText.lowercased()
+        return tasks.filter { task in
+            task.title.lowercased().contains(query)
+            || task.description.lowercased().contains(query)
+            || task.agentType.rawValue.lowercased().contains(query)
+            || (task.backend?.lowercased().contains(query) ?? false)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
                 HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        TextField("Search tasks...", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12))
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                    .frame(width: 180)
+
                     Picker("Project", selection: $filterProjectId) {
                         Text("All").tag(UUID?.none)
                         ForEach(projects) { project in
@@ -116,7 +153,7 @@ struct TaskBoardView: View {
                     ForEach(columns, id: \.title) { column in
                         KanbanColumnView(
                             column: column,
-                            tasks: tasks.filter { $0.status == column.status },
+                            tasks: filteredTasks.filter { $0.status == column.status },
                             selectedTaskId: $selectedTaskId,
                             orchestrator: orchestrator,
                             isArchiveSelectionMode: isArchiveSelectionMode,
