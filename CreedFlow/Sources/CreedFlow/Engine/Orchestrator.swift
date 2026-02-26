@@ -242,11 +242,33 @@ final class Orchestrator {
                             promptOverride = resolved + "\n\n" + agentPrompt
                         }
 
-                        // Inject skill persona into prompt
+                        // Inject skill persona into prompt (enriched from Prompt table if available)
                         if let persona = task.skillPersona, !persona.isEmpty {
-                            let personaPrefix = "<skill_persona>\nYou are: \(persona)\nApply this expertise throughout the task.\n</skill_persona>\n\n"
+                            // Look up enriched skill content from Prompt table
+                            let skillPrompt = try? await self.dbQueue.read { db in
+                                try Prompt
+                                    .filter(Column("category") == "skill")
+                                    .filter(Column("content").like("%\(String(persona.prefix(50)))%"))
+                                    .fetchOne(db)
+                            }
+
+                            let skillContent = skillPrompt?.content ?? persona
+                            let personaPrefix = "<skill_persona>\nYou are: \(skillContent)\nApply this expertise throughout the task.\n</skill_persona>\n\n"
                             let base = promptOverride ?? agent.buildPrompt(for: task)
                             promptOverride = personaPrefix + base
+
+                            // Record PromptUsage for skill tracking
+                            if let prompt = skillPrompt {
+                                try? await self.dbQueue.write { db in
+                                    let usage = PromptUsage(
+                                        promptId: prompt.id,
+                                        projectId: task.projectId,
+                                        taskId: task.id,
+                                        agentType: task.agentType.rawValue
+                                    )
+                                    try usage.insert(db)
+                                }
+                            }
                         }
 
                         // Inject revision memory for retry tasks
@@ -549,6 +571,19 @@ final class Orchestrator {
                         try? config.content.write(toFile: filePath, atomically: true, encoding: .utf8)
                     }
                 }
+
+                // Update CLAUDE.md with rich analyzer output
+                let keyFiles = parsed.features.flatMap { $0.tasks.compactMap { $0.filesToCreate }.flatMap { $0 } }
+                let uniqueKeyFiles = Array(Set(keyFiles)).sorted()
+                await updateProjectClaudeMD(
+                    projectDir: project.directoryPath,
+                    project: project,
+                    techStack: parsed.techStack,
+                    architecture: parsed.architecture,
+                    dataModels: parsed.dataModels,
+                    keyFiles: uniqueKeyFiles,
+                    taskId: task.id
+                )
             }
 
             // Build title → UUID mapping (pre-generate to avoid duplicates)
@@ -651,6 +686,23 @@ final class Orchestrator {
                 }
             }
 
+            // Save skill prompts from analyzer output
+            // Extract (taskTitle, skillPersona, agentType) tuples from parsed features
+            var skillEntries: [(title: String, persona: String, agentType: String)] = []
+            for feature in parsed.features {
+                for taskOutput in feature.tasks {
+                    if let persona = taskOutput.skillPersona, !persona.isEmpty {
+                        skillEntries.append((title: taskOutput.title, persona: persona, agentType: taskOutput.agentType))
+                    }
+                }
+            }
+            await saveAnalyzerSkills(
+                projectId: task.projectId,
+                skillEntries: skillEntries,
+                techStack: parsed.techStack,
+                titleToTaskId: titleToTaskId
+            )
+
             let totalTasks = titleToTaskId.count
             let diagramCount = parsed.diagrams?.count ?? 0
             let modelCount = parsed.dataModels?.count ?? 0
@@ -749,6 +801,113 @@ final class Orchestrator {
                 // Unescape \\n to actual newlines in Mermaid content
                 let mermaidContent = diagram.mermaid.replacingOccurrences(of: "\\n", with: "\n")
                 try? mermaidContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
+    /// Update CLAUDE.md in the project directory with rich analyzer output.
+    private func updateProjectClaudeMD(
+        projectDir: String,
+        project: Project,
+        techStack: String?,
+        architecture: String?,
+        dataModels: [AnalysisDataModel]?,
+        keyFiles: [String],
+        taskId: UUID
+    ) async {
+        do {
+            try await projectDirService.updateClaudeMDFromAnalysis(
+                at: projectDir,
+                project: project,
+                techStack: techStack,
+                architecture: architecture,
+                dataModels: dataModels,
+                keyFiles: keyFiles
+            )
+        } catch {
+            try? await logError(taskId: taskId, agent: .analyzer,
+                               message: "Failed to update CLAUDE.md: \(error.localizedDescription)")
+        }
+    }
+
+    /// Save unique skill personas from analyzer output as Prompt records in the DB.
+    private func saveAnalyzerSkills(
+        projectId: UUID,
+        skillEntries: [(title: String, persona: String, agentType: String)],
+        techStack: String?,
+        titleToTaskId: [String: UUID]
+    ) async {
+        guard !skillEntries.isEmpty else { return }
+
+        // Deduplicate by persona content (multiple tasks may share the same persona)
+        var seenPersonas: Set<String> = []
+        var uniqueSkills: [(persona: String, taskTitles: [String], agentType: String)] = []
+
+        for entry in skillEntries {
+            let normalized = entry.persona.trimmingCharacters(in: .whitespacesAndNewlines)
+            if seenPersonas.contains(normalized) {
+                // Append task title to existing entry
+                if let idx = uniqueSkills.firstIndex(where: { $0.persona == normalized }) {
+                    uniqueSkills[idx].taskTitles.append(entry.title)
+                }
+            } else {
+                seenPersonas.insert(normalized)
+                uniqueSkills.append((persona: normalized, taskTitles: [entry.title], agentType: entry.agentType))
+            }
+        }
+
+        for skill in uniqueSkills {
+            // Build a short title from the persona (first line or first 60 chars)
+            let shortName = skill.persona.components(separatedBy: "\n").first
+                .map { $0.count > 60 ? String($0.prefix(60)) + "..." : $0 }
+                ?? String(skill.persona.prefix(60))
+            let skillTitle = "Skill: \(shortName)"
+
+            // Build full content with tech stack context
+            var content = skill.persona
+            if let stack = techStack, !stack.isEmpty {
+                content += "\n\nTech stack context: \(stack)"
+            }
+
+            do {
+                try await dbQueue.write { db in
+                    // Check for existing skill with same title (skip if duplicate)
+                    let existing = try Prompt
+                        .filter(Column("category") == "skill")
+                        .filter(Column("title") == skillTitle)
+                        .fetchOne(db)
+
+                    let promptId: UUID
+                    if let existing {
+                        promptId = existing.id
+                    } else {
+                        let prompt = Prompt(
+                            title: skillTitle,
+                            content: content,
+                            source: .user,
+                            category: "skill",
+                            isBuiltIn: false
+                        )
+                        try prompt.insert(db)
+                        promptId = prompt.id
+                    }
+
+                    // Record PromptUsage for each task that uses this skill
+                    for taskTitle in skill.taskTitles {
+                        guard let taskId = titleToTaskId[taskTitle] else { continue }
+                        let usage = PromptUsage(
+                            promptId: promptId,
+                            projectId: projectId,
+                            taskId: taskId,
+                            agentType: skill.agentType
+                        )
+                        try usage.insert(db)
+                    }
+                }
+            } catch {
+                // Non-critical — log but don't fail the analyzer completion
+                try? await logError(taskId: UUID(), agent: .analyzer,
+                                   message: "Failed to save skill prompt '\(skillTitle)': \(error.localizedDescription)")
             }
         }
     }

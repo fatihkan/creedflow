@@ -86,6 +86,107 @@ actor ProjectDirectoryService {
         try content.write(toFile: "\(path)/CLAUDE.md", atomically: true, encoding: .utf8)
     }
 
+    /// Generate/update CLAUDE.md from rich analyzer output.
+    /// Keeps content concise (under 200 lines) so Claude Code can load it efficiently.
+    func updateClaudeMDFromAnalysis(
+        at path: String,
+        project: Project,
+        techStack: String?,
+        architecture: String?,
+        dataModels: [AnalysisDataModel]?,
+        keyFiles: [String]
+    ) throws {
+        var lines: [String] = []
+
+        // Header
+        lines.append("# \(project.name)")
+        lines.append("")
+        if !project.description.isEmpty {
+            lines.append(project.description)
+            lines.append("")
+        }
+
+        // Tech Stack
+        let stack = techStack ?? project.techStack
+        if !stack.isEmpty {
+            lines.append("## Tech Stack")
+            lines.append(stack)
+            lines.append("")
+        }
+
+        // Architecture summary (first 3 paragraphs or 500 chars)
+        if let arch = architecture, !arch.isEmpty {
+            lines.append("## Architecture")
+            let trimmed = Self.trimArchitecture(arch)
+            lines.append(trimmed)
+            lines.append("")
+            lines.append("Full architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)")
+            lines.append("")
+        }
+
+        // Data Models (compact format)
+        if let models = dataModels, !models.isEmpty {
+            lines.append("## Data Models")
+            for model in models {
+                var entry = "- **\(model.name)**"
+                if let type = model.type { entry += " (\(type))" }
+                if let fields = model.fields, !fields.isEmpty {
+                    let fieldNames = fields.prefix(8).map { $0.name }
+                    entry += " — \(fieldNames.joined(separator: ", "))"
+                    if fields.count > 8 { entry += ", ..." }
+                }
+                lines.append(entry)
+            }
+            lines.append("")
+        }
+
+        // Key Files
+        if !keyFiles.isEmpty {
+            lines.append("## Key Files")
+            for file in keyFiles.prefix(30) {
+                lines.append("- \(file)")
+            }
+            if keyFiles.count > 30 {
+                lines.append("- ... and \(keyFiles.count - 30) more")
+            }
+            lines.append("")
+        }
+
+        // Conventions
+        lines.append("## Conventions")
+        lines.append("- Follow standard conventions for the tech stack")
+        lines.append("- Handle errors appropriately")
+        lines.append("- Add comments only where logic is non-obvious")
+        lines.append("")
+
+        // Diagrams reference
+        lines.append("## Diagrams")
+        lines.append("See [docs/diagrams/](docs/diagrams/) for Mermaid diagrams.")
+        lines.append("")
+
+        // Status
+        lines.append("## Status")
+        lines.append("Managed by CreedFlow. Analysis-generated — will be updated on re-analysis.")
+
+        let content = lines.joined(separator: "\n")
+        try content.write(toFile: "\(path)/CLAUDE.md", atomically: true, encoding: .utf8)
+    }
+
+    /// Trim architecture text to first 3 paragraphs or ~500 characters, whichever is shorter.
+    private static func trimArchitecture(_ text: String) -> String {
+        let paragraphs = text.components(separatedBy: "\n\n")
+        let first3 = paragraphs.prefix(3).joined(separator: "\n\n")
+        if first3.count <= 500 {
+            return first3
+        }
+        // Trim to ~500 chars at a sentence boundary
+        let trimmed = String(first3.prefix(500))
+        if let lastDot = trimmed.lastIndex(of: ".") {
+            return String(trimmed[...lastDot])
+        }
+        return trimmed + "..."
+    }
+
     /// Check if a project directory exists
     func exists(name: String) -> Bool {
         let sanitized = sanitizeDirectoryName(name)
