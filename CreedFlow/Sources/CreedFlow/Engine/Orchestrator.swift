@@ -203,9 +203,9 @@ final class Orchestrator {
             guard let self else { return }
 
             do {
-                // For coder tasks, set up git branch first
+                // For coder tasks, set up git branch first (best-effort)
                 if task.agentType == .coder {
-                    try await self.setupCoderBranch(task: task)
+                    await self.setupCoderBranch(task: task)
                 }
 
                 // Resolve working directory from project
@@ -328,14 +328,17 @@ final class Orchestrator {
         return project.directoryPath
     }
 
-    /// Set up a git branch for coder tasks
-    private func setupCoderBranch(task: AgentTask) async throws {
-        let project = try await dbQueue.read { db in
-            try Project.fetchOne(db, id: task.projectId)
+    /// Set up a git branch for coder tasks (best-effort — git failures never block the task)
+    private func setupCoderBranch(task: AgentTask) async {
+        do {
+            let project = try await dbQueue.read { db in
+                try Project.fetchOne(db, id: task.projectId)
+            }
+            guard let project, !project.directoryPath.isEmpty else { return }
+            _ = try await branchManager.setupFeatureBranch(task: task, in: project.directoryPath)
+        } catch {
+            print("[CreedFlow] Git branch setup failed for task \(task.id): \(error.localizedDescription)")
         }
-        guard let project, !project.directoryPath.isEmpty else { return }
-
-        _ = try await branchManager.setupFeatureBranch(task: task, in: project.directoryPath)
     }
 
     /// Handle post-completion pipeline

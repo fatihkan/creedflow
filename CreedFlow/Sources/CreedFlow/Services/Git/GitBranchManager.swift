@@ -19,19 +19,28 @@ actor GitBranchManager {
     // MARK: - Branch Structure
 
     /// Idempotently ensure main, staging, and dev branches exist.
-    /// Assumes the repo is already initialized with at least one commit on main.
+    /// Works with repos that may not have a `main` branch (e.g. `master` or other default).
     func ensureBranchStructure(in path: String) async throws {
         let currentBranch = try await gitService.currentBranch(in: path)
 
-        // Make sure we're on main to branch from
-        if currentBranch != "main" {
-            try await gitService.checkout("main", in: path)
+        // Determine the base branch to create others from
+        let baseBranch: String
+        if try await gitService.branchExists("main", in: path) {
+            baseBranch = "main"
+        } else {
+            // No main branch — use whatever branch we're currently on
+            baseBranch = currentBranch
+        }
+
+        // Switch to base branch if needed
+        if currentBranch != baseBranch {
+            try await gitService.checkout(baseBranch, in: path)
         }
 
         // Create staging if it doesn't exist
         if try await !gitService.branchExists("staging", in: path) {
             try await gitService.createBranch("staging", in: path)
-            try await gitService.checkout("main", in: path)
+            try await gitService.checkout(baseBranch, in: path)
         }
 
         // Create dev if it doesn't exist
