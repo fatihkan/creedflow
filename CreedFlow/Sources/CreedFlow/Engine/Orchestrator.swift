@@ -234,6 +234,13 @@ final class Orchestrator {
                         promptOverride = resolved + "\n\n" + agentPrompt
                     }
 
+                    // Inject skill persona into prompt
+                    if let persona = task.skillPersona, !persona.isEmpty {
+                        let personaPrefix = "<skill_persona>\nYou are: \(persona)\nApply this expertise throughout the task.\n</skill_persona>\n\n"
+                        let base = promptOverride ?? agent.buildPrompt(for: task)
+                        promptOverride = personaPrefix + base
+                    }
+
                     // Inject revision memory for retry tasks
                     if task.retryCount > 0 || task.revisionPrompt != nil {
                         if let memory = await self.buildRevisionMemory(for: task) {
@@ -466,7 +473,13 @@ final class Orchestrator {
             let architecture: String?
             let dataModels: [AnalysisDataModel]?
             let diagrams: [AnalysisDiagram]?
+            let configFiles: [ConfigFile]?
             let features: [FeatureOutput]
+
+            struct ConfigFile: Decodable {
+                let path: String
+                let content: String
+            }
 
             struct FeatureOutput: Decodable {
                 let name: String
@@ -484,6 +497,7 @@ final class Orchestrator {
                 let acceptanceCriteria: [String]?
                 let filesToCreate: [String]?
                 let estimatedComplexity: String?
+                let skillPersona: String?
             }
         }
 
@@ -515,6 +529,17 @@ final class Orchestrator {
                     diagrams: parsed.diagrams,
                     taskId: task.id
                 )
+
+                // Write config files to project root
+                if let configs = parsed.configFiles {
+                    let fm = FileManager.default
+                    for config in configs {
+                        let filePath = "\(project.directoryPath)/\(config.path)"
+                        let dir = (filePath as NSString).deletingLastPathComponent
+                        try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+                        try? config.content.write(toFile: filePath, atomically: true, encoding: .utf8)
+                    }
+                }
             }
 
             // Build title → UUID mapping (pre-generate to avoid duplicates)
@@ -594,7 +619,8 @@ final class Orchestrator {
                             agentType: agentType,
                             title: taskOutput.title,
                             description: enrichedDescription,
-                            priority: taskOutput.priority
+                            priority: taskOutput.priority,
+                            skillPersona: taskOutput.skillPersona
                         )
                         try newTask.insert(db)
                     }
@@ -619,8 +645,9 @@ final class Orchestrator {
             let totalTasks = titleToTaskId.count
             let diagramCount = parsed.diagrams?.count ?? 0
             let modelCount = parsed.dataModels?.count ?? 0
+            let configCount = parsed.configFiles?.count ?? 0
             try? await logInfo(taskId: task.id, agent: .analyzer,
-                             message: "Created \(parsed.features.count) features, \(totalTasks) tasks, \(modelCount) data models, \(diagramCount) diagrams")
+                             message: "Created \(parsed.features.count) features, \(totalTasks) tasks, \(modelCount) data models, \(diagramCount) diagrams, \(configCount) config files")
 
         } catch {
             try? await logError(taskId: task.id, agent: .analyzer,

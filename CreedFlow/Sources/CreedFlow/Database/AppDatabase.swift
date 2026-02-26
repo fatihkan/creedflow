@@ -436,6 +436,12 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v17_skill_persona") { db in
+            try db.alter(table: "agentTask") { t in
+                t.add(column: "skillPersona", .text)
+            }
+        }
+
         return migrator
     }
 }

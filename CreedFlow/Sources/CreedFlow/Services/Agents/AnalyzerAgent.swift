@@ -71,6 +71,12 @@ struct AnalyzerAgent: AgentProtocol {
               "mermaid": "valid Mermaid syntax string (use \\n for newlines)"
             }
           ],
+          "configFiles": [
+            {
+              "path": ".gitignore",
+              "content": "full file content with newlines"
+            }
+          ],
           "features": [
             {
               "name": "Feature Name",
@@ -85,7 +91,8 @@ struct AnalyzerAgent: AgentProtocol {
                   "dependsOn": ["other task title"],
                   "acceptanceCriteria": ["criterion 1", "criterion 2", "criterion 3"],
                   "filesToCreate": ["path/to/file.ext"],
-                  "estimatedComplexity": "low | medium | high"
+                  "estimatedComplexity": "low | medium | high",
+                  "skillPersona": "Senior React/TypeScript frontend developer with accessibility expertise and component architecture skills"
                 }
               ]
             }
@@ -101,6 +108,20 @@ struct AnalyzerAgent: AgentProtocol {
         - Diagrams: include at least an ER diagram for data models and a flowchart for the main user flow
         - Architecture: describe layers, patterns (MVC/MVVM/etc), API structure, auth strategy, error handling
         - Priority 10 = highest, 1 = lowest. No circular dependencies.
+
+        CONFIG FILES:
+        - Generate project config files appropriate for the detected tech stack
+        - MUST include: .gitignore (comprehensive for the detected tech stack)
+        - Include when relevant: .editorconfig, .prettierrc, .eslintrc.json, tsconfig.json, docker-compose.yml, Dockerfile, Makefile, pyproject.toml, Package.swift, etc.
+        - Each file must have complete, production-ready content
+        - Use the "path" field for relative file paths (e.g. ".gitignore", ".editorconfig", "docker-compose.yml")
+
+        SKILL PERSONAS:
+        - Every task MUST have a skillPersona describing the expert role for that specific task
+        - Be specific: "Senior React/TypeScript frontend developer with accessibility expertise"
+        - NOT generic: "developer" or "frontend developer"
+        - Include domain expertise relevant to the task (e.g. "database migration specialist" for schema tasks)
+        - Tailor to the task's tech stack and responsibilities
 
         \(modelGuidance)
 
@@ -138,7 +159,7 @@ struct AnalyzerAgent: AgentProtocol {
         - Do NOT recreate or duplicate any of the existing features listed above
         - New tasks may reference existing features as dependencies if needed
         - Include updated data models and diagrams if the new features require schema changes
-        - Every task MUST have acceptanceCriteria and filesToCreate
+        - Every task MUST have acceptanceCriteria, filesToCreate, and skillPersona
 
         Respond with ONLY a JSON object (no markdown, no explanation) in this schema:
 
@@ -148,6 +169,7 @@ struct AnalyzerAgent: AgentProtocol {
           "architecture": "string — describe how new features integrate with existing architecture",
           "dataModels": [{"name":"...","type":"...","fields":[{"name":"...","type":"...","constraints":"..."}],"relationships":["..."]}],
           "diagrams": [{"title":"...","type":"erDiagram|flowchart|sequenceDiagram|classDiagram","mermaid":"..."}],
+          "configFiles": [{"path":".gitignore","content":"full file content"}],
           "features": [
             {
               "name": "...",
@@ -162,7 +184,8 @@ struct AnalyzerAgent: AgentProtocol {
                   "dependsOn": ["other task title"],
                   "acceptanceCriteria": ["criterion 1", "criterion 2"],
                   "filesToCreate": ["path/to/file.ext"],
-                  "estimatedComplexity": "low|medium|high"
+                  "estimatedComplexity": "low|medium|high",
+                  "skillPersona": "specific expert role for this task"
                 }
               ]
             }
