@@ -49,13 +49,17 @@ final class Orchestrator {
 
     init(
         dbQueue: DatabaseQueue,
-        maxConcurrency: Int = 3,
+        maxConcurrency: Int? = nil,
         claudePath: String? = nil,
         telegramService: TelegramBotService? = nil
     ) {
         self.dbQueue = dbQueue
         self.taskQueue = TaskQueue(dbQueue: dbQueue)
-        self.scheduler = AgentScheduler(maxConcurrency: maxConcurrency)
+
+        // Read concurrency from Settings (UserDefaults) unless explicitly overridden
+        let resolvedConcurrency = maxConcurrency
+            ?? { let stored = UserDefaults.standard.integer(forKey: "maxConcurrency"); return stored > 0 ? stored : 3 }()
+        self.scheduler = AgentScheduler(maxConcurrency: resolvedConcurrency)
 
         // Resolve claude path: explicit > AppStorage > PATH lookup > common locations
         let resolvedPath = claudePath
