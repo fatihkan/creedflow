@@ -74,6 +74,11 @@ actor GitService {
         try await run(args, in: path)
     }
 
+    /// Fetch latest from remote
+    func fetch(in path: String) async throws {
+        try await run(["fetch", "origin"], in: path)
+    }
+
     /// Check if there are uncommitted changes (staged or unstaged)
     func hasChanges(in path: String) async throws -> Bool {
         let output = try await run(["status", "--porcelain"], in: path)

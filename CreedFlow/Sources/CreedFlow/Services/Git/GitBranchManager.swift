@@ -179,8 +179,8 @@ actor GitBranchManager {
         }
     }
 
-    /// Check if all tasks for a feature have passed. If so, create a PR from dev → staging.
-    /// Returns the PR number or nil.
+    /// Check if all tasks for a feature have passed. If so, create a PR from dev → staging,
+    /// auto-merge it, and return the PR number.
     func checkFeatureCompletionAndPromote(featureId: UUID, projectId: UUID, in path: String) async -> Int? {
         do {
             let (allPassed, feature) = try await dbQueue.read { db -> (Bool, Feature?) in
@@ -219,14 +219,29 @@ actor GitBranchManager {
             }
 
             logger.info("Created integration PR #\(pr.number) dev → staging for feature \(feature.name)")
+
+            // Auto-merge dev → staging PR
+            try await gitHubService.mergePR(number: pr.number, method: .squash, in: path)
+
+            // Update local staging branch
+            try await gitService.fetch(in: path)
+            try await gitService.checkout("staging", in: path)
+            try await gitService.merge("origin/staging", in: path)
+
+            // Switch back to dev for future work
+            try await gitService.checkout("dev", in: path)
+
+            logger.info("Auto-merged PR #\(pr.number) into staging")
             return pr.number
         } catch {
+            // Best effort — switch back to dev even if merge failed
+            try? await gitService.checkout("dev", in: path)
             logger.error("Feature completion check failed for \(featureId): \(error.localizedDescription)")
             return nil
         }
     }
 
-    /// After staging deploy succeeds, create PR from staging → main.
+    /// After staging deploy succeeds, create PR from staging → main and auto-merge.
     /// Returns the PR number or nil.
     func promoteStagingToMain(projectId: UUID, version: String, in path: String) async -> Int? {
         do {
@@ -251,8 +266,23 @@ actor GitBranchManager {
             }
 
             logger.info("Created release PR #\(pr.number) staging → main for version \(version)")
+
+            // Auto-merge staging → main PR
+            try await gitHubService.mergePR(number: pr.number, method: .squash, in: path)
+
+            // Update local main branch
+            try await gitService.fetch(in: path)
+            try await gitService.checkout("main", in: path)
+            try await gitService.merge("origin/main", in: path)
+
+            // Switch back to dev for future work
+            try await gitService.checkout("dev", in: path)
+
+            logger.info("Auto-merged PR #\(pr.number) into main (release \(version))")
             return pr.number
         } catch {
+            // Best effort — switch back to dev even if merge failed
+            try? await gitService.checkout("dev", in: path)
             logger.error("Staging → main promotion failed for project \(projectId): \(error.localizedDescription)")
             return nil
         }

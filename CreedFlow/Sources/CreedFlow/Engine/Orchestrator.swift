@@ -426,17 +426,73 @@ final class Orchestrator {
         _ = await branchManager.autoCommitIfNeeded(task: task, in: project.directoryPath)
     }
 
-    /// Check if all tasks for a feature passed and create a dev → staging PR.
+    /// Check if all tasks for a feature passed, merge dev → staging, and auto-create staging deployment.
     private func checkFeatureCompletionAndPromote(featureId: UUID, projectId: UUID) async {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: projectId)
         }
         guard let project, !project.directoryPath.isEmpty else { return }
-        _ = await branchManager.checkFeatureCompletionAndPromote(
+        let prNumber = await branchManager.checkFeatureCompletionAndPromote(
             featureId: featureId,
             projectId: projectId,
             in: project.directoryPath
         )
+
+        // If dev → staging merge succeeded, auto-create staging deployment + DevOps task
+        if let prNumber {
+            await createStagingDeployment(projectId: projectId, projectName: project.name, version: "PR-\(prNumber)")
+        }
+    }
+
+    /// Auto-create a staging deployment record and DevOps task to trigger the deploy.
+    private func createStagingDeployment(projectId: UUID, projectName: String, version: String) async {
+        do {
+            // Don't create duplicate: check if there's already a pending/in-progress staging deploy
+            let existing = try await dbQueue.read { db in
+                try Deployment
+                    .filter(Column("projectId") == projectId)
+                    .filter(Column("environment") == Deployment.Environment.staging.rawValue)
+                    .filter(Column("status") == Deployment.Status.pending.rawValue
+                         || Column("status") == Deployment.Status.inProgress.rawValue)
+                    .fetchOne(db)
+            }
+            guard existing == nil else { return }
+
+            let deployment = Deployment(
+                projectId: projectId,
+                environment: .staging,
+                version: version,
+                deployedBy: "auto-promotion",
+                port: 3001
+            )
+
+            let devopsTask = AgentTask(
+                projectId: projectId,
+                agentType: .devops,
+                title: "Deploy: \(projectName) (staging)",
+                description: "Automated staging deployment after all feature tasks passed and dev → staging merge completed.\nVersion: \(version)",
+                priority: 10
+            )
+
+            try await dbQueue.write { [deployment, devopsTask] db in
+                var d = deployment
+                try d.insert(db)
+                var t = devopsTask
+                try t.insert(db)
+            }
+
+            try? await logInfo(
+                taskId: devopsTask.id,
+                agent: .devops,
+                message: "Auto-created staging deployment for \(projectName) (version \(version))"
+            )
+        } catch {
+            try? await logError(
+                taskId: UUID(),
+                agent: .devops,
+                message: "Failed to create auto staging deployment: \(error.localizedDescription)"
+            )
+        }
     }
 
     /// Strip ANSI escape codes from CLI output (color codes, cursor movement, etc.)
@@ -1072,35 +1128,41 @@ final class Orchestrator {
         let isDeployFix = await checkAndRedeployIfFixTask(task)
         if isDeployFix { return }  // Deploy fix tasks don't need review
 
+        // Re-read task from DB to get current branchName and result
+        // (the parameter is a stale copy from before setupCoderBranch set branchName)
+        let currentTask = (try? await dbQueue.read { db in
+            try AgentTask.fetchOne(db, id: task.id)
+        }) ?? task
+
         // Commit + push + create PR targeting dev via branch manager
         let project = try? await dbQueue.read { db in
-            try Project.fetchOne(db, id: task.projectId)
+            try Project.fetchOne(db, id: currentTask.projectId)
         }
         if let project, !project.directoryPath.isEmpty {
-            _ = await branchManager.handleCoderBranchCompletion(task: task, in: project.directoryPath)
+            _ = await branchManager.handleCoderBranchCompletion(task: currentTask, in: project.directoryPath)
         }
 
         // Always queue reviewer task for non-deploy-fix coder completions
         let reviewDescription: String
-        if let branch = task.branchName {
-            reviewDescription = "Review the code changes in branch \(branch) for task: \(task.title)"
+        if let branch = currentTask.branchName {
+            reviewDescription = "Review the code changes in branch \(branch) for task: \(currentTask.title)"
         } else {
-            reviewDescription = "Review the code changes for task: \(task.title)\n\nResult:\n\(task.result?.prefix(2000) ?? "No output")"
+            reviewDescription = "Review the code changes for task: \(currentTask.title)\n\nResult:\n\(currentTask.result?.prefix(2000) ?? "No output")"
         }
 
-        try? await dbQueue.write { db in
+        try? await dbQueue.write { [currentTask] db in
             let reviewTask = AgentTask(
-                projectId: task.projectId,
-                featureId: task.featureId,
+                projectId: currentTask.projectId,
+                featureId: currentTask.featureId,
                 agentType: .reviewer,
-                title: "Review: \(task.title)",
+                title: "Review: \(currentTask.title)",
                 description: reviewDescription,
-                priority: task.priority + 1,
-                branchName: task.branchName
+                priority: currentTask.priority + 1,
+                branchName: currentTask.branchName
             )
             try reviewTask.insert(db)
 
-            let dep = TaskDependency(taskId: reviewTask.id, dependsOnTaskId: task.id)
+            let dep = TaskDependency(taskId: reviewTask.id, dependsOnTaskId: currentTask.id)
             try dep.insert(db)
         }
     }
@@ -1115,7 +1177,7 @@ final class Orchestrator {
         // Find any deployment whose fixTaskId matches this task
         let deployment = try? await dbQueue.read { db in
             try Deployment
-                .filter(Column("fixTaskId") == task.id.uuidString)
+                .filter(Column("fixTaskId") == task.id)
                 .fetchOne(db)
         }
         guard var deployment else { return false }
