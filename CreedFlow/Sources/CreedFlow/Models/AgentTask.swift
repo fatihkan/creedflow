@@ -28,6 +28,7 @@ package struct AgentTask: Codable, Identifiable, Equatable {
     package var promptChainId: UUID?
     package var revisionPrompt: String?
     package var skillPersona: String?
+    package var archivedAt: Date?
 
     package enum AgentType: String, Codable, CaseIterable, DatabaseValueConvertible {
         case analyzer
@@ -77,7 +78,8 @@ package struct AgentTask: Codable, Identifiable, Equatable {
         backend: String? = nil,
         promptChainId: UUID? = nil,
         revisionPrompt: String? = nil,
-        skillPersona: String? = nil
+        skillPersona: String? = nil,
+        archivedAt: Date? = nil
     ) {
         self.id = id
         self.projectId = projectId
@@ -104,6 +106,7 @@ package struct AgentTask: Codable, Identifiable, Equatable {
         self.promptChainId = promptChainId
         self.revisionPrompt = revisionPrompt
         self.skillPersona = skillPersona
+        self.archivedAt = archivedAt
     }
 }
 

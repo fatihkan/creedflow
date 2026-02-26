@@ -15,7 +15,7 @@ struct TaskBoardView: View {
     @State private var projectName: String = ""
     @State private var errorMessage: String?
     @State private var showNewTask = false
-    @State private var showCleanupConfirm = false
+    @State private var showArchiveConfirm = false
 
     init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?) {
         self.projectId = projectId
@@ -34,8 +34,8 @@ struct TaskBoardView: View {
         KanbanColumn(title: "Cancelled", status: .cancelled, color: .forgeNeutral),
     ]
 
-    /// Count of tasks that can be cleaned up (done + failed + cancelled)
-    private var cleanableCount: Int {
+    /// Count of tasks that can be archived (done + failed + cancelled)
+    private var archivableCount: Int {
         tasks.filter { $0.status == .passed || $0.status == .failed || $0.status == .cancelled }.count
     }
 
@@ -51,13 +51,13 @@ struct TaskBoardView: View {
                     }
                     .frame(maxWidth: 200)
 
-                    if cleanableCount > 0 {
+                    if archivableCount > 0 {
                         Button {
-                            showCleanupConfirm = true
+                            showArchiveConfirm = true
                         } label: {
-                            Label("Clean Up", systemImage: "trash")
+                            Label("Archive", systemImage: "archivebox")
                         }
-                        .help("Remove \(cleanableCount) completed, failed, and cancelled tasks")
+                        .help("Archive \(archivableCount) completed, failed, and cancelled tasks")
                     }
 
                     if filterProjectId != nil {
@@ -100,15 +100,15 @@ struct TaskBoardView: View {
             }
         }
         .confirmationDialog(
-            "Clean Up Tasks",
-            isPresented: $showCleanupConfirm
+            "Archive Tasks",
+            isPresented: $showArchiveConfirm
         ) {
-            Button("Remove Done, Failed & Cancelled (\(cleanableCount))", role: .destructive) {
-                cleanUpTasks()
+            Button("Archive Done, Failed & Cancelled (\(archivableCount))") {
+                archiveTasks()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will permanently delete all completed, failed, and cancelled tasks. Active and queued tasks will not be affected.")
+            Text("Completed, failed, and cancelled tasks will be moved to the archive. You can restore or permanently delete them later.")
         }
         .onChange(of: projectId) { _, newValue in
             filterProjectId = newValue
@@ -146,7 +146,9 @@ struct TaskBoardView: View {
         }
         let pid = filterProjectId
         let observation = ValueObservation.tracking { db in
-            var query = AgentTask.order(Column("priority").desc, Column("createdAt").asc)
+            var query = AgentTask
+                .filter(Column("archivedAt") == nil)
+                .order(Column("priority").desc, Column("createdAt").asc)
             if let pid {
                 query = query.filter(Column("projectId") == pid)
             }
@@ -161,34 +163,22 @@ struct TaskBoardView: View {
         }
     }
 
-    private func cleanUpTasks() {
+    private func archiveTasks() {
         guard let db = appDatabase else { return }
         let terminalStatuses: [AgentTask.Status] = [.passed, .failed, .cancelled]
+        let now = Date()
         try? db.dbQueue.write { dbConn in
-            let idsToDelete = tasks
+            let idsToArchive = tasks
                 .filter { terminalStatuses.contains($0.status) }
                 .map(\.id)
-            guard !idsToDelete.isEmpty else { return }
-            // Delete dependencies referencing these tasks
-            try TaskDependency
-                .filter(idsToDelete.contains(Column("taskId")) || idsToDelete.contains(Column("dependsOnTaskId")))
-                .deleteAll(dbConn)
-            // Delete agent logs for these tasks
-            try AgentLog
-                .filter(idsToDelete.contains(Column("taskId")))
-                .deleteAll(dbConn)
-            // Delete reviews for these tasks
-            try Review
-                .filter(idsToDelete.contains(Column("taskId")))
-                .deleteAll(dbConn)
-            // Delete the tasks themselves
+            guard !idsToArchive.isEmpty else { return }
             try AgentTask
-                .filter(idsToDelete.contains(Column("id")))
-                .deleteAll(dbConn)
+                .filter(idsToArchive.contains(Column("id")))
+                .updateAll(dbConn, Column("archivedAt").set(to: now), Column("updatedAt").set(to: now))
         }
-        // Clear selection if the selected task was cleaned up
+        // Clear selection if the selected task was archived
         if let selected = selectedTaskId,
-           !tasks.contains(where: { $0.id == selected && ($0.status == .queued || $0.status == .inProgress || $0.status == .needsRevision) }) {
+           tasks.contains(where: { $0.id == selected && terminalStatuses.contains($0.status) }) {
             selectedTaskId = nil
         }
     }

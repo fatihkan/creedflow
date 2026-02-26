@@ -10,6 +10,7 @@ struct SidebarView: View {
     @State private var projects: [Project] = []
     @State private var totalProjectCount: Int = 0
     @State private var activeTaskCount: Int = 0
+    @State private var archivedTaskCount: Int = 0
     @State private var pendingDeployCount: Int = 0
 
     var body: some View {
@@ -50,6 +51,9 @@ struct SidebarView: View {
             await observeActiveTaskCount()
         }
         .task {
+            await observeArchivedTaskCount()
+        }
+        .task {
             await observePendingDeployCount()
         }
     }
@@ -74,6 +78,20 @@ struct SidebarView: View {
                 }
             }
             .tag(SidebarSection.tasks)
+
+            HStack {
+                Label("Archive", systemImage: "archivebox")
+                Spacer()
+                if archivedTaskCount > 0 {
+                    Text("\(archivedTaskCount)")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary, in: Capsule())
+                }
+            }
+            .tag(SidebarSection.archive)
         }
     }
 
@@ -207,6 +225,20 @@ struct SidebarView: View {
         do {
             for try await count in observation.values(in: db.dbQueue) {
                 activeTaskCount = count
+            }
+        } catch { /* observation error — sidebar badges may be stale */ }
+    }
+
+    private func observeArchivedTaskCount() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try AgentTask
+                .filter(Column("archivedAt") != nil)
+                .fetchCount(db)
+        }
+        do {
+            for try await count in observation.values(in: db.dbQueue) {
+                archivedTaskCount = count
             }
         } catch { /* observation error — sidebar badges may be stale */ }
     }

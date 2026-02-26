@@ -442,6 +442,12 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v18_task_archive") { db in
+            try db.alter(table: "agentTask") { t in
+                t.add(column: "archivedAt", .datetime)
+            }
+        }
+
         return migrator
     }
 }

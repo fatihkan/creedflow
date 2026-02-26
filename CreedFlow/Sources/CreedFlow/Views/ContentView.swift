@@ -131,6 +131,8 @@ public struct ContentView: View {
                 appDatabase: appDatabase,
                 orchestrator: orchestrator
             )
+        case .archive:
+            ArchivedTasksView(appDatabase: appDatabase)
         case .agents:
             AgentStatusView(
                 orchestrator: orchestrator,
@@ -233,6 +235,7 @@ extension ContentView {
 enum SidebarSection: Hashable {
     case projects
     case tasks
+    case archive
     case agents
     case costs
     case reviews
