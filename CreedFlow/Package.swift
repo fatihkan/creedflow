@@ -23,6 +23,9 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
             ],
             path: "Sources/CreedFlow",
+            resources: [
+                .copy("Resources/AppIcon-preview.png"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(

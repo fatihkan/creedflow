@@ -16,265 +16,194 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Sidebar list
             List(selection: $selectedSection) {
-                workspaceSection
-                projectShortcuts
-                pipelineSection
-                monitorSection
-                promptsSection
+                Section("Workspace") {
+                    Label("Projects", systemImage: "folder.fill")
+                        .tag(SidebarSection.projects)
+
+                    Label {
+                        Text("Tasks")
+                    } icon: {
+                        Image(systemName: "checklist")
+                    }
+                    .badge(activeTaskCount > 0 ? activeTaskCount : 0)
+                    .tag(SidebarSection.tasks)
+
+                    Label("Archive", systemImage: "archivebox")
+                        .badge(archivedTaskCount > 0 ? archivedTaskCount : 0)
+                        .tag(SidebarSection.archive)
+                }
+
+                if !projects.isEmpty {
+                    Section("Recent") {
+                        ForEach(projects.prefix(5)) { project in
+                            Label {
+                                Text(project.name)
+                                    .lineLimit(1)
+                            } icon: {
+                                Circle()
+                                    .fill(project.status.themeColor)
+                                    .frame(width: 8, height: 8)
+                            }
+                            .tag(SidebarSection.projectTasks(project.id))
+                        }
+
+                        if totalProjectCount > 5 {
+                            Button {
+                                selectedSection = .projects
+                            } label: {
+                                Label("View All (\(totalProjectCount))", systemImage: "ellipsis.circle")
+                                    .foregroundStyle(.forgeAmber)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                Section("Pipeline") {
+                    Label("Git History", systemImage: "arrow.triangle.branch")
+                        .tag(SidebarSection.gitGraph)
+
+                    Label {
+                        Text("Deployments")
+                    } icon: {
+                        Image(systemName: "arrow.up.circle")
+                    }
+                    .badge(pendingDeployCount > 0 ? pendingDeployCount : 0)
+                    .tag(SidebarSection.deploys)
+                }
+
+                Section("Monitor") {
+                    Label {
+                        HStack {
+                            Text("Agents")
+                            Spacer()
+                            if let orchestrator, orchestrator.isRunning {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color.forgeSuccess)
+                                        .frame(width: 6, height: 6)
+                                    if orchestrator.activeRunners.count > 0 {
+                                        Text("\(orchestrator.activeRunners.count)")
+                                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    } icon: {
+                        Image(systemName: "cpu")
+                    }
+                    .tag(SidebarSection.agents)
+                }
+
+                Section("Library") {
+                    Label("Prompts", systemImage: "text.book.closed")
+                        .tag(SidebarSection.prompts)
+                }
             }
             .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .background(Color(nsColor: .windowBackgroundColor))
 
-            // Bottom bar — liquid glass panel
-            VStack(spacing: 6) {
-                aboutButton
-                subscribeButton
-                orchestratorButton
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
-            .background {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.06),
-                                        Color.clear
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                    }
-                    .overlay(alignment: .top) {
-                        Rectangle()
-                            .fill(Color.primary.opacity(0.08))
-                            .frame(height: 0.5)
-                    }
-            }
+            Divider()
+
+            // Bottom bar
+            bottomPanel
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .task {
-            await observeProjects()
+        .safeAreaInset(edge: .top, spacing: 0) {
+            brandHeader
         }
-        .task {
-            await observeActiveTaskCount()
-        }
-        .task {
-            await observeArchivedTaskCount()
-        }
-        .task {
-            await observePendingDeployCount()
-        }
+        .task { await observeProjects() }
+        .task { await observeActiveTaskCount() }
+        .task { await observeArchivedTaskCount() }
+        .task { await observePendingDeployCount() }
     }
 
-    // MARK: - Sections
+    // MARK: - Brand Header
 
-    private var workspaceSection: some View {
-        Section("Workspace") {
-            Label("Projects", systemImage: "folder.fill")
-                .tag(SidebarSection.projects)
-
-            HStack {
-                Label("Tasks", systemImage: "checklist")
-                Spacer()
-                if activeTaskCount > 0 {
-                    Text("\(activeTaskCount)")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.forgeInfo, in: Capsule())
+    private var brandHeader: some View {
+        HStack(spacing: 10) {
+            Group {
+                if let iconURL = Bundle.module.url(forResource: "AppIcon-preview", withExtension: "png"),
+                   let nsImage = NSImage(contentsOf: iconURL) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    Image(systemName: "hammer.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.forgeAmber)
                 }
             }
-            .tag(SidebarSection.tasks)
+            .frame(width: 32, height: 32)
 
-            HStack {
-                Label("Archive", systemImage: "archivebox")
-                Spacer()
-                if archivedTaskCount > 0 {
-                    Text("\(archivedTaskCount)")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary, in: Capsule())
-                }
-            }
-            .tag(SidebarSection.archive)
-        }
-    }
-
-    @ViewBuilder
-    private var projectShortcuts: some View {
-        if !projects.isEmpty {
-            Section("Recent Projects") {
-                ForEach(projects.prefix(5)) { project in
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(project.status.themeColor)
-                            .frame(width: 6, height: 6)
-                        Text(project.name)
-                            .font(.subheadline)
-                            .lineLimit(1)
-                    }
-                    .tag(SidebarSection.projectTasks(project.id))
-                }
-                if totalProjectCount > 5 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "ellipsis")
-                            .font(.caption)
-                        Text("View All Projects")
-                            .font(.footnote)
-                    }
-                    .foregroundStyle(.forgeAmber)
-                    .tag(SidebarSection.projects)
-                }
-            }
-        }
-    }
-
-    private var pipelineSection: some View {
-        Section("Pipeline") {
-            Label("Git History", systemImage: "arrow.triangle.branch")
-                .tag(SidebarSection.gitGraph)
-
-            HStack {
-                Label("Deployments", systemImage: "arrow.up.circle")
-                Spacer()
-                if pendingDeployCount > 0 {
-                    Text("\(pendingDeployCount)")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.forgeAmber, in: Capsule())
-                }
-            }
-            .tag(SidebarSection.deploys)
-        }
-    }
-
-    private var monitorSection: some View {
-        Section("Monitor") {
-            HStack {
-                Label("Agents", systemImage: "cpu")
-                Spacer()
-                agentIndicator
-            }
-            .tag(SidebarSection.agents)
-        }
-    }
-
-    private var promptsSection: some View {
-        Section("Library") {
-            Label("Prompts", systemImage: "text.book.closed")
-                .tag(SidebarSection.prompts)
-        }
-    }
-
-    @ViewBuilder
-    private var agentIndicator: some View {
-        if let orchestrator, orchestrator.isRunning {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(Color.forgeSuccess)
-                    .frame(width: 6, height: 6)
-                if orchestrator.activeRunners.count > 0 {
-                    Text("\(orchestrator.activeRunners.count)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
-    private var aboutButton: some View {
-        Button {
-            if let url = URL(string: "https://github.com/fatihkan/creedflow") {
-                NSWorkspace.shared.open(url)
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "link")
-                    .font(.system(size: 14))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("CreedFlow")
+                    .font(.system(.headline, weight: .bold))
+                Text("AI Orchestrator")
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                Text("GitHub")
-                    .font(.system(.subheadline, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.8))
-                Spacer()
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.quaternary)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.primary.opacity(0.04))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
-                    }
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+
+            Spacer()
         }
-        .buttonStyle(.plain)
-        .help("Open GitHub Repository")
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.bar)
     }
 
-    private var subscribeButton: some View {
-        Button {
-            showSubscriptionSheet = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "star.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.forgeAmber)
-                Text("Subscribe")
-                    .font(.system(.subheadline, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.8))
-                Spacer()
-                Text("PRO")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.forgeAmber)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.forgeAmber.opacity(0.12), in: Capsule())
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.forgeAmber.opacity(0.06),
-                                Color.forgeAmber.opacity(0.02)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(Color.forgeAmber.opacity(0.15), lineWidth: 0.5)
+    // MARK: - Bottom Panel
+
+    private var bottomPanel: some View {
+        VStack(spacing: 8) {
+            orchestratorButton
+
+            HStack {
+                Button {
+                    if let url = URL(string: "https://github.com/fatihkan/creedflow") {
+                        NSWorkspace.shared.open(url)
                     }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "link")
+                            .font(.system(size: 11))
+                        Text("GitHub")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Open GitHub Repository")
+
+                Spacer()
+
+                Button {
+                    showSubscriptionSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.forgeAmber)
+                        Text("PRO")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(.forgeAmber)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.forgeAmber.opacity(0.1), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Subscribe to Pro")
+                .sheet(isPresented: $showSubscriptionSheet) {
+                    SubscriptionSheetView()
+                }
             }
-            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
-        .buttonStyle(.plain)
-        .help("Subscribe")
-        .sheet(isPresented: $showSubscriptionSheet) {
-            SubscriptionSheetView()
-        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
+
+    // MARK: - Orchestrator Button
 
     private var orchestratorButton: some View {
         Button {
@@ -289,31 +218,24 @@ struct SidebarView: View {
             }
         } label: {
             let isRunning = orchestrator?.isRunning == true
-            let accent: Color = isRunning ? .forgeDanger : .forgeSuccess
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(accent.opacity(0.15))
-                        .frame(width: 26, height: 26)
-                    Image(systemName: isRunning ? "stop.fill" : "play.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(accent)
-                }
+            let accent: Color = isRunning ? .forgeSuccess : .secondary
+            HStack(spacing: 8) {
+                Image(systemName: isRunning ? "stop.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(isRunning ? Color.forgeDanger : Color.forgeSuccess)
+
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(isRunning ? "Stop" : "Start")
-                        .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.9))
+                    Text(isRunning ? "Running" : "Start Orchestrator")
+                        .font(.system(size: 12, weight: .medium))
                     if isRunning, let orchestrator, orchestrator.activeRunners.count > 0 {
                         Text("\(orchestrator.activeRunners.count) active tasks")
-                            .font(.system(size: 12))
+                            .font(.system(size: 10))
                             .foregroundStyle(.secondary)
-                    } else {
-                        Text("Orchestrator")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.tertiary)
                     }
                 }
+
                 Spacer()
+
                 if isRunning {
                     Circle()
                         .fill(accent)
@@ -321,21 +243,16 @@ struct SidebarView: View {
                         .shadow(color: accent.opacity(0.5), radius: 3)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(accent.opacity(0.05))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(accent.opacity(isRunning ? 0.2 : 0.1), lineWidth: 0.5)
-                    }
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(0.04))
             }
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
         .help(orchestrator?.isRunning == true ? "Stop Orchestrator" : "Start Orchestrator")
-        .accessibilityLabel(orchestrator?.isRunning == true ? "Stop" : "Start")
     }
 
     // MARK: - Data Observation
@@ -443,7 +360,7 @@ struct SubscriptionSheetView: View {
             .padding(.top, 24)
             .padding(.bottom, 20)
 
-            // Plan cards — liquid glass
+            // Plan cards
             HStack(spacing: 12) {
                 planCard(
                     id: "monthly",
@@ -499,7 +416,7 @@ struct SubscriptionSheetView: View {
             .padding(.bottom, 24)
         }
 
-            // Close button — top-right
+            // Close button
             Button {
                 dismiss()
             } label: {
