@@ -126,7 +126,7 @@ public struct ContentView: View {
             )
         case .tasks:
             TaskBoardView(
-                projectId: selectedProjectId,
+                projectId: nil,
                 selectedTaskId: $selectedTaskId,
                 appDatabase: appDatabase,
                 orchestrator: orchestrator

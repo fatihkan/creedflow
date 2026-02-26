@@ -9,11 +9,21 @@ struct TaskBoardView: View {
     let appDatabase: AppDatabase?
     let orchestrator: Orchestrator?
 
+    @State private var filterProjectId: UUID?
+    @State private var projects: [Project] = []
     @State private var tasks: [AgentTask] = []
     @State private var projectName: String = ""
     @State private var errorMessage: String?
     @State private var showNewTask = false
     @State private var showCleanupConfirm = false
+
+    init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?) {
+        self.projectId = projectId
+        self._selectedTaskId = selectedTaskId
+        self.appDatabase = appDatabase
+        self.orchestrator = orchestrator
+        self._filterProjectId = State(initialValue: projectId)
+    }
 
     private let columns: [KanbanColumn] = [
         KanbanColumn(title: "Queued", status: .queued, color: .forgeNeutral),
@@ -33,6 +43,14 @@ struct TaskBoardView: View {
         VStack(spacing: 0) {
             ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
                 HStack(spacing: 8) {
+                    Picker("Project", selection: $filterProjectId) {
+                        Text("All").tag(UUID?.none)
+                        ForEach(projects) { project in
+                            Text(project.name).tag(UUID?.some(project.id))
+                        }
+                    }
+                    .frame(maxWidth: 200)
+
                     if cleanableCount > 0 {
                         Button {
                             showCleanupConfirm = true
@@ -42,7 +60,7 @@ struct TaskBoardView: View {
                         .help("Remove \(cleanableCount) completed, failed, and cancelled tasks")
                     }
 
-                    if projectId != nil {
+                    if filterProjectId != nil {
                         Button {
                             showNewTask = true
                         } label: {
@@ -77,8 +95,8 @@ struct TaskBoardView: View {
             }
         }
         .sheet(isPresented: $showNewTask) {
-            if let projectId {
-                NewTaskSheet(projectId: projectId, appDatabase: appDatabase)
+            if let pid = filterProjectId {
+                NewTaskSheet(projectId: pid, appDatabase: appDatabase)
             }
         }
         .confirmationDialog(
@@ -92,21 +110,41 @@ struct TaskBoardView: View {
         } message: {
             Text("This will permanently delete all completed, failed, and cancelled tasks. Active and queued tasks will not be affected.")
         }
-        .task(id: projectId) {
+        .onChange(of: projectId) { _, newValue in
+            filterProjectId = newValue
+        }
+        .task(id: filterProjectId) {
             await observeTasks()
+        }
+        .task {
+            await observeProjects()
+        }
+    }
+
+    private func observeProjects() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try Project.order(Column("name")).fetchAll(db)
+        }
+        do {
+            for try await value in observation.values(in: db.dbQueue) {
+                projects = value
+            }
+        } catch {
+            // Picker will just show no projects
         }
     }
 
     private func observeTasks() async {
         guard let db = appDatabase else { return }
-        // Fetch project name
-        if let pid = projectId,
+        // Fetch project name for title
+        if let pid = filterProjectId,
            let project = try? await db.dbQueue.read({ db in try Project.fetchOne(db, id: pid) }) {
             projectName = project.name
         } else {
-            projectName = "All Projects"
+            projectName = ""
         }
-        let pid = projectId
+        let pid = filterProjectId
         let observation = ValueObservation.tracking { db in
             var query = AgentTask.order(Column("priority").desc, Column("createdAt").asc)
             if let pid {

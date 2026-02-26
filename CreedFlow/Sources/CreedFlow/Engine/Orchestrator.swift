@@ -153,142 +153,145 @@ final class Orchestrator {
     // MARK: - Private
 
     private func pollAndDispatch() async {
-        // Try to dequeue a task
-        guard let task = try? await taskQueue.dequeue() else { return }
+        // Fill all available scheduler slots in one cycle
+        while true {
+            // Try to dequeue a task
+            guard let task = try? await taskQueue.dequeue() else { return }
 
-        // Check if scheduler has a slot (non-blocking)
-        let acquired = await scheduler.tryAcquire(task: task)
-        guard acquired else {
-            // Can't schedule now (no slot or coder conflict), defer without incrementing retryCount
-            try? await taskQueue.deferTask(task)
-            return
-        }
-
-        // Select backend and create a runner for this task
-        let agent = resolveAgent(for: task.agentType)
-        guard let backend = await backendRouter.selectBackend(agent: agent, task: task) else {
-            // No enabled/available backend — defer the task back to queue
-            await scheduler.release(task: task)
-            try? await taskQueue.deferTask(task)
-            return
-        }
-        let runner = MultiBackendRunner(backend: backend, dbQueue: dbQueue)
-        activeRunners[task.id] = runner
-
-        // Record selected backend immediately so UI shows it during in_progress
-        let selectedBackend = backend.backendType.rawValue
-        try? await dbQueue.write { db in
-            var t = task
-            t.backend = selectedBackend
-            t.updatedAt = Date()
-            try t.update(db)
-        }
-
-        // [Feature 3] Build template values from project + task context
-        let templateValues = await buildTemplateValues(for: task)
-
-        // [Feature 1] Get prompt recommendation based on effectiveness metrics
-        let recommender = PromptRecommender(dbQueue: dbQueue)
-        let recommendation = recommender.recommend(for: task.agentType)
-
-        // Dispatch in a Swift Task
-        Task { [weak self, agent, templateValues, recommendation] in
-            defer {
-                Task { [weak self] in
-                    await self?.scheduler.release(task: task)
-                    self?.activeRunners.removeValue(forKey: task.id)
-                }
+            // Check if scheduler has a slot (non-blocking)
+            let acquired = await scheduler.tryAcquire(task: task)
+            guard acquired else {
+                // Can't schedule now (no slot or coder conflict), defer without incrementing retryCount
+                try? await taskQueue.deferTask(task)
+                return  // All slots full — stop trying this cycle
             }
 
-            guard let self else { return }
+            // Select backend and create a runner for this task
+            let agent = resolveAgent(for: task.agentType)
+            guard let backend = await backendRouter.selectBackend(agent: agent, task: task) else {
+                // No enabled/available backend — defer the task back to queue
+                await scheduler.release(task: task)
+                try? await taskQueue.deferTask(task)
+                continue  // No backend for THIS task, but others might have one
+            }
+            let runner = MultiBackendRunner(backend: backend, dbQueue: dbQueue)
+            activeRunners[task.id] = runner
 
-            do {
-                // For coder tasks, set up git branch first (best-effort)
-                if task.agentType == .coder {
-                    await self.setupCoderBranch(task: task)
+            // Record selected backend immediately so UI shows it during in_progress
+            let selectedBackend = backend.backendType.rawValue
+            try? await dbQueue.write { db in
+                var t = task
+                t.backend = selectedBackend
+                t.updatedAt = Date()
+                try t.update(db)
+            }
+
+            // [Feature 3] Build template values from project + task context
+            let templateValues = await buildTemplateValues(for: task)
+
+            // [Feature 1] Get prompt recommendation based on effectiveness metrics
+            let recommender = PromptRecommender(dbQueue: dbQueue)
+            let recommendation = recommender.recommend(for: task.agentType)
+
+            // Dispatch in a Swift Task (fire-and-forget — loop continues immediately)
+            Task { [weak self, agent, templateValues, recommendation] in
+                defer {
+                    Task { [weak self] in
+                        await self?.scheduler.release(task: task)
+                        self?.activeRunners.removeValue(forKey: task.id)
+                    }
                 }
 
-                // Resolve working directory from project
-                let workingDir = try await self.resolveWorkingDirectory(for: task)
+                guard let self else { return }
 
-                let result: AgentResult
-
-                // [Feature 2] Chain execution path
-                if let chainId = task.promptChainId {
-                    let chainExecutor = ChainExecutor(dbQueue: self.dbQueue, backendRouter: self.backendRouter)
-                    result = try await chainExecutor.execute(
-                        chainId: chainId,
-                        task: task,
-                        agent: agent,
-                        workingDirectory: workingDir,
-                        templateValues: templateValues,
-                        runner: runner
-                    )
-                } else {
-                    // Normal path: apply recommendation + template variables
-                    var promptOverride: String?
-                    if let rec = recommendation {
-                        let resolved = TemplateVariableResolver.resolve(template: rec.prompt.content, values: templateValues)
-                        // Augment: prepend recommended prompt context to agent's default prompt
-                        let agentPrompt = agent.buildPrompt(for: task)
-                        promptOverride = resolved + "\n\n" + agentPrompt
+                do {
+                    // For coder tasks, set up git branch first (best-effort)
+                    if task.agentType == .coder {
+                        await self.setupCoderBranch(task: task)
                     }
 
-                    // Inject skill persona into prompt
-                    if let persona = task.skillPersona, !persona.isEmpty {
-                        let personaPrefix = "<skill_persona>\nYou are: \(persona)\nApply this expertise throughout the task.\n</skill_persona>\n\n"
-                        let base = promptOverride ?? agent.buildPrompt(for: task)
-                        promptOverride = personaPrefix + base
-                    }
+                    // Resolve working directory from project
+                    let workingDir = try await self.resolveWorkingDirectory(for: task)
 
-                    // Inject revision memory for retry tasks
-                    if task.retryCount > 0 || task.revisionPrompt != nil {
-                        if let memory = await self.buildRevisionMemory(for: task) {
+                    let result: AgentResult
+
+                    // [Feature 2] Chain execution path
+                    if let chainId = task.promptChainId {
+                        let chainExecutor = ChainExecutor(dbQueue: self.dbQueue, backendRouter: self.backendRouter)
+                        result = try await chainExecutor.execute(
+                            chainId: chainId,
+                            task: task,
+                            agent: agent,
+                            workingDirectory: workingDir,
+                            templateValues: templateValues,
+                            runner: runner
+                        )
+                    } else {
+                        // Normal path: apply recommendation + template variables
+                        var promptOverride: String?
+                        if let rec = recommendation {
+                            let resolved = TemplateVariableResolver.resolve(template: rec.prompt.content, values: templateValues)
+                            // Augment: prepend recommended prompt context to agent's default prompt
+                            let agentPrompt = agent.buildPrompt(for: task)
+                            promptOverride = resolved + "\n\n" + agentPrompt
+                        }
+
+                        // Inject skill persona into prompt
+                        if let persona = task.skillPersona, !persona.isEmpty {
+                            let personaPrefix = "<skill_persona>\nYou are: \(persona)\nApply this expertise throughout the task.\n</skill_persona>\n\n"
                             let base = promptOverride ?? agent.buildPrompt(for: task)
-                            promptOverride = memory + base
+                            promptOverride = personaPrefix + base
+                        }
+
+                        // Inject revision memory for retry tasks
+                        if task.retryCount > 0 || task.revisionPrompt != nil {
+                            if let memory = await self.buildRevisionMemory(for: task) {
+                                let base = promptOverride ?? agent.buildPrompt(for: task)
+                                promptOverride = memory + base
+                            }
+                        }
+
+                        result = try await runner.execute(
+                            task: task,
+                            agent: agent,
+                            workingDirectory: workingDir,
+                            promptOverride: promptOverride
+                        )
+
+                        // [Feature 1] Record prompt usage on dispatch
+                        if let rec = recommendation {
+                            recommender.recordUsage(
+                                promptId: rec.prompt.id,
+                                projectId: task.projectId,
+                                taskId: task.id,
+                                agentType: task.agentType
+                            )
                         }
                     }
 
-                    result = try await runner.execute(
-                        task: task,
-                        agent: agent,
-                        workingDirectory: workingDir,
-                        promptOverride: promptOverride
-                    )
+                    // Post-completion pipeline
+                    await self.handleTaskCompletion(task: task, result: result)
 
-                    // [Feature 1] Record prompt usage on dispatch
-                    if let rec = recommendation {
-                        recommender.recordUsage(
-                            promptId: rec.prompt.id,
-                            projectId: task.projectId,
-                            taskId: task.id,
-                            agentType: task.agentType
-                        )
-                    }
-                }
+                    // Check if project is fully done and backfill prompt usage outcomes
+                    await self.checkProjectCompletion(projectId: task.projectId)
 
-                // Post-completion pipeline
-                await self.handleTaskCompletion(task: task, result: result)
-
-                // Check if project is fully done and backfill prompt usage outcomes
-                await self.checkProjectCompletion(projectId: task.projectId)
-
-                // Telegram notification: task completed
-                await self.sendTelegramNotification(for: task) { telegram, project in
-                    await telegram.notifyTaskCompleted(task: task, project: project)
-                }
-            } catch {
-                // Handle retry
-                if self.retryPolicy.shouldRetry(task: task, error: error) {
-                    let backoff = self.retryPolicy.backoffInterval(for: task.retryCount)
-                    try? await Task.sleep(for: .seconds(backoff))
-                    try? await self.taskQueue.requeue(task)
-                } else {
-                    try? await self.taskQueue.fail(task, error: error.localizedDescription)
-
-                    // Telegram notification: task failed (no more retries)
+                    // Telegram notification: task completed
                     await self.sendTelegramNotification(for: task) { telegram, project in
-                        await telegram.notifyTaskFailed(task: task, project: project)
+                        await telegram.notifyTaskCompleted(task: task, project: project)
+                    }
+                } catch {
+                    // Handle retry
+                    if self.retryPolicy.shouldRetry(task: task, error: error) {
+                        let backoff = self.retryPolicy.backoffInterval(for: task.retryCount)
+                        try? await Task.sleep(for: .seconds(backoff))
+                        try? await self.taskQueue.requeue(task)
+                    } else {
+                        try? await self.taskQueue.fail(task, error: error.localizedDescription)
+
+                        // Telegram notification: task failed (no more retries)
+                        await self.sendTelegramNotification(for: task) { telegram, project in
+                            await telegram.notifyTaskFailed(task: task, project: project)
+                        }
                     }
                 }
             }
