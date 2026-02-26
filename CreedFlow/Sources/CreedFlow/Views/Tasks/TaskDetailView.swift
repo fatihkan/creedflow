@@ -31,7 +31,7 @@ struct TaskDetailView: View {
 
                     if task.priority > 0 {
                         Text("P\(task.priority)")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundStyle(.forgeAmber)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -109,9 +109,9 @@ struct TaskDetailView: View {
                             if logs.count >= 200 {
                                 HStack(spacing: 4) {
                                     Image(systemName: "exclamationmark.circle")
-                                        .font(.caption2)
+                                        .font(.caption)
                                     Text("Showing last 200 entries. Older logs may be truncated.")
-                                        .font(.caption2)
+                                        .font(.caption)
                                 }
                                 .foregroundStyle(.forgeWarning)
                                 .padding(.bottom, 4)
@@ -132,7 +132,7 @@ struct TaskDetailView: View {
                                     .font(.subheadline.bold())
                             }
                             Text(error)
-                                .font(.system(.caption, design: .monospaced))
+                                .font(.system(.footnote, design: .monospaced))
                                 .foregroundStyle(.forgeDanger)
                                 .textSelection(.enabled)
                         }
@@ -222,15 +222,15 @@ struct TaskDetailView: View {
     private func metadataItem(label: String, value: String, icon: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.tertiary)
                 .frame(width: 14)
             VStack(alignment: .leading, spacing: 0) {
                 Text(label)
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
                 Text(value)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .lineLimit(1)
             }
         }
@@ -319,17 +319,17 @@ struct ReviewRowView: View {
                     .forgeBadge(color: verdictColor)
 
                 Text(String(format: "%.1f/10", review.score))
-                    .font(.system(.caption, design: .monospaced, weight: .medium))
+                    .font(.system(.footnote, design: .monospaced, weight: .medium))
 
                 Text(review.summary)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(isExpanded ? nil : 1)
 
                 Spacer()
 
                 Text(review.createdAt, style: .relative)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
 
                 Button {
@@ -338,7 +338,7 @@ struct ReviewRowView: View {
                     }
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
@@ -374,7 +374,7 @@ struct ReviewRowView: View {
     private func reviewDetailSection(title: String, text: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(color)
             Text(text)
                 .font(.system(size: 11))
@@ -402,17 +402,17 @@ struct LogOutputView: View {
                 ForEach(logs) { log in
                     HStack(alignment: .top, spacing: 6) {
                         Text(log.createdAt, format: .dateTime.hour().minute().second())
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(.forgeNeutral)
                             .frame(width: 60, alignment: .leading)
 
                         Text(log.level.rawValue.uppercased())
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundStyle(logColor(for: log.level))
                             .frame(width: 36, alignment: .leading)
 
                         Text(log.message)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.system(size: 13, design: .monospaced))
                             .foregroundStyle(.forgeTerminalText)
                             .textSelection(.enabled)
                     }

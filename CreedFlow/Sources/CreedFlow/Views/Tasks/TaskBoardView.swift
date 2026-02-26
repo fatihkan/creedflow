@@ -62,7 +62,7 @@ struct TaskBoardView: View {
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                         TextField("Search tasks...", text: $searchText)
                             .textFieldStyle(.plain)
@@ -72,7 +72,7 @@ struct TaskBoardView: View {
                                 searchText = ""
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 13))
                                     .foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
@@ -378,7 +378,7 @@ struct KanbanColumnView: View {
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Text("\(tasks.count)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
@@ -395,7 +395,7 @@ struct KanbanColumnView: View {
                     .frame(height: 32)
                     .overlay {
                         Text(isDropTargeted ? "Drop here" : "Empty")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundStyle(isDropTargeted ? AnyShapeStyle(column.color) : AnyShapeStyle(.quaternary))
                     }
                     .animation(.easeOut(duration: 0.15), value: isDropTargeted)
@@ -480,7 +480,7 @@ struct TaskCardView: View {
                     Image(systemName: task.agentType.icon)
                     Text(task.agentType.rawValue.capitalized)
                 }
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(task.agentType.themeColor)
 
                 // Backend badge
@@ -504,25 +504,25 @@ struct TaskCardView: View {
             }
 
             Text(task.title)
-                .font(.system(.caption, weight: .semibold))
+                .font(.system(.footnote, weight: .semibold))
                 .lineLimit(2)
 
             Text(task.description)
-                .font(.system(size: 10))
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
             HStack(spacing: 6) {
                 if task.priority > 0 {
                     Text("P\(task.priority)")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(.forgeAmber)
                         .help("Priority \(task.priority) (1=low, 10=critical)")
                 }
                 Spacer()
                 if let duration = task.durationMs {
                     Text(ForgeDuration.format(ms: duration))
-                        .font(.system(size: 9, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.tertiary)
                 }
             }

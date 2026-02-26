@@ -89,7 +89,7 @@ struct PromptEffectivenessDashboardView: View {
                                 ForEach(sortedPrompts, id: \.prompt.id) { item in
                                     HStack(spacing: 10) {
                                         Text(item.prompt.title)
-                                            .font(.caption)
+                                            .font(.footnote)
                                             .lineLimit(1)
                                             .frame(width: 140, alignment: .leading)
 
@@ -103,30 +103,30 @@ struct PromptEffectivenessDashboardView: View {
                                         .frame(height: 8)
 
                                         Text("\(item.stats.usageCount)")
-                                            .font(.system(size: 10, design: .monospaced))
+                                            .font(.system(size: 12, design: .monospaced))
                                             .foregroundStyle(.secondary)
                                             .frame(width: 30, alignment: .trailing)
 
                                         if let rate = item.stats.successRate {
                                             Text("\(Int(rate * 100))%")
-                                                .font(.system(size: 10, design: .monospaced))
+                                                .font(.system(size: 12, design: .monospaced))
                                                 .foregroundStyle(rate >= 0.7 ? .forgeSuccess : rate >= 0.4 ? .forgeWarning : .forgeDanger)
                                                 .frame(width: 36, alignment: .trailing)
                                         } else {
                                             Text("—")
-                                                .font(.system(size: 10, design: .monospaced))
+                                                .font(.system(size: 12, design: .monospaced))
                                                 .foregroundStyle(.tertiary)
                                                 .frame(width: 36, alignment: .trailing)
                                         }
 
                                         if let score = item.stats.averageReviewScore {
                                             Text(String(format: "%.1f", score))
-                                                .font(.system(size: 10, design: .monospaced))
+                                                .font(.system(size: 12, design: .monospaced))
                                                 .foregroundStyle(score >= 7.0 ? .forgeSuccess : score >= 5.0 ? .forgeWarning : .forgeDanger)
                                                 .frame(width: 30, alignment: .trailing)
                                         } else {
                                             Text("—")
-                                                .font(.system(size: 10, design: .monospaced))
+                                                .font(.system(size: 12, design: .monospaced))
                                                 .foregroundStyle(.tertiary)
                                                 .frame(width: 30, alignment: .trailing)
                                         }

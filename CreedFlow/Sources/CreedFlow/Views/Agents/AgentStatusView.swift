@@ -68,7 +68,7 @@ struct AgentStatusView: View {
 
                     if orchestrator.isRunning {
                         Text("\(orchestrator.activeRunners.count) active")
-                            .font(.system(size: 11, design: .rounded))
+                            .font(.system(size: 13, design: .rounded))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -152,14 +152,14 @@ struct AgentStatusView: View {
                 Spacer()
                 BackendBadge(type: runner.backendType)
                 Text("\(runner.liveOutput.count) lines")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
             }
 
             // Last output line preview
             if let lastLine = runner.liveOutput.last {
                 Text(lastLine.text)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .padding(6)
@@ -173,7 +173,7 @@ struct AgentStatusView: View {
                 selectedTaskId = taskId
             } label: {
                 Text("View Full Console")
-                    .font(.caption)
+                    .font(.footnote)
             }
             .buttonStyle(.plain)
             .foregroundStyle(.forgeAmber)
@@ -187,7 +187,7 @@ struct AgentStatusView: View {
             AgentTypeBadge(type: task.agentType)
 
             Text(task.title)
-                .font(.system(.caption, weight: .medium))
+                .font(.system(.footnote, weight: .medium))
                 .lineLimit(1)
 
             Spacer()
@@ -197,13 +197,13 @@ struct AgentStatusView: View {
 
             if let duration = task.durationMs {
                 Text(ForgeDuration.format(ms: duration))
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
 
             if let completedAt = task.completedAt {
                 Text(completedAt, style: .relative)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .frame(width: 60, alignment: .trailing)
             }

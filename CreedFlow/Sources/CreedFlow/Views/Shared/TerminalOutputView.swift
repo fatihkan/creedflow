@@ -13,7 +13,7 @@ struct TerminalOutputView: View {
             // Toolbar strip
             HStack(spacing: 8) {
                 Text("\(runner.liveOutput.count) lines")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.forgeNeutral)
 
                 Spacer()
@@ -23,9 +23,9 @@ struct TerminalOutputView: View {
                 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: autoScroll ? "arrow.down.to.line" : "pause")
-                            .font(.system(size: 9))
+                            .font(.system(size: 11))
                         Text(autoScroll ? "Auto-scroll" : "Paused")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                     }
                     .foregroundStyle(autoScroll ? .forgeSuccess : .forgeWarning)
                 }
@@ -38,9 +38,9 @@ struct TerminalOutputView: View {
                 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "doc.on.doc")
-                            .font(.system(size: 9))
+                            .font(.system(size: 11))
                         Text("Copy All")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                     }
                 }
                 .buttonStyle(.plain)
@@ -56,12 +56,12 @@ struct TerminalOutputView: View {
                         ForEach(runner.liveOutput) { line in
                             HStack(alignment: .top, spacing: 6) {
                                 Text(line.timestamp, format: .dateTime.hour().minute().second())
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(.system(size: 12, design: .monospaced))
                                     .foregroundStyle(.forgeNeutral)
                                     .frame(width: 60, alignment: .leading)
 
                                 Text(line.text)
-                                    .font(.system(size: 11, design: .monospaced))
+                                    .font(.system(size: 13, design: .monospaced))
                                     .foregroundStyle(colorForType(line.type))
                                     .textSelection(.enabled)
                             }

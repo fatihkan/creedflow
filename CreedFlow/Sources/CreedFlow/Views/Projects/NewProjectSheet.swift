@@ -20,7 +20,7 @@ struct NewProjectSheet: View {
                     Text("New Project")
                         .font(.title3.bold())
                     Text("Create a new project for CreedFlow to manage")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -58,7 +58,7 @@ struct NewProjectSheet: View {
                             showPromptPicker = true
                         } label: {
                             Label("Use Prompt", systemImage: "text.book.closed")
-                                .font(.caption)
+                                .font(.footnote)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)

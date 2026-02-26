@@ -49,7 +49,7 @@ struct BackendBadge: View {
 
     var body: some View {
         Text(type.rawValue.capitalized)
-            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundStyle(color)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)

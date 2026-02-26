@@ -70,14 +70,14 @@ struct ReviewApprovalView: View {
 
             HStack(spacing: 6) {
                 Text(item.project.name)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.tertiary)
                 Text("Score: \(String(format: "%.1f", item.review.score))/10")
-                    .font(.system(.caption, design: .monospaced, weight: .medium))
+                    .font(.system(.footnote, design: .monospaced, weight: .medium))
             }
 
             Text(item.review.summary)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 

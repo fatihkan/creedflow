@@ -99,13 +99,13 @@ extension Color {
 extension Font {
     static let forgeTitle = Font.system(.title2, design: .default, weight: .bold)
     static let forgeHeadline = Font.system(.headline, design: .default, weight: .semibold)
-    static let forgeBody = Font.system(.subheadline, design: .default)
-    static let forgeCaption = Font.system(.caption, design: .default)
-    static let forgeMono = Font.system(size: 11, design: .monospaced)
-    static let forgeMonoSmall = Font.system(size: 10, design: .monospaced)
-    static let forgeBadgeFont = Font.system(size: 10, weight: .semibold, design: .rounded)
+    static let forgeBody = Font.system(.body, design: .default)
+    static let forgeCaption = Font.system(.footnote, design: .default)
+    static let forgeMono = Font.system(size: 13, design: .monospaced)
+    static let forgeMonoSmall = Font.system(size: 12, design: .monospaced)
+    static let forgeBadgeFont = Font.system(size: 12, weight: .semibold, design: .rounded)
     static let forgeMetricValue = Font.system(.title3, design: .rounded, weight: .bold)
-    static let forgeMetricLabel = Font.system(size: 11)
+    static let forgeMetricLabel = Font.system(size: 13)
 }
 
 // MARK: - Spacing Tokens
@@ -294,7 +294,7 @@ struct ForgeBadgeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(color.opacity(0.14))

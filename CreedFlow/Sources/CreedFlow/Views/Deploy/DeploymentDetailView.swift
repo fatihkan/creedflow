@@ -149,7 +149,7 @@ struct DeploymentDetailView: View {
             if let logs = deployment.logs, !logs.isEmpty {
                 ScrollView {
                     Text(logs)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.forgeTerminalText)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -160,7 +160,7 @@ struct DeploymentDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 Text("No logs available")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, minHeight: 40)
             }
@@ -209,15 +209,15 @@ struct DeploymentDetailView: View {
     private func metadataItem(label: String, value: String, icon: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.tertiary)
                 .frame(width: 14)
             VStack(alignment: .leading, spacing: 0) {
                 Text(label)
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
                 Text(value)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .lineLimit(1)
             }
         }

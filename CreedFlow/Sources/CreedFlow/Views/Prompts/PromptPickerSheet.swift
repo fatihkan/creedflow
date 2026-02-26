@@ -61,7 +61,7 @@ struct PromptPickerSheet: View {
                     Text("Select Prompt")
                         .font(.title3.bold())
                     Text("Choose a prompt template to fill the project description")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -202,7 +202,7 @@ struct PromptPickerSheet: View {
                     Text(searchText.isEmpty
                          ? "Import community prompts from the Prompts library first"
                          : "No prompts match \"\(searchText)\"")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.tertiary)
                 }
                 Spacer()
@@ -218,7 +218,7 @@ struct PromptPickerSheet: View {
                                         .font(.headline)
                                     if prompt.version > 1 {
                                         Text("v\(prompt.version)")
-                                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                            .font(.system(size: 11, weight: .bold, design: .monospaced))
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 1)
                                             .background(.green.opacity(0.15), in: Capsule())
@@ -226,7 +226,7 @@ struct PromptPickerSheet: View {
                                     }
                                     if prompt.category != "general" {
                                         Text(prompt.category)
-                                            .font(.system(size: 9, weight: .medium))
+                                            .font(.system(size: 11, weight: .medium))
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 1)
                                             .background(.secondary.opacity(0.15), in: Capsule())
@@ -279,7 +279,7 @@ struct PromptPickerSheet: View {
                         .font(.headline)
                         .foregroundStyle(.secondary)
                     Text("Create chains in the Prompts library to compose multiple prompts")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.tertiary)
                 }
                 Spacer()
@@ -295,7 +295,7 @@ struct PromptPickerSheet: View {
                                         .font(.headline)
                                     let stepCount = chainStore.steps[chain.id]?.count ?? 0
                                     Text("\(stepCount) steps")
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.system(size: 11, weight: .medium))
                                         .padding(.horizontal, 5)
                                         .padding(.vertical, 1)
                                         .background(.purple.opacity(0.15), in: Capsule())

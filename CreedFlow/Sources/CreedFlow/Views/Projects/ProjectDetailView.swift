@@ -33,7 +33,7 @@ struct ProjectDetailView: View {
                                     Image(systemName: "wrench.and.screwdriver")
                                     Text(project.techStack)
                                 }
-                                .font(.caption)
+                                .font(.footnote)
                                 .foregroundStyle(.tertiary)
                             }
                         }
@@ -137,7 +137,7 @@ struct ProjectDetailView: View {
                                     onViewAllTasks?()
                                 } label: {
                                     Text("View all \(tasks.count) tasks →")
-                                        .font(.caption)
+                                        .font(.footnote)
                                         .foregroundStyle(.forgeAmber)
                                 }
                                 .buttonStyle(.plain)

@@ -76,7 +76,7 @@ public struct SetupWizardView: View {
                 .padding(.horizontal, 32)
 
                 Text("Step \(currentStep + 1) of \(totalSteps): \(stepTitles[currentStep])")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 8)

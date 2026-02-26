@@ -97,7 +97,7 @@ public struct SettingsView: View {
                     }
                 }
                 Text("Default: ~/CreedFlow/projects/")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -111,7 +111,7 @@ public struct SettingsView: View {
                     }
                 }
                 Text("Used for \"Open in Editor\" buttons throughout the app")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -120,7 +120,7 @@ public struct SettingsView: View {
                     hasCompletedSetup = false
                 }
                 Text("Reset and walk through the initial setup wizard again")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
@@ -136,9 +136,9 @@ public struct SettingsView: View {
                 HStack {
                     Text("Claude CLI")
                     if claudeEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -147,15 +147,15 @@ public struct SettingsView: View {
                 Toggle("Enabled", isOn: $codexEnabled)
                 CLISettingsRow(label: "Codex CLI Path", path: $codexPath, version: codexVersion, enabled: codexEnabled)
                 Text("Install: npm install -g @openai/codex")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
                 HStack {
                     Text("Codex CLI")
                     if codexEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -164,15 +164,15 @@ public struct SettingsView: View {
                 Toggle("Enabled", isOn: $geminiEnabled)
                 CLISettingsRow(label: "Gemini CLI Path", path: $geminiPath, version: geminiVersion, enabled: geminiEnabled)
                 Text("Install: npm install -g @anthropic-ai/gemini-cli")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
                 HStack {
                     Text("Gemini CLI")
                     if geminiEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -181,15 +181,15 @@ public struct SettingsView: View {
                 Toggle("Enabled", isOn: $opencodeEnabled)
                 CLISettingsRow(label: "OpenCode Path", path: $opencodePath, version: opencodeVersion, enabled: opencodeEnabled)
                 Text("Install: go install github.com/opencode-ai/opencode@latest")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
                 HStack {
                     Text("OpenCode")
                     if opencodeEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -207,15 +207,15 @@ public struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .disabled(!ollamaEnabled)
                 Text("Install: brew install ollama")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
                 HStack {
                     Text("Ollama")
                     if ollamaEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -226,15 +226,15 @@ public struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .disabled(!lmstudioEnabled)
                 Text("Install LM Studio from lmstudio.ai — runs on localhost:1234")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
                 HStack {
                     Text("LM Studio")
                     if lmstudioEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -258,15 +258,15 @@ public struct SettingsView: View {
                     .disabled(!llamacppEnabled)
                 }
                 Text("Install: brew install llama.cpp — requires a GGUF model file")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
                 HStack {
                     Text("llama.cpp")
                     if llamacppEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -278,15 +278,15 @@ public struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .disabled(!mlxEnabled)
                 Text("Install: pip install mlx-lm — Apple Silicon only")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
                 HStack {
                     Text("MLX-LM")
                     if mlxEnabled {
-                        Text("Active").font(.caption2).foregroundStyle(.green)
+                        Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
-                        Text("Disabled").font(.caption2).foregroundStyle(.secondary)
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -353,13 +353,13 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                     HStack(spacing: 4) {
                         branchBadge("dev", color: .forgeInfo)
-                        Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                        Image(systemName: "arrow.right").font(.caption).foregroundStyle(.tertiary)
                         branchBadge("staging", color: .forgeWarning)
-                        Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                        Image(systemName: "arrow.right").font(.caption).foregroundStyle(.tertiary)
                         branchBadge("main", color: .forgeSuccess)
                     }
                     Text("Feature branches are created from dev. PRs auto-merge on review pass. Staging deploys promote to main.")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -376,7 +376,7 @@ public struct SettingsView: View {
                         Text("Homebrew")
                             .font(.subheadline.weight(.medium))
                         Text(depInstaller.brewDetected ? depInstaller.brewVersion : "Not found")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -409,7 +409,7 @@ public struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(dep.name).font(.subheadline.weight(.medium))
                                 Text(dep.isInstalled ? dep.detectedVersion : dep.description)
-                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                             }
                             Spacer()
                             if dep.isInstalling {
@@ -457,7 +457,7 @@ public struct SettingsView: View {
 
     private func branchBadge(_ name: String, color: Color) -> some View {
         Text(name)
-            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            .font(.system(size: 13, weight: .semibold, design: .monospaced))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
@@ -472,7 +472,7 @@ public struct SettingsView: View {
                 TextField("Default Chat ID", text: $telegramChatId)
                     .textFieldStyle(.roundedBorder)
                 Text("Get a bot token from @BotFather on Telegram")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }

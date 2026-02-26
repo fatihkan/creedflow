@@ -170,7 +170,7 @@ struct WizardEnvironmentStep: View {
                 }
 
                 Text("CreedFlow uses a 3-branch strategy: dev \u{2192} staging \u{2192} main with feature branches per coder task.")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -220,7 +220,7 @@ struct WizardDependenciesStep: View {
                         Text("Homebrew")
                             .font(.subheadline.weight(.medium))
                         Text(installer.brewDetected ? installer.brewVersion : "Not found — required for installing dependencies")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -239,13 +239,13 @@ struct WizardDependenciesStep: View {
                 }
                 if installer.isInstallingBrew && !installer.brewInstallOutput.isEmpty {
                     Text(installer.brewInstallOutput.suffix(200))
-                        .font(.system(.caption2, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
                 if let error = installer.brewInstallError {
                     Text(error)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.red)
                         .lineLimit(2)
                 }
@@ -327,7 +327,7 @@ private struct DependencyRow: View {
                     Text(dep.name)
                         .font(.subheadline.weight(.medium))
                     Text(dep.isInstalled ? dep.detectedVersion : dep.description)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -343,14 +343,14 @@ private struct DependencyRow: View {
             }
             if dep.isInstalling && !dep.installOutput.isEmpty {
                 Text(dep.installOutput.suffix(200))
-                    .font(.system(.caption2, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .padding(.leading, 28)
             }
             if let error = dep.installError {
                 Text(error)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.red)
                     .lineLimit(2)
                     .padding(.leading, 28)
@@ -382,14 +382,14 @@ struct WizardProjectsStep: View {
                     }
                 }
                 Text("Where CreedFlow creates project folders. Default: ~/CreedFlow/projects/")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             Section("Concurrency") {
                 Stepper("Max Parallel Agents: \(maxConcurrency)", value: $maxConcurrency, in: 1...8)
                 Text("How many AI agents can run simultaneously")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -413,7 +413,7 @@ struct WizardIntegrationsStep: View {
                 TextField("Default Chat ID", text: $telegramChatId)
                     .textFieldStyle(.roundedBorder)
                 Text("Get a bot token from @BotFather on Telegram. Skip if you don't need notifications.")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
@@ -494,7 +494,7 @@ struct WizardMCPStep: View {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.forgeSuccess)
-                                .font(.caption)
+                                .font(.footnote)
                             Text(config.name)
                                 .font(.subheadline.weight(.medium))
                             Spacer()
@@ -502,7 +502,7 @@ struct WizardMCPStep: View {
                                 removeConfig(config)
                             } label: {
                                 Image(systemName: "xmark.circle")
-                                    .font(.caption)
+                                    .font(.footnote)
                             }
                             .buttonStyle(.borderless)
                         }
@@ -534,15 +534,15 @@ struct WizardMCPStep: View {
                         .frame(width: 28, height: 28)
                     if isConfigured {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 9))
+                            .font(.system(size: 11))
                             .foregroundStyle(.forgeSuccess)
                             .offset(x: 4, y: -4)
                     }
                 }
                 Text(template.displayName)
-                    .font(.caption.weight(.medium))
+                    .font(.footnote.weight(.medium))
                 Text(template.description)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -796,7 +796,7 @@ private struct CLIPathOverrideRow: View {
         HStack {
             TextField(placeholder, text: $path)
                 .textFieldStyle(.roundedBorder)
-                .font(.caption)
+                .font(.footnote)
             Button("Browse") {
                 let panel = NSOpenPanel()
                 panel.canChooseFiles = true
@@ -824,7 +824,7 @@ private struct DetectionRow: View {
                 Text(label)
                     .font(.subheadline.weight(.medium))
                 Text(detail)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
@@ -840,7 +840,7 @@ private struct SummaryRow: View {
         HStack(spacing: 8) {
             Image(systemName: ok ? "checkmark.circle.fill" : "minus.circle")
                 .foregroundStyle(ok ? .forgeSuccess : .forgeNeutral)
-                .font(.caption)
+                .font(.footnote)
             Text(label)
                 .font(.subheadline)
                 .frame(width: 130, alignment: .leading)

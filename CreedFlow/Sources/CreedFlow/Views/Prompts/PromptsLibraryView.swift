@@ -53,7 +53,7 @@ struct PromptsLibraryView: View {
                 HStack(spacing: 8) {
                     if let result = importResult {
                         Text(result)
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
 
@@ -287,14 +287,14 @@ struct PromptsLibraryView: View {
                                         .font(.headline)
                                     let stepCount = chainStore.steps[chain.id]?.count ?? 0
                                     Text("\(stepCount) steps")
-                                        .font(.system(size: 9, weight: .medium))
+                                        .font(.system(size: 11, weight: .medium))
                                         .padding(.horizontal, 5)
                                         .padding(.vertical, 1)
                                         .background(.purple.opacity(0.15), in: Capsule())
                                         .foregroundStyle(.purple)
                                     if chain.category != "general" {
                                         Text(chain.category)
-                                            .font(.system(size: 9, weight: .medium))
+                                            .font(.system(size: 11, weight: .medium))
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 1)
                                             .background(.secondary.opacity(0.15), in: Capsule())
@@ -306,7 +306,7 @@ struct PromptsLibraryView: View {
                                             Image(systemName: "chart.bar")
                                                 .font(.system(size: 8))
                                             Text("\(chainUsage)")
-                                                .font(.system(size: 9, weight: .medium))
+                                                .font(.system(size: 11, weight: .medium))
                                         }
                                         .foregroundStyle(.secondary)
                                     }
@@ -448,7 +448,7 @@ private struct PromptRow: View {
                         .font(.headline)
                     if prompt.version > 1 {
                         Text("v\(prompt.version)")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
                             .background(.green.opacity(0.15), in: Capsule())
@@ -456,7 +456,7 @@ private struct PromptRow: View {
                     }
                     if prompt.source == .community {
                         Text("Community")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
                             .background(.blue.opacity(0.15), in: Capsule())
@@ -464,7 +464,7 @@ private struct PromptRow: View {
                     }
                     if prompt.category != "general" {
                         Text(prompt.category)
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
                             .background(.secondary.opacity(0.15), in: Capsule())
@@ -489,7 +489,7 @@ private struct PromptRow: View {
                     }
                     if let contributor = prompt.contributor, !contributor.isEmpty {
                         Text("by \(contributor)")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
                     if usageCount > 0 {
@@ -498,7 +498,7 @@ private struct PromptRow: View {
                             Image(systemName: "chart.bar")
                                 .font(.system(size: 8))
                             Text("\(usageCount)")
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                         }
                         .foregroundStyle(.secondary)
                     }
@@ -507,7 +507,7 @@ private struct PromptRow: View {
                             Image(systemName: "checkmark.circle")
                                 .font(.system(size: 8))
                             Text("\(Int(rate * 100))%")
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                         }
                         .foregroundStyle(rate >= 0.7 ? .forgeSuccess : rate >= 0.4 ? .forgeWarning : .forgeDanger)
                     }
@@ -516,7 +516,7 @@ private struct PromptRow: View {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 8))
                             Text(String(format: "%.1f", score))
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                         }
                         .foregroundStyle(score >= 7.0 ? .forgeSuccess : score >= 5.0 ? .forgeWarning : .forgeDanger)
                     }

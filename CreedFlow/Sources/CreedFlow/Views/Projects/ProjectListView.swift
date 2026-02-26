@@ -215,17 +215,17 @@ struct ProjectRowView: View {
                 }
 
                 Text(project.description)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 if !project.techStack.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "wrench.and.screwdriver")
-                            .font(.system(size: 9))
+                            .font(.system(size: 11))
                         Text(project.techStack)
                     }
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                 }
             }

@@ -16,7 +16,7 @@ struct AgentBackendPreferencesSection: View {
     var body: some View {
         Section {
             Text("Customize which CLI backend each agent prefers. The first available backend in the list is used.")
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
 
             ForEach(agents, id: \.self) { agentType in
@@ -31,7 +31,7 @@ struct AgentBackendPreferencesSection: View {
                         editedPrefs.removeAll()
                         expandedAgent = nil
                     }
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                 }
             }
@@ -53,7 +53,7 @@ struct AgentBackendPreferencesSection: View {
             // Collapsed header
             HStack(spacing: 8) {
                 Image(systemName: agentType.icon)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(agentType.themeColor)
                     .frame(width: 18)
 
@@ -62,7 +62,7 @@ struct AgentBackendPreferencesSection: View {
 
                 if hardcoded.requiresClaudeFeatures {
                     Text("MCP")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(Color.purple.opacity(0.15))
@@ -76,7 +76,7 @@ struct AgentBackendPreferencesSection: View {
                 HStack(spacing: 3) {
                     ForEach(currentPrefs, id: \.self) { backend in
                         Text(backend.displayName)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(backend.backendColor.opacity(0.12))
@@ -91,7 +91,7 @@ struct AgentBackendPreferencesSection: View {
                         editedPrefs.removeValue(forKey: agentType)
                     } label: {
                         Image(systemName: "arrow.counterclockwise")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
@@ -99,7 +99,7 @@ struct AgentBackendPreferencesSection: View {
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
             }
@@ -140,9 +140,9 @@ struct AgentBackendPreferencesSection: View {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                        .font(.caption)
+                        .font(.footnote)
                     Text("This agent uses MCP tools that require Claude. Tasks may fail without it.")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.orange)
                 }
                 .padding(8)
@@ -152,17 +152,17 @@ struct AgentBackendPreferencesSection: View {
 
             // Current order — draggable chips
             Text("Preference order (first available is used):")
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 4) {
                 ForEach(Array(backends.enumerated()), id: \.element) { index, backend in
                     HStack(spacing: 4) {
                         Text("\(index + 1).")
-                            .font(.system(size: 9, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.tertiary)
                         Text(backend.displayName)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -195,7 +195,7 @@ struct AgentBackendPreferencesSection: View {
                             moveBackend(agentType, at: index, direction: -1)
                         } label: {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 9))
+                                .font(.system(size: 11))
                         }
                         .buttonStyle(.plain)
                         .disabled(index == 0)
@@ -204,7 +204,7 @@ struct AgentBackendPreferencesSection: View {
                             moveBackend(agentType, at: index, direction: 1)
                         } label: {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 9))
+                                .font(.system(size: 11))
                         }
                         .buttonStyle(.plain)
                         .disabled(index == backends.count - 1)
@@ -228,7 +228,7 @@ struct AgentBackendPreferencesSection: View {
             if !available.isEmpty {
                 HStack(spacing: 4) {
                     Text("Add:")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.tertiary)
                     ForEach(available, id: \.self) { backend in
                         Button {
@@ -238,7 +238,7 @@ struct AgentBackendPreferencesSection: View {
                                 Image(systemName: "plus")
                                     .font(.system(size: 8, weight: .bold))
                                 Text(backend.displayName)
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 12))
                             }
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)

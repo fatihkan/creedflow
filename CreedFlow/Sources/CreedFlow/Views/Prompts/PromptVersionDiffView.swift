@@ -35,13 +35,13 @@ struct PromptVersionDiffView: View {
             // Column headers
             HStack(spacing: 0) {
                 Text("v\(oldVersion.version) — \(oldVersion.title)")
-                    .font(.caption.bold())
+                    .font(.footnote.bold())
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
                 Divider()
                 Text("v\(newVersion.version) — \(newVersion.title)")
-                    .font(.caption.bold())
+                    .font(.footnote.bold())
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 12)
@@ -92,7 +92,7 @@ struct PromptVersionDiffView: View {
     private func diffLineView(_ line: DiffLine) -> some View {
         HStack(spacing: 0) {
             Text(line.text)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 13, design: .monospaced))
                 .lineLimit(1)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 1)

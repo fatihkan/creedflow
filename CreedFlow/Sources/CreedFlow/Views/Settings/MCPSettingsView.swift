@@ -159,7 +159,7 @@ private struct MCPTemplateCard: View {
                         .frame(width: 36, height: 36)
                     if isConfigured {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.forgeSuccess)
                             .offset(x: 4, y: -4)
                     }
@@ -167,7 +167,7 @@ private struct MCPTemplateCard: View {
                 Text(template.displayName)
                     .font(.subheadline.weight(.medium))
                 Text(template.description)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -296,7 +296,7 @@ private struct MCPServerRow: View {
                 Text(config.name)
                     .font(.headline)
                 Text(config.command)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

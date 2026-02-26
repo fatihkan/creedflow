@@ -41,7 +41,7 @@ struct PromptChainEditSheet: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text("Step \(index + 1)")
-                                    .font(.caption.bold())
+                                    .font(.footnote.bold())
                                     .foregroundStyle(.secondary)
                                 Spacer()
                                 if steps.count > 1 {
@@ -65,7 +65,7 @@ struct PromptChainEditSheet: View {
                             if index > 0 {
                                 TextField("Transition note (optional)", text: $steps[index].transitionNote)
                                     .textFieldStyle(.roundedBorder)
-                                    .font(.caption)
+                                    .font(.footnote)
                             }
                         }
                         .padding(.vertical, 4)

@@ -154,7 +154,7 @@ struct ArchivedTasksView: View {
                     Image(systemName: task.agentType.icon)
                     Text(task.agentType.rawValue.capitalized)
                 }
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(task.agentType.themeColor)
 
                 // Original status badge
@@ -165,7 +165,7 @@ struct ArchivedTasksView: View {
 
                 if let archivedAt = task.archivedAt {
                     Text("Archived \(archivedAt, style: .relative) ago")
-                        .font(.system(size: 9))
+                        .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -176,12 +176,12 @@ struct ArchivedTasksView: View {
 
             HStack(spacing: 6) {
                 Text(projectName)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.tertiary)
                 Spacer()
                 if let duration = task.durationMs {
                     Text(ForgeDuration.format(ms: duration))
-                        .font(.system(size: 9, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.tertiary)
                 }
             }

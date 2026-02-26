@@ -35,7 +35,7 @@ struct CostDashboardView: View {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Total Cost")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                         Text(String(format: "$%.4f", totalCost))
                             .font(.system(.title, design: .rounded, weight: .bold))
@@ -44,7 +44,7 @@ struct CostDashboardView: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Invocations")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                         Text("\(costEntries.count)")
                             .font(.system(.title, design: .rounded, weight: .bold))
@@ -53,7 +53,7 @@ struct CostDashboardView: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Total Tokens")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                         let totalTokens = costEntries.reduce(0) { $0 + $1.inputTokens + $1.outputTokens }
                         Text(formatTokenCount(totalTokens))
@@ -116,7 +116,7 @@ struct CostDashboardView: View {
                     } else {
                         if costEntries.count > visibleCount {
                             Text("Showing \(visibleCount) of \(costEntries.count) entries")
-                                .font(.caption)
+                                .font(.footnote)
                                 .foregroundStyle(.tertiary)
                         }
 
@@ -126,19 +126,19 @@ struct CostDashboardView: View {
 
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text("\(entry.inputTokens + entry.outputTokens) tokens")
-                                        .font(.caption)
+                                        .font(.footnote)
                                     Text(entry.model)
-                                        .font(.system(size: 9, design: .monospaced))
+                                        .font(.system(size: 11, design: .monospaced))
                                         .foregroundStyle(.tertiary)
                                 }
 
                                 Spacer()
 
                                 Text(String(format: "$%.4f", entry.costUSD))
-                                    .font(.system(.caption, design: .monospaced))
+                                    .font(.system(.footnote, design: .monospaced))
 
                                 Text(entry.createdAt, style: .relative)
-                                    .font(.caption2)
+                                    .font(.caption)
                                     .foregroundStyle(.tertiary)
                                     .frame(width: 60, alignment: .trailing)
                             }
@@ -154,7 +154,7 @@ struct CostDashboardView: View {
                                 visibleCount += 20
                             } label: {
                                 Text("Load more...")
-                                    .font(.caption)
+                                    .font(.footnote)
                                     .foregroundStyle(.forgeAmber)
                             }
                             .buttonStyle(.plain)

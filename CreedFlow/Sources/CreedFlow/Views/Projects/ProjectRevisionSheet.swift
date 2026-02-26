@@ -20,7 +20,7 @@ struct ProjectRevisionSheet: View {
                     Text("Add Features")
                         .font(.title3.bold())
                     Text("Add new requirements to \(project.name)")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -46,7 +46,7 @@ struct ProjectRevisionSheet: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.forgeSuccess)
-                                    .font(.caption)
+                                    .font(.footnote)
                                 Text(feature.name)
                                     .font(.subheadline)
                                 Spacer()
@@ -66,7 +66,7 @@ struct ProjectRevisionSheet: View {
                             showPromptPicker = true
                         } label: {
                             Label("Use Prompt", systemImage: "text.book.closed")
-                                .font(.caption)
+                                .font(.footnote)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
@@ -81,7 +81,7 @@ struct ProjectRevisionSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
 
                     Text("Describe the new features you want to add. The analyzer will create only new tasks without duplicating existing ones.")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
 

@@ -41,7 +41,7 @@ struct PromptEditSheet: View {
                         HStack(spacing: 4) {
                             ForEach(parsedTags, id: \.self) { tag in
                                 Text(tag)
-                                    .font(.system(size: 9, weight: .medium))
+                                    .font(.system(size: 11, weight: .medium))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
                                     .background(.blue.opacity(0.15), in: Capsule())
@@ -63,7 +63,7 @@ struct PromptEditSheet: View {
                             ForEach(detectedVariables, id: \.self) { variable in
                                 HStack(spacing: 2) {
                                     Text("{{\(variable)}}")
-                                        .font(.system(size: 10, design: .monospaced))
+                                        .font(.system(size: 12, design: .monospaced))
                                     if TemplateVariableResolver.builtInVariables.contains(variable) {
                                         Image(systemName: "bolt.fill")
                                             .font(.system(size: 7))
@@ -77,7 +77,7 @@ struct PromptEditSheet: View {
                             }
                         }
                         Text("Variables with bolt icon are auto-filled from project context")
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -94,7 +94,7 @@ struct PromptEditSheet: View {
                                 Button("Compare Selected") {
                                     presentDiff()
                                 }
-                                .font(.caption)
+                                .font(.footnote)
                                 .buttonStyle(.bordered)
                                 .padding(.bottom, 4)
                             }
@@ -120,21 +120,21 @@ struct PromptEditSheet: View {
 
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("v\(ver.version) — \(ver.title)")
-                                            .font(.caption.bold())
+                                            .font(.footnote.bold())
                                         if let note = ver.changeNote, !note.isEmpty {
                                             Text(note)
-                                                .font(.caption2)
+                                                .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
                                         Text(ver.createdAt, style: .date)
-                                            .font(.caption2)
+                                            .font(.caption)
                                             .foregroundStyle(.tertiary)
                                     }
                                     Spacer()
                                     Button("Revert") {
                                         revertToVersion(ver)
                                     }
-                                    .font(.caption)
+                                    .font(.footnote)
                                     .buttonStyle(.borderless)
                                 }
                                 .padding(.vertical, 2)
@@ -152,7 +152,7 @@ struct PromptEditSheet: View {
                 Spacer()
                 if let existing {
                     Text("v\(existing.version)")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Button(existing == nil ? "Create" : "Save") { save() }

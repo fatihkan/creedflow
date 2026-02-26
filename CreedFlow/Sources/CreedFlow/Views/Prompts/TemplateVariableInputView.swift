@@ -28,7 +28,7 @@ struct TemplateVariableInputView: View {
                     Text("Template Variables")
                         .font(.title3.bold())
                     Text("Fill in the variables to customize this prompt")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -49,7 +49,7 @@ struct TemplateVariableInputView: View {
                                 TextField("Auto-filled", text: binding(for: variable))
                                     .textFieldStyle(.roundedBorder)
                                 Text("auto")
-                                    .font(.caption2)
+                                    .font(.caption)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 1)
                                     .background(.green.opacity(0.15), in: Capsule())
@@ -64,7 +64,7 @@ struct TemplateVariableInputView: View {
 
                 Section("Preview") {
                     Text(resolvedContent)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.system(.footnote, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(8)

@@ -194,7 +194,7 @@ struct DeployView: View {
             // Environment indicator
             VStack(spacing: 2) {
                 Image(systemName: environmentIcon(deployment.environment))
-                    .font(.caption)
+                    .font(.footnote)
                 Text(deployment.environment.rawValue.uppercased())
                     .font(.system(size: 8, weight: .bold, design: .rounded))
             }
@@ -220,7 +220,7 @@ struct DeployView: View {
 
                     if let port = deployment.port {
                         Text(":\(port)")
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
 
@@ -233,7 +233,7 @@ struct DeployView: View {
                 HStack(spacing: 8) {
                     if let hash = deployment.commitHash {
                         Text(String(hash.prefix(7)))
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(.tertiary)
                             .textSelection(.enabled)
                             .help(hash)
@@ -250,7 +250,7 @@ struct DeployView: View {
                                 }
                             } label: {
                                 Label("Open", systemImage: "globe")
-                                    .font(.caption2)
+                                    .font(.caption)
                             }
                             .buttonStyle(.borderless)
                         }
@@ -259,7 +259,7 @@ struct DeployView: View {
                             stopDeployment(deployment)
                         } label: {
                             Label("Stop", systemImage: "stop.fill")
-                                .font(.caption2)
+                                .font(.caption)
                         }
                         .buttonStyle(.borderless)
                         .foregroundStyle(.forgeDanger)
@@ -271,14 +271,14 @@ struct DeployView: View {
                             cancelDeployment(deployment)
                         } label: {
                             Label("Cancel", systemImage: "xmark.circle")
-                                .font(.caption2)
+                                .font(.caption)
                         }
                         .buttonStyle(.borderless)
                         .foregroundStyle(.forgeDanger)
                     }
 
                     Text(deployment.createdAt, style: .relative)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -422,7 +422,7 @@ private struct DeployTriggerSheet: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.red)
                     Spacer()
                     Button { self.errorMessage = nil } label: {
@@ -487,7 +487,7 @@ private struct DeployTriggerSheet: View {
                                 .multilineTextAlignment(.center)
                                 .font(.system(.body, design: .monospaced))
                             Text(portHint)
-                                .font(.system(size: 10))
+                                .font(.system(size: 12))
                                 .foregroundStyle(.tertiary)
                         }
                     }
@@ -503,7 +503,7 @@ private struct DeployTriggerSheet: View {
                 if environment == .production {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                        .font(.caption)
+                        .font(.footnote)
                 }
                 Button("Deploy") {
                     if environment == .production {

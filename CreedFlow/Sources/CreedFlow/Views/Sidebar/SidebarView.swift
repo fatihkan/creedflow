@@ -86,7 +86,7 @@ struct SidebarView: View {
                 Spacer()
                 if activeTaskCount > 0 {
                     Text("\(activeTaskCount)")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -100,7 +100,7 @@ struct SidebarView: View {
                 Spacer()
                 if archivedTaskCount > 0 {
                     Text("\(archivedTaskCount)")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -129,9 +129,9 @@ struct SidebarView: View {
                 if totalProjectCount > 5 {
                     HStack(spacing: 4) {
                         Image(systemName: "ellipsis")
-                            .font(.caption2)
-                        Text("View All Projects")
                             .font(.caption)
+                        Text("View All Projects")
+                            .font(.footnote)
                     }
                     .foregroundStyle(.forgeAmber)
                     .tag(SidebarSection.projects)
@@ -150,7 +150,7 @@ struct SidebarView: View {
                 Spacer()
                 if pendingDeployCount > 0 {
                     Text("\(pendingDeployCount)")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -188,7 +188,7 @@ struct SidebarView: View {
                     .frame(width: 6, height: 6)
                 if orchestrator.activeRunners.count > 0 {
                     Text("\(orchestrator.activeRunners.count)")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -208,7 +208,7 @@ struct SidebarView: View {
                     .foregroundStyle(.primary.opacity(0.8))
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.quaternary)
             }
             .padding(.horizontal, 10)
@@ -240,7 +240,7 @@ struct SidebarView: View {
                     .foregroundStyle(.primary.opacity(0.8))
                 Spacer()
                 Text("PRO")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(.forgeAmber)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -294,7 +294,7 @@ struct SidebarView: View {
                         .fill(accent.opacity(0.15))
                         .frame(width: 26, height: 26)
                     Image(systemName: isRunning ? "stop.fill" : "play.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(accent)
                 }
                 VStack(alignment: .leading, spacing: 1) {
@@ -303,11 +303,11 @@ struct SidebarView: View {
                         .foregroundStyle(.primary.opacity(0.9))
                     if isRunning, let orchestrator, orchestrator.activeRunners.count > 0 {
                         Text("\(orchestrator.activeRunners.count) aktif görev")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     } else {
                         Text("Orchestrator")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -502,7 +502,7 @@ struct SubscriptionSheetView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.secondary)
                     .frame(width: 28, height: 28)
                     .background {
@@ -530,7 +530,7 @@ struct SubscriptionSheetView: View {
             HStack(spacing: 4) {
                 if highlight {
                     Text("Popüler")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(.forgeAmber)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
@@ -549,7 +549,7 @@ struct SubscriptionSheetView: View {
                 Text(price)
                     .font(.system(.title2, weight: .bold))
                 Text(period)
-                    .font(.system(.caption, weight: .medium))
+                    .font(.system(.footnote, weight: .medium))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -610,7 +610,7 @@ struct SubscriptionSheetView: View {
 
     private var comingSoonBadge: some View {
         Text("Yakında")
-            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundStyle(.white.opacity(0.9))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)

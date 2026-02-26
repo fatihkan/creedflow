@@ -21,20 +21,20 @@ struct GitCommitRowView: View {
 
             // Short hash (monospace, selectable)
             Text(commit.shortHash)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 13, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
 
             // Author
             Text(commit.author)
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
                 .frame(width: 100, alignment: .trailing)
 
             // Relative date
             Text(commit.date, style: .relative)
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundStyle(.tertiary)
                 .frame(width: 80, alignment: .trailing)
         }
@@ -49,10 +49,10 @@ struct GitCommitRowView: View {
         HStack(spacing: 3) {
             if decoration.type == .head {
                 Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
             }
             Text(decoration.name)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
