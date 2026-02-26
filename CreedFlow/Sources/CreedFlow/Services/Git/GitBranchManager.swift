@@ -85,8 +85,8 @@ actor GitBranchManager {
 
     /// Create a feature branch from dev for a coder task. Returns the branch name.
     func setupFeatureBranch(task: AgentTask, in path: String) async throws -> String {
-        // Ensure we branch from dev
-        try await gitService.checkout("dev", in: path)
+        // Ensure branch structure exists (dev may not exist for pre-v16 projects)
+        try await ensureBranchStructure(in: path)
 
         let sanitizedTitle = task.title.lowercased()
             .replacingOccurrences(of: " ", with: "-")
