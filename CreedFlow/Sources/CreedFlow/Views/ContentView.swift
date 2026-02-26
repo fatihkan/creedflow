@@ -132,7 +132,7 @@ public struct ContentView: View {
                 orchestrator: orchestrator
             )
         case .archive:
-            ArchivedTasksView(appDatabase: appDatabase)
+            ArchivedTasksView(appDatabase: appDatabase, selectedTaskId: $selectedTaskId)
         case .agents:
             AgentStatusView(
                 orchestrator: orchestrator,

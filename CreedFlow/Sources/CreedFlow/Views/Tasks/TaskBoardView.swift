@@ -16,6 +16,8 @@ struct TaskBoardView: View {
     @State private var errorMessage: String?
     @State private var showNewTask = false
     @State private var showArchiveConfirm = false
+    @State private var archiveSelection: Set<UUID> = []
+    @State private var isArchiveSelectionMode = false
 
     init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?) {
         self.projectId = projectId
@@ -34,10 +36,12 @@ struct TaskBoardView: View {
         KanbanColumn(title: "Cancelled", status: .cancelled, color: .forgeNeutral),
     ]
 
-    /// Count of tasks that can be archived (done + failed + cancelled)
-    private var archivableCount: Int {
-        tasks.filter { $0.status == .passed || $0.status == .failed || $0.status == .cancelled }.count
+    /// Tasks that can be archived (done + failed + cancelled)
+    private var archivableTasks: [AgentTask] {
+        tasks.filter { $0.status == .passed || $0.status == .failed || $0.status == .cancelled }
     }
+
+    private var archivableCount: Int { archivableTasks.count }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,12 +56,42 @@ struct TaskBoardView: View {
                     .frame(maxWidth: 200)
 
                     if archivableCount > 0 {
-                        Button {
-                            showArchiveConfirm = true
-                        } label: {
-                            Label("Archive", systemImage: "archivebox")
+                        if isArchiveSelectionMode {
+                            Button {
+                                if archiveSelection.count == archivableTasks.count {
+                                    archiveSelection.removeAll()
+                                } else {
+                                    archiveSelection = Set(archivableTasks.map(\.id))
+                                }
+                            } label: {
+                                Label(
+                                    archiveSelection.count == archivableTasks.count ? "Deselect All" : "Select All",
+                                    systemImage: archiveSelection.count == archivableTasks.count ? "checkmark.circle" : "circle"
+                                )
+                            }
+
+                            Button {
+                                showArchiveConfirm = true
+                            } label: {
+                                Label("Archive Selected (\(archiveSelection.count))", systemImage: "archivebox")
+                            }
+                            .disabled(archiveSelection.isEmpty)
+
+                            Button {
+                                isArchiveSelectionMode = false
+                                archiveSelection.removeAll()
+                            } label: {
+                                Label("Cancel", systemImage: "xmark")
+                            }
+                        } else {
+                            Button {
+                                isArchiveSelectionMode = true
+                                archiveSelection.removeAll()
+                            } label: {
+                                Label("Archive", systemImage: "archivebox")
+                            }
+                            .help("Select tasks to archive")
                         }
-                        .help("Archive \(archivableCount) completed, failed, and cancelled tasks")
                     }
 
                     if filterProjectId != nil {
@@ -85,6 +119,8 @@ struct TaskBoardView: View {
                             tasks: tasks.filter { $0.status == column.status },
                             selectedTaskId: $selectedTaskId,
                             orchestrator: orchestrator,
+                            isArchiveSelectionMode: isArchiveSelectionMode,
+                            archiveSelection: $archiveSelection,
                             onMoveTask: { taskId, newStatus in
                                 moveTask(taskId: taskId, to: newStatus)
                             }
@@ -103,15 +139,17 @@ struct TaskBoardView: View {
             "Archive Tasks",
             isPresented: $showArchiveConfirm
         ) {
-            Button("Archive Done, Failed & Cancelled (\(archivableCount))") {
+            Button("Archive \(archiveSelection.count) Selected Task\(archiveSelection.count == 1 ? "" : "s")") {
                 archiveTasks()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Completed, failed, and cancelled tasks will be moved to the archive. You can restore or permanently delete them later.")
+            Text("Selected tasks will be moved to the archive. You can restore or permanently delete them later.")
         }
         .onChange(of: projectId) { _, newValue in
             filterProjectId = newValue
+            isArchiveSelectionMode = false
+            archiveSelection.removeAll()
         }
         .task(id: filterProjectId) {
             await observeTasks()
@@ -164,23 +202,19 @@ struct TaskBoardView: View {
     }
 
     private func archiveTasks() {
-        guard let db = appDatabase else { return }
-        let terminalStatuses: [AgentTask.Status] = [.passed, .failed, .cancelled]
+        guard let db = appDatabase, !archiveSelection.isEmpty else { return }
+        let idsToArchive = Array(archiveSelection)
         let now = Date()
         try? db.dbQueue.write { dbConn in
-            let idsToArchive = tasks
-                .filter { terminalStatuses.contains($0.status) }
-                .map(\.id)
-            guard !idsToArchive.isEmpty else { return }
             try AgentTask
                 .filter(idsToArchive.contains(Column("id")))
                 .updateAll(dbConn, Column("archivedAt").set(to: now), Column("updatedAt").set(to: now))
         }
-        // Clear selection if the selected task was archived
-        if let selected = selectedTaskId,
-           tasks.contains(where: { $0.id == selected && terminalStatuses.contains($0.status) }) {
+        if let selected = selectedTaskId, archiveSelection.contains(selected) {
             selectedTaskId = nil
         }
+        archiveSelection.removeAll()
+        isArchiveSelectionMode = false
     }
 
     private func moveTask(taskId: UUID, to newStatus: AgentTask.Status) {
@@ -287,9 +321,13 @@ struct KanbanColumnView: View {
     let tasks: [AgentTask]
     @Binding var selectedTaskId: UUID?
     let orchestrator: Orchestrator?
+    var isArchiveSelectionMode: Bool = false
+    @Binding var archiveSelection: Set<UUID>
     let onMoveTask: (UUID, AgentTask.Status) -> Void
 
     @State private var isDropTargeted = false
+
+    private static let archivableStatuses: Set<AgentTask.Status> = [.passed, .failed, .cancelled]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -328,15 +366,46 @@ struct KanbanColumnView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 6) {
                         ForEach(tasks) { task in
-                            TaskCardView(
-                                task: task,
-                                isSelected: selectedTaskId == task.id,
-                                isRunning: orchestrator?.runner(for: task.id) != nil,
-                                onMoveTask: onMoveTask
-                            )
+                            let isArchivable = Self.archivableStatuses.contains(task.status)
+                            HStack(spacing: 6) {
+                                if isArchiveSelectionMode && isArchivable {
+                                    Button {
+                                        if archiveSelection.contains(task.id) {
+                                            archiveSelection.remove(task.id)
+                                        } else {
+                                            archiveSelection.insert(task.id)
+                                        }
+                                    } label: {
+                                        Image(systemName: archiveSelection.contains(task.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(archiveSelection.contains(task.id) ? .forgeAmber : .secondary)
+                                            .font(.system(size: 16))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
+                                TaskCardView(
+                                    task: task,
+                                    isSelected: selectedTaskId == task.id,
+                                    isRunning: orchestrator?.runner(for: task.id) != nil,
+                                    onMoveTask: onMoveTask
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(.forgeAmber.opacity(0.5), lineWidth: 1.5)
+                                        .opacity(isArchiveSelectionMode && archiveSelection.contains(task.id) ? 1 : 0)
+                                )
+                            }
                             .onTapGesture {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    selectedTaskId = task.id
+                                if isArchiveSelectionMode && isArchivable {
+                                    if archiveSelection.contains(task.id) {
+                                        archiveSelection.remove(task.id)
+                                    } else {
+                                        archiveSelection.insert(task.id)
+                                    }
+                                } else {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        selectedTaskId = task.id
+                                    }
                                 }
                             }
                             .draggable(task.id.uuidString)

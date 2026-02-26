@@ -3,23 +3,63 @@ import GRDB
 
 struct ArchivedTasksView: View {
     let appDatabase: AppDatabase?
+    @Binding var selectedTaskId: UUID?
 
     @State private var archivedTasks: [(task: AgentTask, projectName: String)] = []
     @State private var errorMessage: String?
     @State private var isLoading = true
-    @State private var showDeleteAllConfirm = false
-    @State private var taskToDelete: AgentTask?
+    @State private var showDeleteConfirm = false
+    @State private var showRestoreConfirm = false
+    @State private var selection: Set<UUID> = []
+    @State private var isSelectionMode = false
 
     var body: some View {
         VStack(spacing: 0) {
             ForgeToolbar(title: "Archive") {
                 if !archivedTasks.isEmpty {
-                    Button(role: .destructive) {
-                        showDeleteAllConfirm = true
-                    } label: {
-                        Label("Delete All", systemImage: "trash")
+                    if isSelectionMode {
+                        Button {
+                            if selection.count == archivedTasks.count {
+                                selection.removeAll()
+                            } else {
+                                selection = Set(archivedTasks.map(\.task.id))
+                            }
+                        } label: {
+                            Label(
+                                selection.count == archivedTasks.count ? "Deselect All" : "Select All",
+                                systemImage: selection.count == archivedTasks.count ? "checkmark.circle" : "circle"
+                            )
+                        }
+
+                        Button {
+                            showRestoreConfirm = true
+                        } label: {
+                            Label("Restore (\(selection.count))", systemImage: "arrow.uturn.backward")
+                        }
+                        .disabled(selection.isEmpty)
+
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label("Delete (\(selection.count))", systemImage: "trash")
+                        }
+                        .disabled(selection.isEmpty)
+
+                        Button {
+                            isSelectionMode = false
+                            selection.removeAll()
+                        } label: {
+                            Label("Cancel", systemImage: "xmark")
+                        }
+                    } else {
+                        Button {
+                            isSelectionMode = true
+                            selection.removeAll()
+                        } label: {
+                            Label("Select", systemImage: "checkmark.circle")
+                        }
+                        .help("Select tasks to restore or delete")
                     }
-                    .help("Permanently delete all archived tasks")
                 }
             }
             Divider()
@@ -43,7 +83,34 @@ struct ArchivedTasksView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(archivedTasks, id: \.task.id) { item in
-                            archivedTaskCard(task: item.task, projectName: item.projectName)
+                            HStack(spacing: 8) {
+                                if isSelectionMode {
+                                    Button {
+                                        toggleSelection(item.task.id)
+                                    } label: {
+                                        Image(systemName: selection.contains(item.task.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selection.contains(item.task.id) ? .forgeAmber : .secondary)
+                                            .font(.system(size: 16))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
+                                archivedTaskCard(task: item.task, projectName: item.projectName, isSelected: selectedTaskId == item.task.id)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(.forgeAmber.opacity(0.5), lineWidth: 1.5)
+                                            .opacity(isSelectionMode && selection.contains(item.task.id) ? 1 : 0)
+                                    )
+                            }
+                            .onTapGesture {
+                                if isSelectionMode {
+                                    toggleSelection(item.task.id)
+                                } else {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        selectedTaskId = item.task.id
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(16)
@@ -54,35 +121,32 @@ struct ArchivedTasksView: View {
             await observeArchivedTasks()
         }
         .confirmationDialog(
-            "Delete All Archived Tasks",
-            isPresented: $showDeleteAllConfirm
+            "Delete Selected Tasks",
+            isPresented: $showDeleteConfirm
         ) {
-            Button("Delete All (\(archivedTasks.count))", role: .destructive) {
-                deleteAllArchived()
+            Button("Delete \(selection.count) Task\(selection.count == 1 ? "" : "s")", role: .destructive) {
+                deleteSelected()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Archived tasks will be permanently deleted along with their logs, reviews, and dependencies. This cannot be undone.")
+            Text("Selected tasks will be permanently deleted along with their logs, reviews, and dependencies. This cannot be undone.")
         }
         .confirmationDialog(
-            "Delete Task",
-            isPresented: Binding(
-                get: { taskToDelete != nil },
-                set: { if !$0 { taskToDelete = nil } }
-            ),
-            presenting: taskToDelete
-        ) { task in
-            Button("Delete \"\(task.title)\"", role: .destructive) {
-                permanentlyDelete(task)
+            "Restore Selected Tasks",
+            isPresented: $showRestoreConfirm
+        ) {
+            Button("Restore \(selection.count) Task\(selection.count == 1 ? "" : "s")") {
+                restoreSelected()
             }
-        } message: { _ in
-            Text("This task will be permanently deleted along with its logs, reviews, and dependencies. This cannot be undone.")
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Selected tasks will be restored to the Task Board with their original status.")
         }
     }
 
     // MARK: - Card
 
-    private func archivedTaskCard(task: AgentTask, projectName: String) -> some View {
+    private func archivedTaskCard(task: AgentTask, projectName: String, isSelected: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 // Agent badge
@@ -123,7 +187,7 @@ struct ArchivedTasksView: View {
             }
         }
         .padding(12)
-        .forgeCard(cornerRadius: 8)
+        .forgeCard(selected: isSelected, cornerRadius: 8)
         .contextMenu {
             Button {
                 restoreTask(task)
@@ -132,7 +196,7 @@ struct ArchivedTasksView: View {
             }
             Divider()
             Button(role: .destructive) {
-                taskToDelete = task
+                permanentlyDelete(task)
             } label: {
                 Label("Delete Permanently", systemImage: "trash")
             }
@@ -177,6 +241,14 @@ struct ArchivedTasksView: View {
 
     // MARK: - Actions
 
+    private func toggleSelection(_ id: UUID) {
+        if selection.contains(id) {
+            selection.remove(id)
+        } else {
+            selection.insert(id)
+        }
+    }
+
     private func restoreTask(_ task: AgentTask) {
         guard let db = appDatabase else { return }
         try? db.dbQueue.write { dbConn in
@@ -184,6 +256,18 @@ struct ArchivedTasksView: View {
                 .filter(Column("id") == task.id)
                 .updateAll(dbConn, Column("archivedAt").set(to: nil as Date?), Column("updatedAt").set(to: Date()))
         }
+    }
+
+    private func restoreSelected() {
+        guard let db = appDatabase, !selection.isEmpty else { return }
+        let ids = Array(selection)
+        try? db.dbQueue.write { dbConn in
+            try AgentTask
+                .filter(ids.contains(Column("id")))
+                .updateAll(dbConn, Column("archivedAt").set(to: nil as Date?), Column("updatedAt").set(to: Date()))
+        }
+        selection.removeAll()
+        isSelectionMode = false
     }
 
     private func permanentlyDelete(_ task: AgentTask) {
@@ -204,15 +288,10 @@ struct ArchivedTasksView: View {
         }
     }
 
-    private func deleteAllArchived() {
-        guard let db = appDatabase else { return }
+    private func deleteSelected() {
+        guard let db = appDatabase, !selection.isEmpty else { return }
+        let ids = Array(selection)
         try? db.dbQueue.write { dbConn in
-            let ids = try AgentTask
-                .filter(Column("archivedAt") != nil)
-                .select(Column("id"))
-                .fetchAll(dbConn)
-                .map(\.id)
-            guard !ids.isEmpty else { return }
             try TaskDependency
                 .filter(ids.contains(Column("taskId")) || ids.contains(Column("dependsOnTaskId")))
                 .deleteAll(dbConn)
@@ -226,5 +305,7 @@ struct ArchivedTasksView: View {
                 .filter(ids.contains(Column("id")))
                 .deleteAll(dbConn)
         }
+        selection.removeAll()
+        isSelectionMode = false
     }
 }

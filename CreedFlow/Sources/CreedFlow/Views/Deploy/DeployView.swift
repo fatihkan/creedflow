@@ -8,8 +8,10 @@ struct DeployView: View {
     @State private var projectNames: [UUID: String] = [:]
     @State private var errorMessage: String?
     @State private var showDeploySheet = false
-    @State private var showCleanupConfirm = false
+    @State private var showDeleteConfirm = false
     @State private var isLoading = true
+    @State private var selection: Set<UUID> = []
+    @State private var isSelectionMode = false
     @State private var filterEnvironment: Deployment.Environment?
     @State private var filterStatus: Deployment.Status?
 
@@ -21,10 +23,14 @@ struct DeployView: View {
         }
     }
 
+    private static let cleanableStatuses: Set<Deployment.Status> = [.success, .failed, .rolledBack]
+
     /// Deployments eligible for cleanup (terminal states: success, failed, rolled_back)
-    private var cleanableCount: Int {
-        deployments.filter { $0.status == .success || $0.status == .failed || $0.status == .rolledBack }.count
+    private var cleanableDeployments: [Deployment] {
+        deployments.filter { Self.cleanableStatuses.contains($0.status) }
     }
+
+    private var cleanableCount: Int { cleanableDeployments.count }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,12 +55,42 @@ struct DeployView: View {
                     .frame(maxWidth: 120)
 
                     if cleanableCount > 0 {
-                        Button {
-                            showCleanupConfirm = true
-                        } label: {
-                            Label("Clean Up", systemImage: "trash")
+                        if isSelectionMode {
+                            Button {
+                                if selection.count == cleanableDeployments.count {
+                                    selection.removeAll()
+                                } else {
+                                    selection = Set(cleanableDeployments.map(\.id))
+                                }
+                            } label: {
+                                Label(
+                                    selection.count == cleanableDeployments.count ? "Deselect All" : "Select All",
+                                    systemImage: selection.count == cleanableDeployments.count ? "checkmark.circle" : "circle"
+                                )
+                            }
+
+                            Button(role: .destructive) {
+                                showDeleteConfirm = true
+                            } label: {
+                                Label("Delete Selected (\(selection.count))", systemImage: "trash")
+                            }
+                            .disabled(selection.isEmpty)
+
+                            Button {
+                                isSelectionMode = false
+                                selection.removeAll()
+                            } label: {
+                                Label("Cancel", systemImage: "xmark")
+                            }
+                        } else {
+                            Button {
+                                isSelectionMode = true
+                                selection.removeAll()
+                            } label: {
+                                Label("Clean Up", systemImage: "trash")
+                            }
+                            .help("Select deployments to remove")
                         }
-                        .help("Remove \(cleanableCount) completed, failed, and rolled-back deployments")
                     }
 
                     Button {
@@ -85,18 +121,49 @@ struct DeployView: View {
                         }
 
                         ForEach(filteredDeployments) { deployment in
-                            deploymentCard(deployment)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
+                            let isCleanable = Self.cleanableStatuses.contains(deployment.status)
+                            HStack(spacing: 8) {
+                                if isSelectionMode && isCleanable {
+                                    Button {
+                                        if selection.contains(deployment.id) {
+                                            selection.remove(deployment.id)
+                                        } else {
+                                            selection.insert(deployment.id)
+                                        }
+                                    } label: {
+                                        Image(systemName: selection.contains(deployment.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selection.contains(deployment.id) ? .forgeAmber : .secondary)
+                                            .font(.system(size: 16))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
+                                deploymentCard(deployment)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(.forgeAmber.opacity(0.5), lineWidth: 1.5)
+                                            .opacity(isSelectionMode && selection.contains(deployment.id) ? 1 : 0)
+                                    )
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if isSelectionMode && isCleanable {
+                                    if selection.contains(deployment.id) {
+                                        selection.remove(deployment.id)
+                                    } else {
+                                        selection.insert(deployment.id)
+                                    }
+                                } else {
                                     selectedDeploymentId = deployment.id
                                 }
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(
-                                            selectedDeploymentId == deployment.id ? Color.forgeAmber : .clear,
-                                            lineWidth: 2
-                                        )
-                                )
+                            }
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(
+                                        !isSelectionMode && selectedDeploymentId == deployment.id ? Color.forgeAmber : .clear,
+                                        lineWidth: 2
+                                    )
+                            )
                         }
                     }
                     .padding(16)
@@ -107,15 +174,15 @@ struct DeployView: View {
             DeployTriggerSheet(appDatabase: appDatabase)
         }
         .confirmationDialog(
-            "Clean Up Deployments",
-            isPresented: $showCleanupConfirm
+            "Delete Selected Deployments",
+            isPresented: $showDeleteConfirm
         ) {
-            Button("Remove Completed, Failed & Rolled-back (\(cleanableCount))", role: .destructive) {
-                cleanUpDeployments()
+            Button("Delete \(selection.count) Deployment\(selection.count == 1 ? "" : "s")", role: .destructive) {
+                deleteSelected()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will permanently delete all completed, failed, and rolled-back deployment records. Active and pending deployments will not be affected.")
+            Text("Selected deployment records will be permanently deleted. This cannot be undone.")
         }
         .task {
             await observeDeployments()
@@ -274,18 +341,19 @@ struct DeployView: View {
         }
     }
 
-    private func cleanUpDeployments() {
-        guard let db = appDatabase else { return }
-        let terminalStatuses: [Deployment.Status] = [.success, .failed, .rolledBack]
+    private func deleteSelected() {
+        guard let db = appDatabase, !selection.isEmpty else { return }
+        let ids = Array(selection)
         try? db.dbQueue.write { dbConn in
-            let idsToDelete = deployments
-                .filter { terminalStatuses.contains($0.status) }
-                .map(\.id)
-            guard !idsToDelete.isEmpty else { return }
             try Deployment
-                .filter(idsToDelete.contains(Column("id")))
+                .filter(ids.contains(Column("id")))
                 .deleteAll(dbConn)
         }
+        if let selected = selectedDeploymentId, selection.contains(selected) {
+            selectedDeploymentId = nil
+        }
+        selection.removeAll()
+        isSelectionMode = false
     }
 
     private func observeDeployments() async {
