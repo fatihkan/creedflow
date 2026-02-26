@@ -197,17 +197,19 @@ struct SidebarView: View {
 
     private var aboutButton: some View {
         Button {
-            NSApplication.shared.orderFrontStandardAboutPanel(nil)
+            if let url = URL(string: "https://github.com/fatihkan/creedflow") {
+                NSWorkspace.shared.open(url)
+            }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "info.circle.fill")
+                Image(systemName: "link")
                     .font(.system(size: 14))
                     .foregroundStyle(.secondary)
-                Text("About")
+                Text("GitHub")
                     .font(.system(.subheadline, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.8))
                 Spacer()
-                Image(systemName: "chevron.right")
+                Image(systemName: "arrow.up.right")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.quaternary)
             }
@@ -224,7 +226,7 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .help("About")
+        .help("Open GitHub Repository")
     }
 
     private var subscribeButton: some View {
