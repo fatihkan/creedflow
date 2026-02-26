@@ -407,6 +407,14 @@ private struct DeployTriggerSheet: View {
         Int(portText) ?? 3001
     }
 
+    private var portHint: String {
+        switch environment {
+        case .development: return "default: 3002"
+        case .staging: return "default: 3001"
+        case .production: return "default: 3000"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if let errorMessage {
@@ -471,11 +479,17 @@ private struct DeployTriggerSheet: View {
                     TextField("Branch", text: $branch)
                         .textFieldStyle(.roundedBorder)
 
-                    HStack {
-                        Text("Port")
-                        TextField("Port", text: $portText)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
+                    LabeledContent("Port") {
+                        HStack(spacing: 6) {
+                            TextField("", text: $portText)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 72)
+                                .multilineTextAlignment(.center)
+                                .font(.system(.body, design: .monospaced))
+                            Text(portHint)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
             }
