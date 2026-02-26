@@ -203,7 +203,7 @@ struct SidebarView: View {
                 Image(systemName: "info.circle.fill")
                     .font(.system(size: 14))
                     .foregroundStyle(.secondary)
-                Text("Hakkında")
+                Text("About")
                     .font(.system(.subheadline, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.8))
                 Spacer()
@@ -224,7 +224,7 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .help("Hakkında")
+        .help("About")
     }
 
     private var subscribeButton: some View {
@@ -235,7 +235,7 @@ struct SidebarView: View {
                 Image(systemName: "star.fill")
                     .font(.system(size: 14))
                     .foregroundStyle(.forgeAmber)
-                Text("Abone Ol")
+                Text("Subscribe")
                     .font(.system(.subheadline, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.8))
                 Spacer()
@@ -268,7 +268,7 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .help("Abone Ol")
+        .help("Subscribe")
         .sheet(isPresented: $showSubscriptionSheet) {
             SubscriptionSheetView()
         }
@@ -298,11 +298,11 @@ struct SidebarView: View {
                         .foregroundStyle(accent)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(isRunning ? "Durdur" : "Başlat")
+                    Text(isRunning ? "Stop" : "Start")
                         .font(.system(.subheadline, weight: .semibold))
                         .foregroundStyle(.primary.opacity(0.9))
                     if isRunning, let orchestrator, orchestrator.activeRunners.count > 0 {
-                        Text("\(orchestrator.activeRunners.count) aktif görev")
+                        Text("\(orchestrator.activeRunners.count) active tasks")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     } else {
@@ -332,8 +332,8 @@ struct SidebarView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .help(orchestrator?.isRunning == true ? "Orchestrator'ı Durdur" : "Orchestrator'ı Başlat")
-        .accessibilityLabel(orchestrator?.isRunning == true ? "Durdur" : "Başlat")
+        .help(orchestrator?.isRunning == true ? "Stop Orchestrator" : "Start Orchestrator")
+        .accessibilityLabel(orchestrator?.isRunning == true ? "Stop" : "Start")
     }
 
     // MARK: - Data Observation
@@ -432,7 +432,7 @@ struct SubscriptionSheetView: View {
                 }
                 Text("CreedFlow Pro")
                     .font(.system(.title2, weight: .bold))
-                Text("Ufak bir destek ile siz de projeye katkı sağlayabilirsiniz")
+                Text("Support the project and unlock all features")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -445,16 +445,16 @@ struct SubscriptionSheetView: View {
             HStack(spacing: 12) {
                 planCard(
                     id: "monthly",
-                    title: "Aylık",
+                    title: "Monthly",
                     price: "$9.99",
-                    period: "/ay",
+                    period: "/mo",
                     highlight: false
                 )
                 planCard(
                     id: "yearly",
-                    title: "Yıllık",
+                    title: "Yearly",
                     price: "$99.99",
-                    period: "/yıl",
+                    period: "/yr",
                     highlight: true
                 )
             }
@@ -470,7 +470,7 @@ struct SubscriptionSheetView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 12))
-                        Text("Stripe ile Devam Et")
+                        Text("Continue with Stripe")
                             .font(.system(.body, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
@@ -482,7 +482,7 @@ struct SubscriptionSheetView: View {
 
                 Button {} label: {
                     HStack(spacing: 8) {
-                        Text("Giriş Yap")
+                        Text("Sign In")
                             .font(.system(.body, weight: .medium))
                         comingSoonBadge
                     }
@@ -518,7 +518,7 @@ struct SubscriptionSheetView: View {
             }
             .buttonStyle(.plain)
             .padding(12)
-            .help("Kapat")
+            .help("Close")
         }
         .frame(width: 380, height: 440)
     }
@@ -529,7 +529,7 @@ struct SubscriptionSheetView: View {
         return VStack(spacing: 8) {
             HStack(spacing: 4) {
                 if highlight {
-                    Text("Popüler")
+                    Text("Popular")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(.forgeAmber)
                         .padding(.horizontal, 8)
@@ -609,7 +609,7 @@ struct SubscriptionSheetView: View {
     }
 
     private var comingSoonBadge: some View {
-        Text("Yakında")
+        Text("Coming Soon")
             .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundStyle(.white.opacity(0.9))
             .padding(.horizontal, 7)
