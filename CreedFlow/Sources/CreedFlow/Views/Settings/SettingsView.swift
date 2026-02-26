@@ -291,6 +291,8 @@ public struct SettingsView: View {
                 }
             }
 
+            AgentBackendPreferencesSection()
+
             Section("Dev Tools") {
                 LabeledContent("gh CLI Version", value: ghVersion)
             }

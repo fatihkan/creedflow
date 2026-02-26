@@ -42,6 +42,7 @@ final class Orchestrator {
     private let thumbnailService: ThumbnailGeneratorService
     private let publishingService: ContentPublishingService
     private let branchManager: GitBranchManager
+    private let preferencesStore = AgentBackendPreferencesStore()
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
@@ -172,7 +173,8 @@ final class Orchestrator {
 
             // Select backend and create a runner for this task
             let agent = resolveAgent(for: task.agentType)
-            guard let backend = await backendRouter.selectBackend(agent: agent, task: task) else {
+            let effectivePrefs = preferencesStore.preferences(for: task.agentType)
+            guard let backend = await backendRouter.selectBackend(preferences: effectivePrefs, task: task) else {
                 // No enabled/available backend — defer the task back to queue
                 await scheduler.release(task: task)
                 try? await taskQueue.deferTask(task)

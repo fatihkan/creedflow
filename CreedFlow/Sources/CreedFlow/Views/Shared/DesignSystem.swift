@@ -113,6 +113,22 @@ extension AgentTask.AgentType {
         }
     }
 
+    var displayName: String {
+        switch self {
+        case .analyzer: return "Analyzer"
+        case .coder: return "Coder"
+        case .reviewer: return "Reviewer"
+        case .tester: return "Tester"
+        case .devops: return "DevOps"
+        case .monitor: return "Monitor"
+        case .contentWriter: return "Content Writer"
+        case .designer: return "Designer"
+        case .imageGenerator: return "Image Generator"
+        case .videoEditor: return "Video Editor"
+        case .publisher: return "Publisher"
+        }
+    }
+
     var icon: String {
         switch self {
         case .analyzer: return "magnifyingglass"

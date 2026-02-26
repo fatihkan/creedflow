@@ -50,8 +50,7 @@ actor BackendRouter {
     /// 2. Collect enabled+available backends from the agent's preference list.
     /// 3. If none from the preference list, fall back to ANY active backend.
     /// 4. Round-robin across the resulting pool.
-    func selectBackend(agent: any AgentProtocol, task: AgentTask) async -> (any CLIBackend)? {
-        let prefs = agent.backendPreferences
+    func selectBackend(preferences prefs: BackendPreferences, task: AgentTask) async -> (any CLIBackend)? {
 
         // If agent prefers Claude for MCP features, try Claude first
         if prefs.requiresClaudeFeatures {

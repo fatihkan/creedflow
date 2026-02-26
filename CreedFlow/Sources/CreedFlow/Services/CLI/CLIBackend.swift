@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import SwiftUI
 
 // MARK: - Backend Type
 
@@ -13,6 +14,32 @@ package enum CLIBackendType: String, Codable, CaseIterable, DatabaseValueConvert
     case lmstudio
     case llamacpp
     case mlx
+
+    var displayName: String {
+        switch self {
+        case .claude: return "Claude"
+        case .codex: return "Codex"
+        case .gemini: return "Gemini"
+        case .opencode: return "OpenCode"
+        case .ollama: return "Ollama"
+        case .lmstudio: return "LM Studio"
+        case .llamacpp: return "llama.cpp"
+        case .mlx: return "MLX"
+        }
+    }
+
+    var backendColor: Color {
+        switch self {
+        case .claude: return .purple
+        case .codex: return .green
+        case .gemini: return .blue
+        case .opencode: return .teal
+        case .ollama: return .orange
+        case .lmstudio: return .cyan
+        case .llamacpp: return .pink
+        case .mlx: return .mint
+        }
+    }
 }
 
 // MARK: - Output Events
