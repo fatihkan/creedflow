@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import GRDB
 
 // MARK: - Analyzer Output Models
@@ -41,6 +42,7 @@ final class Orchestrator {
     private let assetService: AssetStorageService
     private let thumbnailService: ThumbnailGeneratorService
     private let publishingService: ContentPublishingService
+    private let contentExporter: ContentExporter
     private let branchManager: GitBranchManager
     private let preferencesStore = AgentBackendPreferencesStore()
 
@@ -81,6 +83,7 @@ final class Orchestrator {
         self.assetService = AssetStorageService(dbQueue: dbQueue)
         self.thumbnailService = ThumbnailGeneratorService()
         self.publishingService = ContentPublishingService(dbQueue: dbQueue)
+        self.contentExporter = ContentExporter()
         self.branchManager = GitBranchManager(
             gitService: self.gitService,
             gitHubService: self.gitHubService,
@@ -1510,7 +1513,7 @@ final class Orchestrator {
         }
     }
 
-    /// Handle content writer completion — save output as document asset, queue publisher if channels exist.
+    /// Handle content writer completion — save output as document asset, generate format variants, queue publisher if channels exist.
     private func handleContentWriterCompletion(task: AgentTask, result: AgentResult) async {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
@@ -1519,6 +1522,9 @@ final class Orchestrator {
 
         do {
             try await extractAndSaveAssets(output: result.output, task: task, project: project, defaultAssetType: .document)
+
+            // Generate format variants (.txt, .html, .pdf) from saved .md assets
+            await generateFormatVariants(task: task, project: project)
 
             // If publishing channels are configured, queue a publisher task
             let hasChannels = try await publishingService.enabledChannels().isEmpty == false
@@ -1542,6 +1548,175 @@ final class Orchestrator {
             try? await logError(taskId: task.id, agent: .contentWriter,
                                message: "Content writer completion error: \(error.localizedDescription)")
         }
+    }
+
+    /// Generate .txt, .html, .pdf format variants from .md document assets.
+    private func generateFormatVariants(task: AgentTask, project: Project) async {
+        let mdAssets: [GeneratedAsset] = (try? await dbQueue.read { db in
+            try GeneratedAsset
+                .filter(Column("taskId") == task.id)
+                .filter(Column("assetType") == GeneratedAsset.AssetType.document.rawValue)
+                .filter(Column("mimeType") == "text/markdown")
+                .fetchAll(db)
+        }) ?? []
+
+        guard !mdAssets.isEmpty else { return }
+
+        var variantCount = 0
+        for mdAsset in mdAssets {
+            let baseName = (mdAsset.name as NSString).deletingPathExtension
+            let title = baseName.replacingOccurrences(of: "-", with: " ").capitalized
+
+            // .txt — plaintext
+            do {
+                let exported = try await contentExporter.export(filePath: mdAsset.filePath, title: title, format: .plaintext)
+                let fileName = "\(baseName).txt"
+                _ = try await assetService.saveTextAsset(
+                    content: exported.body,
+                    fileName: fileName,
+                    project: project,
+                    task: task,
+                    assetType: .document,
+                    mimeType: "text/plain"
+                )
+                variantCount += 1
+            } catch {
+                try? await logError(taskId: task.id, agent: .contentWriter,
+                                   message: "Failed to generate .txt variant: \(error.localizedDescription)")
+            }
+
+            // .html — styled HTML
+            do {
+                let exported = try await contentExporter.export(filePath: mdAsset.filePath, title: title, format: .html)
+                let fileName = "\(baseName).html"
+                _ = try await assetService.saveTextAsset(
+                    content: exported.body,
+                    fileName: fileName,
+                    project: project,
+                    task: task,
+                    assetType: .document,
+                    mimeType: "text/html"
+                )
+                variantCount += 1
+            } catch {
+                try? await logError(taskId: task.id, agent: .contentWriter,
+                                   message: "Failed to generate .html variant: \(error.localizedDescription)")
+            }
+
+            // .pdf — rendered PDF via HTML
+            do {
+                let exported = try await contentExporter.export(filePath: mdAsset.filePath, title: title, format: .pdf)
+                let pdfData = try await renderHTMLToPDF(html: exported.body, title: title)
+                let fileName = "\(baseName).pdf"
+                let dir = assetsDirectory(for: project)
+                try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+                let pdfPath = (dir as NSString).appendingPathComponent(fileName)
+                try pdfData.write(to: URL(fileURLWithPath: pdfPath))
+
+                var pdfAsset = GeneratedAsset(
+                    projectId: project.id,
+                    taskId: task.id,
+                    agentType: task.agentType,
+                    assetType: .document,
+                    name: fileName,
+                    filePath: pdfPath,
+                    mimeType: "application/pdf",
+                    fileSize: Int64(pdfData.count)
+                )
+                try await dbQueue.write { db in
+                    try pdfAsset.insert(db)
+                }
+                variantCount += 1
+            } catch {
+                try? await logError(taskId: task.id, agent: .contentWriter,
+                                   message: "Failed to generate .pdf variant: \(error.localizedDescription)")
+            }
+        }
+
+        if variantCount > 0 {
+            await generateThumbnailsForTask(taskId: task.id, projectName: project.name)
+            try? await logInfo(taskId: task.id, agent: .contentWriter,
+                              message: "Generated \(variantCount) format variant(s) from \(mdAssets.count) document(s)")
+        }
+    }
+
+    /// Render HTML string to PDF data using NSAttributedString.
+    private func renderHTMLToPDF(html: String, title: String) async throws -> Data {
+        try await MainActor.run {
+            guard let htmlData = html.data(using: .utf8),
+                  let attrString = NSAttributedString(
+                      html: htmlData,
+                      options: [.documentType: NSAttributedString.DocumentType.html,
+                                .characterEncoding: String.Encoding.utf8.rawValue],
+                      documentAttributes: nil
+                  ) else {
+                throw NSError(domain: "ContentExport", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse HTML"])
+            }
+
+            let printInfo = NSPrintInfo()
+            printInfo.paperSize = NSSize(width: 612, height: 792) // US Letter
+            printInfo.topMargin = 72
+            printInfo.bottomMargin = 72
+            printInfo.leftMargin = 72
+            printInfo.rightMargin = 72
+            printInfo.isVerticallyCentered = false
+
+            let textStorage = NSTextStorage(attributedString: attrString)
+            let layoutManager = NSLayoutManager()
+            textStorage.addLayoutManager(layoutManager)
+
+            let printableWidth = printInfo.paperSize.width - printInfo.leftMargin - printInfo.rightMargin
+            let printableHeight = printInfo.paperSize.height - printInfo.topMargin - printInfo.bottomMargin
+            let textContainer = NSTextContainer(size: NSSize(width: printableWidth, height: printableHeight))
+            layoutManager.addTextContainer(textContainer)
+
+            // Force layout
+            layoutManager.ensureLayout(for: textContainer)
+
+            let pdfData = NSMutableData()
+            let consumer = CGDataConsumer(data: pdfData as CFMutableData)!
+            var mediaBox = CGRect(x: 0, y: 0, width: printInfo.paperSize.width, height: printInfo.paperSize.height)
+            guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+                throw NSError(domain: "ContentExport", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to create PDF context"])
+            }
+
+            let glyphRange = layoutManager.glyphRange(for: textContainer)
+            let usedRect = layoutManager.usedRect(for: textContainer)
+
+            // Calculate pages
+            let totalHeight = usedRect.height
+            var pageOriginY: CGFloat = 0
+
+            while pageOriginY < totalHeight {
+                context.beginPDFPage(nil)
+                context.saveGState()
+                context.translateBy(x: printInfo.leftMargin, y: printInfo.paperSize.height - printInfo.topMargin)
+                context.scaleBy(x: 1, y: -1)
+                context.translateBy(x: 0, y: -pageOriginY) // Removed extra negation
+
+                let visibleRange = layoutManager.glyphRange(
+                    forBoundingRect: CGRect(x: 0, y: pageOriginY, width: printableWidth, height: printableHeight),
+                    in: textContainer
+                )
+
+                let nsGraphicsContext = NSGraphicsContext(cgContext: context, flipped: true)
+                NSGraphicsContext.current = nsGraphicsContext
+                layoutManager.drawGlyphs(forGlyphRange: visibleRange, at: CGPoint(x: 0, y: -pageOriginY))
+                NSGraphicsContext.current = nil
+
+                context.restoreGState()
+                context.endPDFPage()
+                pageOriginY += printableHeight
+            }
+
+            context.closePDF()
+            return pdfData as Data
+        }
+    }
+
+    private func assetsDirectory(for project: Project) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return "\(home)/CreedFlow/projects/\(project.name)/assets"
     }
 
     /// Handle publisher agent completion — parse publication plan and create records.
