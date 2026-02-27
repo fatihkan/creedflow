@@ -117,6 +117,105 @@ pub struct GitLogEntry {
     pub message: String,
 }
 
+// ─── Git Config ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitConfig {
+    pub user_name: String,
+    pub user_email: String,
+    pub git_installed: bool,
+    pub git_version: String,
+    pub gh_installed: bool,
+    pub gh_version: String,
+}
+
+#[tauri::command]
+pub async fn get_git_config() -> Result<GitConfig, String> {
+    let git_version = tokio::process::Command::new("git")
+        .args(["--version"])
+        .output()
+        .await
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    let git_installed = !git_version.is_empty();
+
+    let user_name = if git_installed {
+        tokio::process::Command::new("git")
+            .args(["config", "--global", "user.name"])
+            .output()
+            .await
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let user_email = if git_installed {
+        tokio::process::Command::new("git")
+            .args(["config", "--global", "user.email"])
+            .output()
+            .await
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let gh_version = tokio::process::Command::new("gh")
+        .args(["--version"])
+        .output()
+        .await
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string()
+        })
+        .unwrap_or_default();
+
+    let gh_installed = !gh_version.is_empty();
+
+    Ok(GitConfig {
+        user_name,
+        user_email,
+        git_installed,
+        git_version,
+        gh_installed,
+        gh_version,
+    })
+}
+
+#[tauri::command]
+pub async fn set_git_config(name: String, email: String) -> Result<(), String> {
+    if !name.is_empty() {
+        tokio::process::Command::new("git")
+            .args(["config", "--global", "user.name", &name])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to set git user.name: {}", e))?;
+    }
+    if !email.is_empty() {
+        tokio::process::Command::new("git")
+            .args(["config", "--global", "user.email", &email])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to set git user.email: {}", e))?;
+    }
+    Ok(())
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async fn get_project_dir(state: &State<'_, AppState>, project_id: &str) -> Result<String, String> {

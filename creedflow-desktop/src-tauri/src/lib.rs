@@ -60,7 +60,7 @@ pub fn run() {
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,
-            commands::settings::open_stripe_checkout,
+            // commands::settings::open_stripe_checkout, // disabled — no payment
             // Costs
             commands::costs::get_cost_summary,
             commands::costs::get_costs_by_project,
@@ -125,6 +125,8 @@ pub fn run() {
             commands::git::git_promote_staging_to_main,
             commands::git::git_current_branch,
             commands::git::git_log,
+            commands::git::get_git_config,
+            commands::git::set_git_config,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

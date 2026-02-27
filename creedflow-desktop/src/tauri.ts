@@ -107,9 +107,6 @@ export const getSettings = () => invoke<AppSettings>("get_settings");
 export const updateSettings = (settings: AppSettings) =>
   invoke<void>("update_settings", { settings });
 
-export const openStripeCheckout = (plan: string) =>
-  invoke<void>("open_stripe_checkout", { plan });
-
 // ─── Costs ───────────────────────────────────────────────────────────────────
 
 export const getCostSummary = () => invoke<CostSummary>("get_cost_summary");
@@ -325,3 +322,19 @@ export const gitCurrentBranch = (projectId: string) =>
 
 export const gitLog = (projectId: string, count?: number) =>
   invoke<GitLogEntry[]>("git_log", { projectId, count: count ?? null });
+
+// ─── Git Config ─────────────────────────────────────────────────────────────
+
+export interface GitConfig {
+  userName: string;
+  userEmail: string;
+  gitInstalled: boolean;
+  gitVersion: string;
+  ghInstalled: boolean;
+  ghVersion: string;
+}
+
+export const getGitConfig = () => invoke<GitConfig>("get_git_config");
+
+export const setGitConfig = (name: string, email: string) =>
+  invoke<void>("set_git_config", { name, email });
