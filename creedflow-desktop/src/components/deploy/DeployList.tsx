@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Rocket, Trash2 } from "lucide-react";
+import { Rocket, Trash2, Plus, Filter } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import * as api from "../../tauri";
 import type { DeploymentInfo } from "../../types/models";
@@ -14,12 +14,22 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-amber-500",
 };
 
+const ENVIRONMENTS = ["all", "development", "staging", "production"] as const;
+const STATUSES = ["all", "pending", "in_progress", "success", "failed", "rolled_back", "cancelled"] as const;
+
 export function DeployList() {
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const [deployments, setDeployments] = useState<DeploymentInfo[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [envFilter, setEnvFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showNewDeploy, setShowNewDeploy] = useState(false);
+  const [newVersion, setNewVersion] = useState("1.0.0");
+  const [newEnv, setNewEnv] = useState("development");
+  const [newMethod, setNewMethod] = useState("docker");
+  const [deploying, setDeploying] = useState(false);
 
   const fetchDeployments = () => {
     if (selectedProjectId) {
@@ -30,6 +40,12 @@ export function DeployList() {
   useEffect(() => {
     fetchDeployments();
   }, [selectedProjectId]);
+
+  const filtered = deployments.filter((d) => {
+    if (envFilter !== "all" && d.environment !== envFilter) return false;
+    if (statusFilter !== "all" && d.status !== statusFilter) return false;
+    return true;
+  });
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -46,6 +62,20 @@ export function DeployList() {
     setDeployments((d) => d.filter((dep) => !selectedIds.has(dep.id)));
     setSelectedIds(new Set());
     setSelectionMode(false);
+  };
+
+  const handleNewDeploy = async () => {
+    if (!selectedProjectId) return;
+    setDeploying(true);
+    try {
+      await api.createDeployment(selectedProjectId, newEnv, newVersion, newMethod);
+      setShowNewDeploy(false);
+      fetchDeployments();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDeploying(false);
+    }
   };
 
   const isDeletable = (status: string) =>
@@ -69,10 +99,17 @@ export function DeployList() {
           <div>
             <h2 className="text-sm font-semibold text-zinc-200">Deployments</h2>
             <p className="text-xs text-zinc-500 mt-0.5">
-              {deployments.length} deployment{deployments.length !== 1 ? "s" : ""}
+              {filtered.length} of {deployments.length} deployment{deployments.length !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowNewDeploy(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-700 text-white rounded-md transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              New Deploy
+            </button>
             {selectionMode && selectedIds.size > 0 && (
               <button
                 onClick={deleteSelected}
@@ -98,15 +135,51 @@ export function DeployList() {
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="px-4 py-2 border-b border-zinc-800/50 flex items-center gap-3">
+          <Filter className="w-3.5 h-3.5 text-zinc-500" />
+          <div className="flex gap-1">
+            {ENVIRONMENTS.map((env) => (
+              <button
+                key={env}
+                onClick={() => setEnvFilter(env)}
+                className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${
+                  envFilter === env
+                    ? "bg-brand-600/20 text-brand-400"
+                    : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {env}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-4 bg-zinc-800" />
+          <div className="flex gap-1 flex-wrap">
+            {STATUSES.map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-2 py-1 text-[10px] rounded transition-colors capitalize ${
+                  statusFilter === s
+                    ? "bg-brand-600/20 text-brand-400"
+                    : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {s.replace("_", " ")}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto">
-          {deployments.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500">
               <Rocket className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">No deployments yet</p>
+              <p className="text-sm">No deployments found</p>
             </div>
           ) : (
             <div className="p-4 space-y-2">
-              {deployments.map((dep) => {
+              {filtered.map((dep) => {
                 const isSelected = detailId === dep.id;
                 return (
                   <button
@@ -173,6 +246,63 @@ export function DeployList() {
           onClose={() => setDetailId(null)}
           onRefresh={fetchDeployments}
         />
+      )}
+
+      {/* New deployment dialog */}
+      {showNewDeploy && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-5 w-[380px] space-y-4">
+            <h3 className="text-sm font-semibold text-zinc-200">New Deployment</h3>
+            <div>
+              <label className="text-xs text-zinc-400 block mb-1">Environment</label>
+              <select
+                value={newEnv}
+                onChange={(e) => setNewEnv(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
+              >
+                <option value="development">Development</option>
+                <option value="staging">Staging</option>
+                <option value="production">Production</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-zinc-400 block mb-1">Version</label>
+              <input
+                type="text"
+                value={newVersion}
+                onChange={(e) => setNewVersion(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-zinc-400 block mb-1">Deploy Method</label>
+              <select
+                value={newMethod}
+                onChange={(e) => setNewMethod(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
+              >
+                <option value="docker">Docker</option>
+                <option value="docker_compose">Docker Compose</option>
+                <option value="direct">Direct Process</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowNewDeploy(false)}
+                className="px-4 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleNewDeploy}
+                disabled={deploying}
+                className="px-4 py-1.5 text-xs bg-brand-600 text-white rounded-md hover:bg-brand-700 disabled:opacity-50"
+              >
+                {deploying ? "Deploying..." : "Deploy"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

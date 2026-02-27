@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { gitLog, gitCurrentBranch, type GitLogEntry } from "../../tauri";
 import { GitCommitRow } from "./GitCommitRow";
-import { RefreshCw, GitBranch } from "lucide-react";
+import { RefreshCw, GitBranch, Filter } from "lucide-react";
 
 interface GitGraphViewProps {
   projectId: string;
@@ -13,6 +13,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(50);
+  const [branchFilter, setBranchFilter] = useState<string>("all");
 
   const fetchData = async () => {
     setLoading(true);
@@ -35,6 +36,34 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
     fetchData();
   }, [projectId, count]);
 
+  // Extract all branch names from decorations
+  const branches = useMemo(() => {
+    const branchSet = new Set<string>();
+    commits.forEach((c) => {
+      if (c.decorations) {
+        // Parse decorations like "HEAD -> main, origin/main, dev"
+        c.decorations.split(",").forEach((d) => {
+          const trimmed = d.trim()
+            .replace("HEAD -> ", "")
+            .replace("tag: ", "")
+            .trim();
+          if (trimmed && !trimmed.startsWith("origin/")) {
+            branchSet.add(trimmed);
+          }
+        });
+      }
+    });
+    return Array.from(branchSet).sort();
+  }, [commits]);
+
+  // Filter commits by branch
+  const filteredCommits = useMemo(() => {
+    if (branchFilter === "all") return commits;
+    return commits.filter((c) =>
+      c.decorations.includes(branchFilter)
+    );
+  }, [commits, branchFilter]);
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
@@ -49,6 +78,23 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Branch filter */}
+          {branches.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-zinc-500" />
+              <select
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                className="text-xs bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1"
+              >
+                <option value="all">All branches</option>
+                {branches.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <select
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
@@ -74,7 +120,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
         <div className="flex-1 flex items-center justify-center text-sm text-red-400 px-4">
           {error}
         </div>
-      ) : commits.length === 0 && !loading ? (
+      ) : filteredCommits.length === 0 && !loading ? (
         <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
           No commits found
         </div>
@@ -91,7 +137,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
               </tr>
             </thead>
             <tbody>
-              {commits.map((commit) => (
+              {filteredCommits.map((commit) => (
                 <GitCommitRow key={commit.hash} commit={commit} />
               ))}
             </tbody>

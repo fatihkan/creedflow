@@ -2,17 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 import { Sidebar, type SidebarSection } from "./components/layout/Sidebar";
 import { ContentArea } from "./components/layout/ContentArea";
 import { DetailPanel } from "./components/layout/DetailPanel";
+import { ProjectDetailPanel } from "./components/projects/ProjectDetailPanel";
 import { SetupWizard } from "./components/setup/SetupWizard";
 import { useProjectStore } from "./store/projectStore";
 import { useTaskStore } from "./store/taskStore";
 import { useSettingsStore } from "./store/settingsStore";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 
+type DetailMode = "none" | "task" | "project";
+
 function App() {
   const [section, setSection] = useState<SidebarSection>("projects");
-  const [showDetail, setShowDetail] = useState(false);
+  const [detailMode, setDetailMode] = useState<DetailMode>("none");
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId);
+  const selectTask = useTaskStore((s) => s.selectTask);
   const updateTask = useTaskStore((s) => s.updateTask);
   const settings = useSettingsStore((s) => s.settings);
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
@@ -21,17 +25,17 @@ function App() {
     fetchSettings();
   }, [fetchSettings]);
 
-  // Auto-switch to tasks view when a project is selected
+  // Show project detail when a project is selected from the projects list
   useEffect(() => {
     if (selectedProjectId && section === "projects") {
-      setSection("tasks");
+      setDetailMode("project");
     }
   }, [selectedProjectId, section]);
 
-  // Show detail panel when a task is selected
+  // Show task detail when a task is selected
   useEffect(() => {
     if (selectedTaskId) {
-      setShowDetail(true);
+      setDetailMode("task");
     }
   }, [selectedTaskId]);
 
@@ -43,10 +47,11 @@ function App() {
           "projects",
           "tasks",
           "agents",
-          "costs",
           "reviews",
           "deploys",
           "prompts",
+          "assets",
+          "gitHistory",
         ];
         const num = parseInt(e.key);
         if (num >= 1 && num <= sections.length) {
@@ -55,12 +60,13 @@ function App() {
         }
       }
       if (e.key === "Escape") {
-        setShowDetail(false);
+        setDetailMode("none");
+        selectTask(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [selectTask]);
 
   // Listen to Tauri events for real-time task updates
   const handleTaskStatusChanged = useCallback(
@@ -78,6 +84,16 @@ function App() {
   );
 
   useTauriEvent("task-status-changed", handleTaskStatusChanged);
+
+  const closeDetail = () => {
+    setDetailMode("none");
+    selectTask(null);
+  };
+
+  const handleViewTasks = () => {
+    setSection("tasks");
+    setDetailMode("none");
+  };
 
   // Show setup wizard if setup is not completed
   if (settings && !settings.hasCompletedSetup) {
@@ -103,7 +119,16 @@ function App() {
             selectedProjectId={selectedProjectId}
           />
         </div>
-        {showDetail && <DetailPanel onClose={() => setShowDetail(false)} />}
+        {detailMode === "task" && (
+          <DetailPanel onClose={closeDetail} />
+        )}
+        {detailMode === "project" && selectedProjectId && (
+          <ProjectDetailPanel
+            projectId={selectedProjectId}
+            onClose={closeDetail}
+            onViewTasks={handleViewTasks}
+          />
+        )}
       </div>
     </div>
   );

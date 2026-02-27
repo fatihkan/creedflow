@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTaskStore } from "../../store/taskStore";
 import { TaskCard } from "./TaskCard";
-import { Archive } from "lucide-react";
+import { Archive, Search, X } from "lucide-react";
 import type { AgentTask, TaskStatus } from "../../types/models";
 
 interface Props {
@@ -13,11 +13,8 @@ const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
   { status: "in_progress", label: "In Progress", color: "border-blue-500" },
   { status: "passed", label: "Passed", color: "border-green-500" },
   { status: "failed", label: "Failed", color: "border-red-500" },
-  {
-    status: "needs_revision",
-    label: "Needs Revision",
-    color: "border-yellow-500",
-  },
+  { status: "needs_revision", label: "Needs Revision", color: "border-yellow-500" },
+  { status: "cancelled", label: "Cancelled", color: "border-zinc-500" },
 ];
 
 const ARCHIVABLE: TaskStatus[] = ["passed", "failed", "cancelled"];
@@ -45,9 +42,23 @@ export function TaskBoard({ projectId }: Props) {
     updateTaskStatus,
   } = useTaskStore();
 
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
     fetchTasks(projectId);
   }, [projectId, fetchTasks]);
+
+  const filteredTasks = search.trim()
+    ? tasks.filter((t) => {
+        const q = search.toLowerCase();
+        return (
+          t.title.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q) ||
+          t.agentType.toLowerCase().includes(q) ||
+          (t.backend || "").toLowerCase().includes(q)
+        );
+      })
+    : tasks;
 
   const handleDragStart = (e: React.DragEvent, task: AgentTask) => {
     e.dataTransfer.setData("text/plain", task.id);
@@ -72,14 +83,35 @@ export function TaskBoard({ projectId }: Props) {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-zinc-200">Task Board</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+            {filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}
+            {search && ` matching "${search}"`}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search tasks..."
+              className="pl-7 pr-7 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-md text-zinc-300 placeholder-zinc-600 w-[180px] focus:outline-none focus:border-brand-500"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-zinc-500 hover:text-zinc-300"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
           {selectionMode && selectedIds.size > 0 && (
             <button
               onClick={archiveSelected}
@@ -99,7 +131,7 @@ export function TaskBoard({ projectId }: Props) {
                 : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            {selectionMode ? "Cancel" : "Select to Archive"}
+            {selectionMode ? "Cancel" : "Select"}
           </button>
         </div>
       </div>
@@ -107,12 +139,12 @@ export function TaskBoard({ projectId }: Props) {
       <div className="flex-1 overflow-x-auto">
         <div className="flex gap-3 p-4 min-w-max h-full">
           {COLUMNS.map(({ status, label, color }) => {
-            const columnTasks = tasks.filter((t) => t.status === status);
+            const columnTasks = filteredTasks.filter((t) => t.status === status);
             const isArchivableColumn = ARCHIVABLE.includes(status);
             return (
               <div
                 key={status}
-                className={`w-[260px] flex flex-col bg-zinc-900/30 rounded-lg border-t-2 ${color}`}
+                className={`w-[240px] flex flex-col bg-zinc-900/30 rounded-lg border-t-2 ${color}`}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, status)}
               >
