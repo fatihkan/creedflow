@@ -12,6 +12,18 @@ struct ArchivedTasksView: View {
     @State private var showRestoreConfirm = false
     @State private var selection: Set<UUID> = []
     @State private var isSelectionMode = false
+    @State private var searchText = ""
+
+    private var filteredTasks: [(task: AgentTask, projectName: String)] {
+        guard !searchText.isEmpty else { return archivedTasks }
+        let query = searchText.lowercased()
+        return archivedTasks.filter { item in
+            item.task.title.lowercased().contains(query)
+            || item.projectName.lowercased().contains(query)
+            || item.task.agentType.rawValue.lowercased().contains(query)
+            || item.task.status.rawValue.lowercased().contains(query)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,15 +31,17 @@ struct ArchivedTasksView: View {
                 if !archivedTasks.isEmpty {
                     if isSelectionMode {
                         Button {
-                            if selection.count == archivedTasks.count {
-                                selection.removeAll()
+                            let visibleIds = Set(filteredTasks.map(\.task.id))
+                            if visibleIds.isSubset(of: selection) {
+                                selection.subtract(visibleIds)
                             } else {
-                                selection = Set(archivedTasks.map(\.task.id))
+                                selection.formUnion(visibleIds)
                             }
                         } label: {
+                            let visibleIds = Set(filteredTasks.map(\.task.id))
                             Label(
-                                selection.count == archivedTasks.count ? "Deselect All" : "Select All",
-                                systemImage: selection.count == archivedTasks.count ? "checkmark.circle" : "circle"
+                                visibleIds.isSubset(of: selection) ? "Deselect All" : "Select All",
+                                systemImage: visibleIds.isSubset(of: selection) ? "checkmark.circle" : "circle"
                             )
                         }
 
@@ -64,6 +78,40 @@ struct ArchivedTasksView: View {
             }
             Divider()
 
+            if !archivedTasks.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 13))
+                    TextField("Search archived tasks...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(.subheadline))
+                    if !searchText.isEmpty {
+                        Button {
+                            searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.tertiary)
+                                .font(.system(size: 13))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.primary.opacity(0.04))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                        }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+            }
+
             if let errorMessage {
                 ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                     .padding(.horizontal, 16)
@@ -79,10 +127,16 @@ struct ArchivedTasksView: View {
                     title: "Archive Empty",
                     subtitle: "Archived tasks will appear here. Use \"Archive\" on the Task Board to move completed, failed, or cancelled tasks here."
                 )
+            } else if filteredTasks.isEmpty {
+                ForgeEmptyState(
+                    icon: "magnifyingglass",
+                    title: "No Results",
+                    subtitle: "No archived tasks match \"\(searchText)\""
+                )
             } else {
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        ForEach(archivedTasks, id: \.task.id) { item in
+                        ForEach(filteredTasks, id: \.task.id) { item in
                             HStack(spacing: 8) {
                                 if isSelectionMode {
                                     Button {
