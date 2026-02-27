@@ -20,7 +20,45 @@ struct DesignerAgent: AgentProtocol {
         - Provide component breakdowns with states (default, hover, active, disabled)
         - Output design tokens and style guides when appropriate
         - Use ASCII art or structured descriptions for wireframes
-        - When producing assets, output JSON: {"assets": [{"type": "design", "name": "...", "content": "..."}]}
+
+        OUTPUT FORMAT — MANDATORY:
+        You MUST output your final result as a JSON object. No markdown fences, no explanation \
+        outside the JSON. The JSON must follow this exact schema:
+
+        {
+          "assets": [
+            {
+              "type": "design",
+              "name": "component-or-page-name.json",
+              "content": "{\\n  \\"component\\": \\"LoginScreen\\",\\n  \\"layout\\": {\\n    \\"type\\": \\"VStack\\",\\n    \\"spacing\\": 16,\\n    \\"children\\": [...]\\n  },\\n  \\"designTokens\\": {\\n    \\"colors\\": {...},\\n    \\"typography\\": {...},\\n    \\"spacing\\": {...}\\n  },\\n  \\"states\\": [...],\\n  \\"wireframe\\": \\"ASCII art here...\\"\\n}",
+              "description": "Login screen design spec — mobile-first, dark theme"
+            }
+          ]
+        }
+
+        For Figma-based work:
+        {
+          "assets": [
+            {
+              "type": "design",
+              "name": "design-spec-name.json",
+              "url": "https://www.figma.com/file/...",
+              "content": "{... design tokens and component specs ...}",
+              "description": "Extracted design tokens and component specs from Figma"
+            }
+          ]
+        }
+
+        Rules for the JSON output:
+        - "type" MUST be "design"
+        - "name" MUST be kebab-case with .json extension
+        - "content" MUST contain the full design specification as a JSON string
+        - "url" is optional — include Figma file URL if applicable
+        - "description" should summarize the design scope and theme
+        - Include design tokens (colors, typography, spacing) in the content
+        - Include component states and interaction specs
+        - For multi-page designs, include separate assets per page/component
+        - Do NOT wrap the JSON in markdown code fences
         """
 
     let allowedTools: [String]? = nil
@@ -37,8 +75,28 @@ struct DesignerAgent: AgentProtocol {
         Title: \(task.title)
         Brief: \(task.description)
 
-        Provide detailed design specs including layout, colors, typography, and component states.
-        If you produce design artifacts, output them as JSON with an "assets" array.
+        Provide detailed design specs including layout, colors, typography, component states, \
+        and interaction patterns.
+
+        You MUST respond with ONLY a JSON object (no other text) in this format:
+        {
+          "assets": [
+            {
+              "type": "design",
+              "name": "\(sanitize(task.title)).json",
+              "content": "{ full design specification as JSON string }",
+              "description": "scope, theme, platform"
+            }
+          ]
+        }
         """
+    }
+
+    private func sanitize(_ title: String) -> String {
+        title.lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+            .prefix(50)
+            .description
     }
 }

@@ -19,8 +19,28 @@ struct ContentWriterAgent: AgentProtocol {
         - Research the topic thoroughly before writing
         - Cite sources when making factual claims
         - Optimize for readability and audience engagement
-        - Output the final content in Markdown format
-        - When producing document assets, output JSON: {"assets": [{"type": "document", "name": "...", "content": "..."}]}
+
+        OUTPUT FORMAT — MANDATORY:
+        You MUST output your final result as a JSON object. No markdown fences, no explanation \
+        outside the JSON. The JSON must follow this exact schema:
+
+        {
+          "assets": [
+            {
+              "type": "document",
+              "name": "kebab-case-title.md",
+              "content": "# Full Markdown Content\\n\\nYour complete article here..."
+            }
+          ]
+        }
+
+        Rules for the JSON output:
+        - "type" MUST be "document"
+        - "name" MUST be kebab-case with .md extension (e.g. "seo-guide-2026.md")
+        - "content" MUST contain the FULL text in Markdown format, not a summary or excerpt
+        - For multi-part content (e.g. a blog series), include multiple items in the assets array
+        - Each asset must be a complete, standalone piece of content
+        - Do NOT wrap the JSON in markdown code fences
         """
 
     let allowedTools: [String]? = nil
@@ -37,8 +57,26 @@ struct ContentWriterAgent: AgentProtocol {
         Title: \(task.title)
         Brief: \(task.description)
 
-        Produce polished, publication-ready content in Markdown format.
-        If producing document files, output them as JSON with an "assets" array.
+        Produce polished, publication-ready content. Write the FULL article — not an outline or summary.
+
+        You MUST respond with ONLY a JSON object (no other text) in this format:
+        {
+          "assets": [
+            {
+              "type": "document",
+              "name": "\(sanitize(task.title)).md",
+              "content": "# Your Title\\n\\nFull markdown content here..."
+            }
+          ]
+        }
         """
+    }
+
+    private func sanitize(_ title: String) -> String {
+        title.lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+            .prefix(50)
+            .description
     }
 }

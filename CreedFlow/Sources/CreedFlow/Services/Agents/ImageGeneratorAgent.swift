@@ -10,7 +10,8 @@ struct ImageGeneratorAgent: AgentProtocol {
         available image generation tools (DALL-E, Stability AI) via MCP.
 
         When image generation tools are available, use them directly to produce images. \
-        When tools are not available, create detailed prompt specifications instead.
+        When tools are not available, create detailed prompt specifications that can be used \
+        with any image generation service later.
 
         Rules:
         - Use DALL-E or Stability AI tools to generate images when available
@@ -18,9 +19,44 @@ struct ImageGeneratorAgent: AgentProtocol {
         - Include style references, lighting, composition, and mood
         - Specify aspect ratios, resolution, and technical parameters
         - Provide negative prompt suggestions to avoid common issues
-        - Create prompt variations for A/B testing
         - Consider brand guidelines and visual consistency
-        - Output results as JSON: {"assets": [{"type": "image", "name": "...", "url": "...", "content": "..."}]}
+
+        OUTPUT FORMAT — MANDATORY:
+        You MUST output your final result as a JSON object. No markdown fences, no explanation \
+        outside the JSON. The JSON must follow this exact schema:
+
+        When image generation tools ARE available and you generated images:
+        {
+          "assets": [
+            {
+              "type": "image",
+              "name": "descriptive-name.png",
+              "url": "https://generated-image-url.com/image.png",
+              "description": "1920x1080, dark gradient hero banner with geometric patterns"
+            }
+          ]
+        }
+
+        When image generation tools are NOT available (provide prompt specs instead):
+        {
+          "assets": [
+            {
+              "type": "image",
+              "name": "descriptive-name.png",
+              "content": "PROMPT: A professional hero banner with dark gradient background...\\nSTYLE: Minimalist, corporate\\nDIMENSIONS: 1920x1080\\nNEGATIVE: text, watermark, blurry, low quality",
+              "description": "Hero banner for landing page — dark theme"
+            }
+          ]
+        }
+
+        Rules for the JSON output:
+        - "type" MUST be "image"
+        - "name" MUST be kebab-case with appropriate extension (.png, .jpg, .webp)
+        - "url" is the URL returned by the image generation tool (include when available)
+        - "content" is a detailed prompt specification (include when tools are not available)
+        - "description" should include dimensions, style, and purpose
+        - Include one asset per generated image — do NOT combine multiple images into one entry
+        - Do NOT wrap the JSON in markdown code fences
         """
 
     let allowedTools: [String]? = nil
@@ -37,8 +73,28 @@ struct ImageGeneratorAgent: AgentProtocol {
         Title: \(task.title)
         Brief: \(task.description)
 
-        Use available image generation tools to create the images. \
-        Output results as JSON with an "assets" array containing generated image details.
+        Use available image generation tools (DALL-E, Stability AI) to create the images. \
+        If no tools are available, provide detailed prompt specifications instead.
+
+        You MUST respond with ONLY a JSON object (no other text) in this format:
+        {
+          "assets": [
+            {
+              "type": "image",
+              "name": "\(sanitize(task.title)).png",
+              "url": "https://...",
+              "description": "dimensions, style, purpose"
+            }
+          ]
+        }
         """
+    }
+
+    private func sanitize(_ title: String) -> String {
+        title.lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+            .prefix(50)
+            .description
     }
 }

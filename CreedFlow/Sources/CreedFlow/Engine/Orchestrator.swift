@@ -1676,11 +1676,15 @@ final class Orchestrator {
             }
         }
 
-        // Fallback: save raw output as text file
+        // Fallback: try to extract meaningful content from raw output
+        let sanitizedTitle = sanitize(task.title)
+        let fallbackContent = extractContentFromRawOutput(output)
         let ext = extensionForAssetType(defaultAssetType)
-        let fileName = "\(task.agentType.rawValue)-\(task.id.uuidString.prefix(8)).\(ext)"
+        let fileName = sanitizedTitle.isEmpty
+            ? "\(task.agentType.rawValue)-\(task.id.uuidString.prefix(8)).\(ext)"
+            : "\(sanitizedTitle).\(ext)"
         _ = try await assetService.saveTextAsset(
-            content: output,
+            content: fallbackContent,
             fileName: fileName,
             project: project,
             task: task,
@@ -1690,7 +1694,7 @@ final class Orchestrator {
         await generateThumbnailsForTask(taskId: task.id, projectName: project.name)
 
         try? await logInfo(taskId: task.id, agent: task.agentType,
-                          message: "Saved raw output as \(fileName)")
+                          message: "Saved output as \(fileName) (fallback)")
     }
 
     /// Generate thumbnails for all assets belonging to a task.
@@ -1826,6 +1830,36 @@ final class Orchestrator {
         case .design: return "json"
         case .document: return "md"
         }
+    }
+
+    /// Try to extract clean content from raw agent output that failed JSON parsing.
+    /// Strips markdown fences, JSON fragments, and system noise to find the actual content.
+    private func extractContentFromRawOutput(_ output: String) -> String {
+        var text = output
+
+        // Strip markdown code fences that may wrap the content
+        let fencePattern = "```(?:json|markdown|md)?\\s*\\n([\\s\\S]*?)\\n```"
+        if let regex = try? NSRegularExpression(pattern: fencePattern),
+           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let contentRange = Range(match.range(at: 1), in: text) {
+            text = String(text[contentRange])
+        }
+
+        // If the output looks like a partial JSON with a "content" field, extract it
+        let contentFieldPattern = "\"content\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\""
+        if let regex = try? NSRegularExpression(pattern: contentFieldPattern),
+           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let valueRange = Range(match.range(at: 1), in: text) {
+            let extracted = String(text[valueRange])
+                .replacingOccurrences(of: "\\n", with: "\n")
+                .replacingOccurrences(of: "\\t", with: "\t")
+                .replacingOccurrences(of: "\\\"", with: "\"")
+            if extracted.count > 100 { // Only use if substantial content was extracted
+                return extracted
+            }
+        }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func sanitize(_ title: String) -> String {
