@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import appLogo from "../../assets/logo-32.png";
 import {
   FolderKanban,
   LayoutDashboard,
@@ -87,9 +88,7 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
     <aside className="w-[220px] min-w-[180px] max-w-[280px] bg-zinc-900/50 border-r border-zinc-800 flex flex-col">
       {/* Brand header */}
       <div className="h-12 flex items-center gap-2.5 px-4 border-b border-zinc-800">
-        <div className="w-6 h-6 rounded bg-brand-600/20 flex items-center justify-center">
-          <span className="text-brand-400 text-xs font-bold">C</span>
-        </div>
+        <img src={appLogo} alt="CreedFlow" className="w-6 h-6 rounded" />
         <div>
           <h1 className="text-xs font-bold text-brand-400 tracking-wider leading-none">
             CREEDFLOW
