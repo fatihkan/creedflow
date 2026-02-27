@@ -82,32 +82,5 @@ pub fn detect_editors() -> Vec<DetectedEditor> {
         }
     }
 
-    // Check Windows-specific paths
-    #[cfg(target_os = "windows")]
-    {
-        let win_editors: &[(&str, &str, &str)] = &[
-            (
-                "VS Code",
-                "code",
-                "C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd",
-            ),
-            (
-                "VS Code",
-                "code",
-                "C:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\bin\\code.cmd",
-            ),
-        ];
-        for (name, cmd, win_path) in win_editors {
-            if !found_names.contains(*name) && std::path::Path::new(win_path).exists() {
-                found_names.insert(name.to_string());
-                editors.push(DetectedEditor {
-                    name: name.to_string(),
-                    command: cmd.to_string(),
-                    path: win_path.to_string(),
-                });
-            }
-        }
-    }
-
     editors
 }

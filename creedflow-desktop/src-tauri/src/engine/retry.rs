@@ -1,5 +1,6 @@
 /// Retry policy for failed tasks.
 /// Default: max 3 retries.
+#[derive(Clone, Copy)]
 pub struct RetryPolicy {
     pub max_retries: i32,
 }

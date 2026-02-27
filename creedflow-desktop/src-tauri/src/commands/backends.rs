@@ -42,9 +42,6 @@ enum PackageManager {
     Apt,
     Dnf,
     Pacman,
-    Winget,
-    Choco,
-    Scoop,
     None,
 }
 
@@ -55,9 +52,6 @@ impl PackageManager {
             Self::Apt => "apt",
             Self::Dnf => "dnf",
             Self::Pacman => "pacman",
-            Self::Winget => "winget",
-            Self::Choco => "choco",
-            Self::Scoop => "scoop",
             Self::None => "none",
         }
     }
@@ -68,9 +62,6 @@ impl PackageManager {
             Self::Apt => "APT",
             Self::Dnf => "DNF",
             Self::Pacman => "Pacman",
-            Self::Winget => "WinGet",
-            Self::Choco => "Chocolatey",
-            Self::Scoop => "Scoop",
             Self::None => "None",
         }
     }
@@ -100,19 +91,6 @@ fn detect_package_manager() -> PackageManager {
         }
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        if backends::detect::find_cli("winget").is_some() {
-            return PackageManager::Winget;
-        }
-        if backends::detect::find_cli("choco").is_some() {
-            return PackageManager::Choco;
-        }
-        if backends::detect::find_cli("scoop").is_some() {
-            return PackageManager::Scoop;
-        }
-    }
-
     PackageManager::None
 }
 
@@ -124,48 +102,31 @@ fn package_name_for(dep: &str, pm: PackageManager) -> Option<&'static str> {
         ("git", PackageManager::Apt) => Some("git"),
         ("git", PackageManager::Dnf) => Some("git"),
         ("git", PackageManager::Pacman) => Some("git"),
-        ("git", PackageManager::Winget) => Some("Git.Git"),
-        ("git", PackageManager::Choco) => Some("git"),
-        ("git", PackageManager::Scoop) => Some("git"),
         // docker
         ("docker", PackageManager::Brew) => Some("docker"),
         ("docker", PackageManager::Apt) => Some("docker.io"),
         ("docker", PackageManager::Dnf) => Some("docker"),
         ("docker", PackageManager::Pacman) => Some("docker"),
-        ("docker", PackageManager::Winget) => Some("Docker.DockerDesktop"),
-        ("docker", PackageManager::Choco) => Some("docker-desktop"),
         // gh
         ("gh", PackageManager::Brew) => Some("gh"),
         ("gh", PackageManager::Apt) => Some("gh"),
         ("gh", PackageManager::Dnf) => Some("gh"),
         ("gh", PackageManager::Pacman) => Some("github-cli"),
-        ("gh", PackageManager::Winget) => Some("GitHub.cli"),
-        ("gh", PackageManager::Choco) => Some("gh"),
-        ("gh", PackageManager::Scoop) => Some("gh"),
         // node
         ("node", PackageManager::Brew) => Some("node"),
         ("node", PackageManager::Apt) => Some("nodejs"),
         ("node", PackageManager::Dnf) => Some("nodejs"),
         ("node", PackageManager::Pacman) => Some("nodejs"),
-        ("node", PackageManager::Winget) => Some("OpenJS.NodeJS"),
-        ("node", PackageManager::Choco) => Some("nodejs"),
-        ("node", PackageManager::Scoop) => Some("nodejs"),
         // python3
         ("python3", PackageManager::Brew) => Some("python"),
         ("python3", PackageManager::Apt) => Some("python3"),
         ("python3", PackageManager::Dnf) => Some("python3"),
         ("python3", PackageManager::Pacman) => Some("python"),
-        ("python3", PackageManager::Winget) => Some("Python.Python.3.12"),
-        ("python3", PackageManager::Choco) => Some("python3"),
-        ("python3", PackageManager::Scoop) => Some("python"),
         // go
         ("go", PackageManager::Brew) => Some("go"),
         ("go", PackageManager::Apt) => Some("golang"),
         ("go", PackageManager::Dnf) => Some("golang"),
         ("go", PackageManager::Pacman) => Some("go"),
-        ("go", PackageManager::Winget) => Some("GoLang.Go"),
-        ("go", PackageManager::Choco) => Some("golang"),
-        ("go", PackageManager::Scoop) => Some("go"),
         // ollama
         ("ollama", PackageManager::Brew) => Some("ollama"),
         _ => None,
@@ -365,8 +326,7 @@ pub async fn install_dependency(name: String) -> Result<String, String> {
         return Err(format!(
             "No package manager found. Install {} manually.\n\
              macOS: Install Homebrew from https://brew.sh\n\
-             Linux: Use apt, dnf, or pacman\n\
-             Windows: Install winget, choco, or scoop",
+             Linux: Use apt, dnf, or pacman",
             name
         ));
     }
@@ -387,9 +347,6 @@ pub async fn install_dependency(name: String) -> Result<String, String> {
         PackageManager::Apt => ("sudo", vec!["apt", "install", "-y", package]),
         PackageManager::Dnf => ("sudo", vec!["dnf", "install", "-y", package]),
         PackageManager::Pacman => ("sudo", vec!["pacman", "-S", "--noconfirm", package]),
-        PackageManager::Winget => ("winget", vec!["install", "--id", package, "-e", "--accept-source-agreements"]),
-        PackageManager::Choco => ("choco", vec!["install", package, "-y"]),
-        PackageManager::Scoop => ("scoop", vec!["install", package]),
         PackageManager::None => unreachable!(),
     };
 

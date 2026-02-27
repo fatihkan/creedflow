@@ -5,3 +5,7 @@ pub mod github;
 pub mod telegram;
 pub mod mcp;
 pub mod editor_detector;
+pub mod content_exporter;
+pub mod asset_storage;
+pub mod asset_versioning;
+pub mod publishing;

@@ -44,20 +44,6 @@ pub async fn open_terminal(path: String) -> Result<(), String> {
         return Err("No terminal emulator found. Install gnome-terminal, konsole, or xterm.".to_string());
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        tokio::process::Command::new("cmd")
-            .args(["/c", "start", "wt", "-d", &path])
-            .spawn()
-            .or_else(|_| {
-                tokio::process::Command::new("cmd")
-                    .args(["/c", "start", "cmd", "/k", &format!("cd /d {}", path)])
-                    .spawn()
-            })
-            .map_err(|e| format!("Failed to open terminal: {}", e))?;
-        return Ok(());
-    }
-
     #[allow(unreachable_code)]
     Err("Unsupported platform".to_string())
 }
@@ -85,14 +71,6 @@ pub async fn open_in_file_manager(path: String) -> Result<(), String> {
             .arg(&path)
             .spawn()
             .map_err(|e| format!("Failed to open file manager: {}", e))?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        tokio::process::Command::new("explorer")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| format!("Failed to open Explorer: {}", e))?;
     }
 
     Ok(())
@@ -191,8 +169,6 @@ pub fn get_platform() -> String {
     { return "macos".to_string(); }
     #[cfg(target_os = "linux")]
     { return "linux".to_string(); }
-    #[cfg(target_os = "windows")]
-    { return "windows".to_string(); }
     #[allow(unreachable_code)]
     "unknown".to_string()
 }

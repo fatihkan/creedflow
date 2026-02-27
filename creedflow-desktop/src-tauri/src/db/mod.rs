@@ -25,13 +25,6 @@ impl Database {
 }
 
 pub fn default_db_path() -> PathBuf {
-    #[cfg(target_os = "windows")]
-    {
-        dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("CreedFlow")
-            .join("creedflow.sqlite")
-    }
     #[cfg(target_os = "linux")]
     {
         dirs::data_dir()

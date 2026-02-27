@@ -7,6 +7,8 @@ import { SettingsDialog } from "../settings/SettingsDialog";
 import { CostDashboard } from "../settings/CostDashboard";
 import { DeployList } from "../deploy/DeployList";
 import { ReviewList } from "../reviews/ReviewList";
+import { GitGraphView } from "../git/GitGraphView";
+import { PromptsLibrary } from "../prompts/PromptsLibrary";
 
 interface ContentAreaProps {
   section: SidebarSection;
@@ -37,12 +39,12 @@ export function ContentArea({ section, selectedProjectId }: ContentAreaProps) {
       return <SettingsDialog />;
     case "gitHistory":
       return selectedProjectId ? (
-        <EmptyState message="Git history view — coming soon" />
+        <GitGraphView projectId={selectedProjectId} />
       ) : (
         <EmptyState message="Select a project to view git history" />
       );
     case "prompts":
-      return <EmptyState message="Prompt library coming soon" />;
+      return <PromptsLibrary />;
     default:
       return <EmptyState message="Select a section" />;
   }

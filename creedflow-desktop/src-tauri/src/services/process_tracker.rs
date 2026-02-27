@@ -41,19 +41,7 @@ pub fn terminate_process(pid: u32) {
     }
 }
 
-#[cfg(windows)]
-pub fn terminate_process(pid: u32) {
-    use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
-    use windows::Win32::Foundation::CloseHandle;
-    unsafe {
-        if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
-            let _ = TerminateProcess(handle, 1);
-            let _ = CloseHandle(handle);
-        }
-    }
-}
-
-#[cfg(not(any(unix, windows)))]
+#[cfg(not(unix))]
 pub fn terminate_process(_pid: u32) {
     log::warn!("Process termination not supported on this platform");
 }
