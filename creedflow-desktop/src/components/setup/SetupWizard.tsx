@@ -293,39 +293,21 @@ function ProjectDirStep({
           className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-zinc-400 mb-1">
-            Max Concurrency
-          </label>
-          <input
-            type="number"
-            value={settings.maxConcurrency}
-            onChange={(e) =>
-              onUpdate({
-                ...settings,
-                maxConcurrency: parseInt(e.target.value) || 3,
-              })
-            }
-            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-zinc-400 mb-1">
-            Monthly Budget (USD)
-          </label>
-          <input
-            type="number"
-            value={settings.monthlyBudgetUsd}
-            onChange={(e) =>
-              onUpdate({
-                ...settings,
-                monthlyBudgetUsd: parseFloat(e.target.value) || 50,
-              })
-            }
-            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
-          />
-        </div>
+      <div>
+        <label className="block text-xs text-zinc-400 mb-1">
+          Max Concurrency
+        </label>
+        <input
+          type="number"
+          value={settings.maxConcurrency}
+          onChange={(e) =>
+            onUpdate({
+              ...settings,
+              maxConcurrency: parseInt(e.target.value) || 3,
+            })
+          }
+          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
+        />
       </div>
     </div>
   );
