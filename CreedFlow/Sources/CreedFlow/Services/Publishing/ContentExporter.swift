@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 import WebKit
 
-/// Exports content from Markdown to multiple formats (HTML, plaintext, PDF).
+/// Exports content from Markdown to multiple formats (HTML, plaintext, PDF, DOCX).
 struct ContentExporter: Sendable {
 
     /// Export the content of a text-based asset to the given format.
@@ -21,6 +21,36 @@ struct ContentExporter: Sendable {
         case .pdf:
             let html = markdownToHTML(markdown, title: title)
             return ExportedContent(title: title, body: html, format: .pdf)
+        case .docx:
+            // DOCX export is handled via exportDOCX() which returns Data directly
+            let html = markdownToHTML(markdown, title: title)
+            return ExportedContent(title: title, body: html, format: .docx)
+        }
+    }
+
+    /// Export Markdown file to DOCX (Office Open XML) data using NSAttributedString.
+    func exportDOCX(filePath: String, title: String) async throws -> Data {
+        let markdown = try String(contentsOfFile: filePath, encoding: .utf8)
+        let html = markdownToHTML(markdown, title: title)
+
+        return try await MainActor.run {
+            guard let htmlData = html.data(using: .utf8),
+                  let attrString = NSAttributedString(
+                      html: htmlData,
+                      options: [.documentType: NSAttributedString.DocumentType.html,
+                                .characterEncoding: String.Encoding.utf8.rawValue],
+                      documentAttributes: nil
+                  ) else {
+                throw NSError(domain: "ContentExport", code: 3,
+                              userInfo: [NSLocalizedDescriptionKey: "Failed to parse HTML for DOCX conversion"])
+            }
+
+            let fullRange = NSRange(location: 0, length: attrString.length)
+            let docxData = try attrString.data(
+                from: fullRange,
+                documentAttributes: [.documentType: NSAttributedString.DocumentType.officeOpenXML]
+            )
+            return docxData
         }
     }
 
@@ -43,6 +73,9 @@ struct ContentExporter: Sendable {
         // Code blocks
         html = html.replacingOccurrences(of: "```([\\s\\S]*?)```", with: "<pre><code>$1</code></pre>", options: .regularExpression)
         html = html.replacingOccurrences(of: "`(.+?)`", with: "<code>$1</code>", options: .regularExpression)
+
+        // Images (must come before links to avoid ![alt](src) being matched as a link)
+        html = html.replacingOccurrences(of: "!\\[(.+?)\\]\\((.+?)\\)", with: "<img src=\"$2\" alt=\"$1\" style=\"max-width:100%;\">", options: .regularExpression)
 
         // Links
         html = html.replacingOccurrences(of: "\\[(.+?)\\]\\((.+?)\\)", with: "<a href=\"$2\">$1</a>", options: .regularExpression)

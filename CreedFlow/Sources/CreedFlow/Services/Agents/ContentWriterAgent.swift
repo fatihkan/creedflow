@@ -19,10 +19,11 @@ struct ContentWriterAgent: AgentProtocol {
         - Research the topic thoroughly before writing
         - Cite sources when making factual claims
         - Optimize for readability and audience engagement
+        - Where an image would enhance the content, insert a placeholder: \
+        ![description](creedflow:image:kebab-case-slug) — these will be replaced with generated images
 
-        OUTPUT FORMAT — MANDATORY:
-        You MUST output your final result as a JSON object. No markdown fences, no explanation \
-        outside the JSON. The JSON must follow this exact schema:
+        OUTPUT FORMAT — PREFERRED (JSON):
+        Output your final result as a JSON object. No markdown fences, no explanation outside the JSON:
 
         {
           "assets": [
@@ -34,7 +35,25 @@ struct ContentWriterAgent: AgentProtocol {
           ]
         }
 
-        Rules for the JSON output:
+        ALTERNATIVE FORMAT (YAML front matter + Markdown):
+        If JSON output is difficult, you may use YAML front matter followed by Markdown:
+
+        ---
+        title: "Your Article Title"
+        name: "kebab-case-title.md"
+        tags: ["tag1", "tag2"]
+        summary: "A brief summary of the article"
+        ---
+
+        # Full Markdown Content
+
+        Your complete article here...
+
+        LAST RESORT:
+        If neither JSON nor YAML front matter is possible, output plain Markdown directly. \
+        The system will automatically wrap it as a document asset.
+
+        Rules for JSON output:
         - "type" MUST be "document"
         - "name" MUST be kebab-case with .md extension (e.g. "seo-guide-2026.md")
         - "content" MUST contain the FULL text in Markdown format, not a summary or excerpt
@@ -58,8 +77,9 @@ struct ContentWriterAgent: AgentProtocol {
         Brief: \(task.description)
 
         Produce polished, publication-ready content. Write the FULL article — not an outline or summary.
+        Where images would enhance the content, insert: ![description](creedflow:image:slug)
 
-        You MUST respond with ONLY a JSON object (no other text) in this format:
+        PREFERRED — respond with JSON:
         {
           "assets": [
             {
@@ -69,6 +89,15 @@ struct ContentWriterAgent: AgentProtocol {
             }
           ]
         }
+
+        ALTERNATIVE — respond with YAML front matter + Markdown:
+        ---
+        title: "\(task.title)"
+        name: "\(sanitize(task.title)).md"
+        ---
+        # Your Title
+
+        Full markdown content here...
         """
     }
 

@@ -236,6 +236,7 @@ actor AssetStorageService {
         case "json": return "application/json"
         case "html": return "text/html"
         case "css": return "text/css"
+        case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         default: return "application/octet-stream"
         }
     }

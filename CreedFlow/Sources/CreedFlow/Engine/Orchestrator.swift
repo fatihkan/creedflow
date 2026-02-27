@@ -1542,7 +1542,7 @@ final class Orchestrator {
         }
     }
 
-    /// Handle content writer completion — save output as document asset, generate format variants, queue publisher if channels exist.
+    /// Handle content writer completion — parse output with 3-tier strategy, save assets, generate format variants, queue publisher.
     private func handleContentWriterCompletion(task: AgentTask, result: AgentResult) async {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
@@ -1550,9 +1550,49 @@ final class Orchestrator {
         guard let project else { return }
 
         do {
-            try await extractAndSaveAssets(output: result.output, task: task, project: project, defaultAssetType: .document)
+            let parsed = parseContentWriterOutput(rawOutput: result.output, task: task)
+            let isRevision = task.retryCount > 0 || task.revisionPrompt != nil
 
-            // Generate format variants (.txt, .html, .pdf) from saved .md assets
+            for asset in parsed.assets {
+                let logicalName = asset.name.contains(".") ? asset.name : "\(asset.name).md"
+
+                let (parentId, version) = await resolveVersionInfo(
+                    logicalName: logicalName, project: project, task: task, isRevision: isRevision
+                )
+
+                var savedAsset = try await assetService.saveTextAsset(
+                    content: asset.content,
+                    fileName: logicalName,
+                    project: project,
+                    task: task,
+                    assetType: .document,
+                    mimeType: "text/markdown",
+                    parentAssetId: parentId,
+                    version: version
+                )
+
+                // Save metadata if available
+                if let metadata = parsed.metadata {
+                    let metadataJSON = try? JSONSerialization.data(withJSONObject: metadata)
+                    let metadataStr = metadataJSON.flatMap { String(data: $0, encoding: .utf8) }
+                    if metadataStr != nil {
+                        try await dbQueue.write { db in
+                            savedAsset.metadata = metadataStr
+                            savedAsset.updatedAt = Date()
+                            try savedAsset.update(db)
+                        }
+                    }
+                }
+            }
+
+            await generateThumbnailsForTask(taskId: task.id, projectName: project.name)
+
+            // Scan for image placeholders and queue ImageGenerator tasks
+            for asset in parsed.assets {
+                await scanAndQueueImages(content: asset.content, task: task, project: project)
+            }
+
+            // Generate format variants (.txt, .html, .pdf, .docx) from saved .md assets
             await generateFormatVariants(task: task, project: project)
 
             // If publishing channels are configured, queue a publisher task
@@ -1573,13 +1613,172 @@ final class Orchestrator {
                     try dep.insert(db)
                 }
             }
+
+            try? await logInfo(taskId: task.id, agent: .contentWriter,
+                              message: "Saved \(parsed.assets.count) document(s) via \(parsed.parseMethod) parsing")
         } catch {
             try? await logError(taskId: task.id, agent: .contentWriter,
                                message: "Content writer completion error: \(error.localizedDescription)")
         }
     }
 
-    /// Generate .txt, .html, .pdf format variants from .md document assets.
+    // MARK: - Content Writer Parsing
+
+    /// Result of parsing ContentWriter output.
+    private struct ContentWriterParsedOutput {
+        struct DocumentAsset {
+            let name: String
+            let content: String
+        }
+        let assets: [DocumentAsset]
+        let metadata: [String: Any]?
+        let parseMethod: String  // "json", "yaml", "raw"
+    }
+
+    /// Parse ContentWriter output with 3-tier fallback: JSON → YAML front matter → raw markdown.
+    private func parseContentWriterOutput(rawOutput: String?, task: AgentTask) -> ContentWriterParsedOutput {
+        guard let output = rawOutput, !output.isEmpty else {
+            return ContentWriterParsedOutput(assets: [], metadata: nil, parseMethod: "empty")
+        }
+
+        let cleaned = stripCLIBanners(stripANSI(output))
+
+        // Tier 1: Try JSON {"assets": [...]} format
+        if let data = extractJSON(from: cleaned) {
+            struct AssetOutput: Decodable {
+                let assets: [AssetItem]?
+                struct AssetItem: Decodable {
+                    let type: String?
+                    let name: String?
+                    let content: String?
+                }
+            }
+            if let parsed = try? JSONDecoder().decode(AssetOutput.self, from: data),
+               let items = parsed.assets, !items.isEmpty {
+                let documents = items.compactMap { item -> ContentWriterParsedOutput.DocumentAsset? in
+                    guard let content = item.content, !content.isEmpty else { return nil }
+                    let name = item.name ?? "\(sanitize(task.title)).md"
+                    return ContentWriterParsedOutput.DocumentAsset(name: name, content: content)
+                }
+                if !documents.isEmpty {
+                    return ContentWriterParsedOutput(assets: documents, metadata: nil, parseMethod: "json")
+                }
+            }
+        }
+
+        // Tier 2: Try YAML front matter (---\n...\n---\ncontent)
+        if let yamlResult = parseYAMLFrontMatter(cleaned, task: task) {
+            return yamlResult
+        }
+
+        // Tier 3: Raw markdown fallback — wrap entire output as a single document asset
+        let content = extractContentFromRawOutput(cleaned)
+        let name = "\(sanitize(task.title)).md"
+        let asset = ContentWriterParsedOutput.DocumentAsset(name: name, content: content)
+        return ContentWriterParsedOutput(assets: [asset], metadata: nil, parseMethod: "raw")
+    }
+
+    /// Parse YAML front matter from content. Returns nil if no front matter found.
+    private func parseYAMLFrontMatter(_ text: String, task: AgentTask) -> ContentWriterParsedOutput? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("---") else { return nil }
+
+        // Find closing ---
+        let afterFirst = trimmed.index(trimmed.startIndex, offsetBy: 3)
+        let rest = String(trimmed[afterFirst...]).trimmingCharacters(in: .newlines)
+        guard let closingRange = rest.range(of: "\n---") else { return nil }
+
+        let yamlBlock = String(rest[rest.startIndex..<closingRange.lowerBound])
+        let markdownBody = String(rest[closingRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !markdownBody.isEmpty else { return nil }
+
+        // Parse simple YAML key-value pairs
+        var metadata: [String: Any] = [:]
+        var name: String?
+        for line in yamlBlock.components(separatedBy: "\n") {
+            let parts = line.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            let key = parts[0].trimmingCharacters(in: .whitespaces)
+            var value = parts[1].trimmingCharacters(in: .whitespaces)
+
+            // Strip surrounding quotes
+            if (value.hasPrefix("\"") && value.hasSuffix("\"")) ||
+               (value.hasPrefix("'") && value.hasSuffix("'")) {
+                value = String(value.dropFirst().dropLast())
+            }
+
+            // Parse arrays like ["tag1", "tag2"]
+            if value.hasPrefix("[") && value.hasSuffix("]") {
+                let inner = String(value.dropFirst().dropLast())
+                let items = inner.components(separatedBy: ",").map {
+                    $0.trimmingCharacters(in: .whitespaces)
+                      .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+                }
+                metadata[key] = items
+            } else {
+                metadata[key] = value
+            }
+
+            if key == "name" {
+                name = value
+            } else if key == "title" && name == nil {
+                name = sanitize(value) + ".md"
+            }
+        }
+
+        let fileName = name ?? "\(sanitize(task.title)).md"
+
+        // Count words
+        let wordCount = markdownBody.split(whereSeparator: { $0.isWhitespace }).count
+        metadata["wordCount"] = wordCount
+        metadata["author"] = metadata["author"] ?? "CreedFlow"
+
+        let asset = ContentWriterParsedOutput.DocumentAsset(name: fileName, content: markdownBody)
+        return ContentWriterParsedOutput(assets: [asset], metadata: metadata, parseMethod: "yaml")
+    }
+
+    /// Scan content for creedflow:image:slug placeholders and queue ImageGenerator tasks.
+    private func scanAndQueueImages(content: String, task: AgentTask, project: Project) async {
+        let pattern = "!\\[([^\\]]*)\\]\\(creedflow:image:([a-z0-9-]+)\\)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
+
+        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+        guard !matches.isEmpty else { return }
+
+        for match in matches {
+            guard let descRange = Range(match.range(at: 1), in: content),
+                  let slugRange = Range(match.range(at: 2), in: content) else { continue }
+
+            let description = String(content[descRange])
+            let slug = String(content[slugRange])
+
+            do {
+                try await dbQueue.write { db in
+                    let imageTask = AgentTask(
+                        projectId: task.projectId,
+                        featureId: task.featureId,
+                        agentType: .imageGenerator,
+                        title: "Generate image: \(slug)",
+                        description: "Generate an image for content placeholder. Description: \(description). Slug: \(slug). Parent content task: \(task.id)",
+                        priority: task.priority
+                    )
+                    try imageTask.insert(db)
+
+                    let dep = TaskDependency(taskId: imageTask.id, dependsOnTaskId: task.id)
+                    try dep.insert(db)
+                }
+            } catch {
+                try? await logError(taskId: task.id, agent: .contentWriter,
+                                   message: "Failed to queue image task for slug '\(slug)': \(error.localizedDescription)")
+            }
+        }
+
+        try? await logInfo(taskId: task.id, agent: .contentWriter,
+                          message: "Queued \(matches.count) image generation task(s)")
+    }
+
+    /// Generate .txt, .html, .pdf, .docx format variants from .md document assets.
     private func generateFormatVariants(task: AgentTask, project: Project) async {
         let mdAssets: [GeneratedAsset] = (try? await dbQueue.read { db in
             try GeneratedAsset
@@ -1659,6 +1858,34 @@ final class Orchestrator {
             } catch {
                 try? await logError(taskId: task.id, agent: .contentWriter,
                                    message: "Failed to generate .pdf variant: \(error.localizedDescription)")
+            }
+
+            // .docx — Office Open XML
+            do {
+                let docxData = try await contentExporter.exportDOCX(filePath: mdAsset.filePath, title: title)
+                let fileName = "\(baseName).docx"
+                let dir = assetsDirectory(for: project)
+                try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+                let docxPath = (dir as NSString).appendingPathComponent(fileName)
+                try docxData.write(to: URL(fileURLWithPath: docxPath))
+
+                var docxAsset = GeneratedAsset(
+                    projectId: project.id,
+                    taskId: task.id,
+                    agentType: task.agentType,
+                    assetType: .document,
+                    name: fileName,
+                    filePath: docxPath,
+                    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    fileSize: Int64(docxData.count)
+                )
+                try await dbQueue.write { db in
+                    try docxAsset.insert(db)
+                }
+                variantCount += 1
+            } catch {
+                try? await logError(taskId: task.id, agent: .contentWriter,
+                                   message: "Failed to generate .docx variant: \(error.localizedDescription)")
             }
         }
 

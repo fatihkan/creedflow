@@ -347,7 +347,8 @@ async fn handle_agent_completion(
             handle_creative_completion(task, result, db).await;
         }
         AgentType::Publisher => handle_publisher_completion(task, result, db).await,
-        _ => {} // Tester, DevOps, Monitor, ContentWriter — no special handling
+        AgentType::ContentWriter => handle_content_writer_completion(task, result, db).await,
+        _ => {} // Tester, DevOps, Monitor — no special handling
     }
 }
 
@@ -698,6 +699,361 @@ async fn handle_publisher_completion(
 
         log::info!("Recorded publication for channel {} (task {})", channel_id, task.id);
     }
+}
+
+/// Content writer: parse output with 3-tier fallback (JSON → YAML front matter → raw markdown),
+/// save as document assets, queue image generation tasks for placeholders, queue publisher.
+async fn handle_content_writer_completion(
+    task: &AgentTask,
+    result: &TaskRunResult,
+    db: &Arc<Mutex<Database>>,
+) {
+    let parsed = parse_content_writer_output(&result.output, task);
+    if parsed.assets.is_empty() {
+        log::warn!("ContentWriter produced no parseable output for task {}", task.id);
+        return;
+    }
+
+    let db_lock = db.lock().await;
+
+    for asset in &parsed.assets {
+        let asset_id = uuid::Uuid::new_v4().to_string();
+        let file_name = if asset.name.contains('.') {
+            asset.name.clone()
+        } else {
+            format!("{}.md", asset.name)
+        };
+
+        // Save content to file
+        let project_name: Option<String> = db_lock.conn.query_row(
+            "SELECT name FROM project WHERE id = ?1",
+            [&task.project_id],
+            |row| row.get(0),
+        ).ok();
+
+        let project_name = project_name.unwrap_or_else(|| "unknown".to_string());
+        let home = dirs::home_dir().unwrap_or_default();
+        let assets_dir = home.join("CreedFlow").join("projects").join(&project_name).join("assets");
+        let _ = std::fs::create_dir_all(&assets_dir);
+        let file_path = assets_dir.join(&file_name);
+        let _ = std::fs::write(&file_path, &asset.content);
+
+        let file_size = asset.content.len() as i64;
+        let file_path_str = file_path.to_string_lossy().to_string();
+
+        // Compute checksum
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(asset.content.as_bytes());
+        let checksum = hex::encode(hasher.finalize());
+
+        // Build metadata JSON if available
+        let metadata_json = parsed.metadata.as_ref().map(|m| {
+            serde_json::to_string(m).unwrap_or_default()
+        });
+
+        let _ = db_lock.conn.execute(
+            "INSERT INTO generatedAsset (id, projectId, taskId, agentType, assetType, name, description, filePath, mimeType, fileSize, metadata, checksum, status, version, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, ?4, 'document', ?5, '', ?6, 'text/markdown', ?7, ?8, ?9, 'generated', 1, datetime('now'), datetime('now'))",
+            params![
+                asset_id, task.project_id, task.id, task.agent_type,
+                file_name, file_path_str, file_size, metadata_json, checksum,
+            ],
+        );
+
+        log::info!("Saved content document '{}' for task {} ({})", file_name, task.id, parsed.parse_method);
+    }
+
+    // Scan for image placeholders and queue ImageGenerator tasks
+    for asset in &parsed.assets {
+        scan_and_queue_images(&asset.content, task, &db_lock);
+    }
+
+    // Generate format variants (txt, html, pdf) from saved markdown
+    generate_content_format_variants(task, &db_lock);
+
+    // Queue publisher task if publishing channels exist
+    let has_channels: bool = db_lock.conn.query_row(
+        "SELECT COUNT(*) FROM publishingChannel WHERE isEnabled = 1",
+        [],
+        |row| row.get::<_, i32>(0),
+    ).unwrap_or(0) > 0;
+
+    if has_channels {
+        let publish_task_id = uuid::Uuid::new_v4().to_string();
+        let _ = db_lock.conn.execute(
+            "INSERT INTO agentTask (id, projectId, featureId, agentType, title, description, priority, status, retryCount, maxRetries, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, 'publisher', ?4, ?5, ?6, 'queued', 0, 3, datetime('now'), datetime('now'))",
+            params![
+                publish_task_id, task.project_id, task.feature_id,
+                format!("Publish: {}", task.title),
+                format!("Select publishing channels and schedule publication for: {}", task.title),
+                task.priority,
+            ],
+        );
+        let _ = db_lock.conn.execute(
+            "INSERT OR IGNORE INTO taskDependency (taskId, dependsOnTaskId) VALUES (?1, ?2)",
+            params![publish_task_id, task.id],
+        );
+    }
+}
+
+/// Parsed output from ContentWriter agent.
+struct ContentWriterParsedOutput {
+    assets: Vec<ContentDocumentAsset>,
+    metadata: Option<serde_json::Value>,
+    parse_method: String,
+}
+
+struct ContentDocumentAsset {
+    name: String,
+    content: String,
+}
+
+/// Parse ContentWriter output with 3-tier fallback: JSON → YAML front matter → raw markdown.
+fn parse_content_writer_output(output: &str, task: &AgentTask) -> ContentWriterParsedOutput {
+    if output.is_empty() {
+        return ContentWriterParsedOutput { assets: vec![], metadata: None, parse_method: "empty".to_string() };
+    }
+
+    let sanitized_title = sanitize_title_for_file(&task.title);
+
+    // Tier 1: Try JSON {"assets": [...]} format
+    if let Some(json) = extract_json(output) {
+        if let Some(assets_arr) = json.get("assets").and_then(|a| a.as_array()) {
+            let documents: Vec<ContentDocumentAsset> = assets_arr.iter().filter_map(|item| {
+                let content = item.get("content").and_then(|c| c.as_str())?;
+                if content.is_empty() { return None; }
+                let name = item.get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or(&sanitized_title)
+                    .to_string();
+                Some(ContentDocumentAsset { name, content: content.to_string() })
+            }).collect();
+
+            if !documents.is_empty() {
+                return ContentWriterParsedOutput {
+                    assets: documents,
+                    metadata: None,
+                    parse_method: "json".to_string(),
+                };
+            }
+        }
+    }
+
+    // Tier 2: Try YAML front matter (---\n...\n---\ncontent)
+    if let Some(result) = parse_yaml_front_matter(output, &sanitized_title) {
+        return result;
+    }
+
+    // Tier 3: Raw markdown fallback
+    let name = format!("{}.md", sanitized_title);
+    ContentWriterParsedOutput {
+        assets: vec![ContentDocumentAsset { name, content: output.trim().to_string() }],
+        metadata: None,
+        parse_method: "raw".to_string(),
+    }
+}
+
+/// Parse YAML front matter from text. Returns None if no front matter found.
+fn parse_yaml_front_matter(text: &str, default_name: &str) -> Option<ContentWriterParsedOutput> {
+    let trimmed = text.trim();
+    if !trimmed.starts_with("---") {
+        return None;
+    }
+
+    let after_first = &trimmed[3..].trim_start_matches('\n');
+    let closing_pos = after_first.find("\n---")?;
+
+    let yaml_block = &after_first[..closing_pos];
+    let markdown_body = after_first[closing_pos + 4..].trim();
+
+    if markdown_body.is_empty() {
+        return None;
+    }
+
+    // Parse simple YAML key-value pairs into a JSON object
+    let mut metadata = serde_json::Map::new();
+    let mut name: Option<String> = None;
+
+    for line in yaml_block.lines() {
+        let parts: Vec<&str> = line.splitn(2, ':').collect();
+        if parts.len() != 2 { continue; }
+        let key = parts[0].trim();
+        let mut value = parts[1].trim().to_string();
+
+        // Strip surrounding quotes
+        if (value.starts_with('"') && value.ends_with('"')) ||
+           (value.starts_with('\'') && value.ends_with('\'')) {
+            value = value[1..value.len()-1].to_string();
+        }
+
+        // Parse arrays like ["tag1", "tag2"]
+        if value.starts_with('[') && value.ends_with(']') {
+            let inner = &value[1..value.len()-1];
+            let items: Vec<serde_json::Value> = inner.split(',')
+                .map(|s| {
+                    let s = s.trim().trim_matches('"').trim_matches('\'');
+                    serde_json::Value::String(s.to_string())
+                })
+                .collect();
+            metadata.insert(key.to_string(), serde_json::Value::Array(items));
+        } else {
+            metadata.insert(key.to_string(), serde_json::Value::String(value.clone()));
+        }
+
+        if key == "name" {
+            name = Some(value);
+        } else if key == "title" && name.is_none() {
+            name = Some(format!("{}.md", sanitize_title_for_file(&value)));
+        }
+    }
+
+    let file_name = name.unwrap_or_else(|| format!("{}.md", default_name));
+
+    // Add word count
+    let word_count = markdown_body.split_whitespace().count();
+    metadata.insert("wordCount".to_string(), serde_json::Value::Number(word_count.into()));
+    metadata.entry("author".to_string())
+        .or_insert(serde_json::Value::String("CreedFlow".to_string()));
+
+    Some(ContentWriterParsedOutput {
+        assets: vec![ContentDocumentAsset { name: file_name, content: markdown_body.to_string() }],
+        metadata: Some(serde_json::Value::Object(metadata)),
+        parse_method: "yaml".to_string(),
+    })
+}
+
+/// Scan content for creedflow:image:slug placeholders and queue ImageGenerator tasks.
+fn scan_and_queue_images(content: &str, task: &AgentTask, db: &Database) {
+    let re = match regex::Regex::new(r"!\[([^\]]*)\]\(creedflow:image:([a-z0-9-]+)\)") {
+        Ok(r) => r,
+        Err(_) => return,
+    };
+
+    for cap in re.captures_iter(content) {
+        let description = cap.get(1).map(|m| m.as_str()).unwrap_or("");
+        let slug = cap.get(2).map(|m| m.as_str()).unwrap_or("");
+
+        let image_task_id = uuid::Uuid::new_v4().to_string();
+        let _ = db.conn.execute(
+            "INSERT INTO agentTask (id, projectId, featureId, agentType, title, description, priority, status, retryCount, maxRetries, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, 'imageGenerator', ?4, ?5, ?6, 'queued', 0, 3, datetime('now'), datetime('now'))",
+            params![
+                image_task_id, task.project_id, task.feature_id,
+                format!("Generate image: {}", slug),
+                format!("Generate an image for content placeholder. Description: {}. Slug: {}. Parent content task: {}", description, slug, task.id),
+                task.priority,
+            ],
+        );
+        let _ = db.conn.execute(
+            "INSERT OR IGNORE INTO taskDependency (taskId, dependsOnTaskId) VALUES (?1, ?2)",
+            params![image_task_id, task.id],
+        );
+
+        log::info!("Queued image generation for slug '{}' (task {})", slug, task.id);
+    }
+}
+
+/// Generate format variants (txt, html, pdf) from markdown document assets.
+fn generate_content_format_variants(task: &AgentTask, db: &Database) {
+    use crate::services::content_exporter::ContentExporter;
+
+    // Find all markdown assets for this task
+    let mut stmt = match db.conn.prepare(
+        "SELECT id, name, filePath FROM generatedAsset WHERE taskId = ?1 AND assetType = 'document' AND mimeType = 'text/markdown'"
+    ) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+
+    let assets: Vec<(String, String, String)> = stmt.query_map(params![task.id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    }).ok().map(|rows| rows.flatten().collect()).unwrap_or_default();
+
+    for (_asset_id, name, file_path) in &assets {
+        let markdown = match std::fs::read_to_string(file_path) {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+
+        let base_name = name.trim_end_matches(".md");
+        let dir = std::path::Path::new(file_path).parent().unwrap_or(std::path::Path::new("."));
+
+        // .txt variant
+        let plaintext = ContentExporter::markdown_to_plaintext(&markdown);
+        let txt_path = dir.join(format!("{}.txt", base_name));
+        if std::fs::write(&txt_path, &plaintext).is_ok() {
+            let txt_id = uuid::Uuid::new_v4().to_string();
+            let _ = db.conn.execute(
+                "INSERT INTO generatedAsset (id, projectId, taskId, agentType, assetType, name, description, filePath, mimeType, fileSize, status, version, createdAt, updatedAt)
+                 VALUES (?1, ?2, ?3, ?4, 'document', ?5, '', ?6, 'text/plain', ?7, 'generated', 1, datetime('now'), datetime('now'))",
+                params![txt_id, task.project_id, task.id, task.agent_type,
+                    format!("{}.txt", base_name), txt_path.to_string_lossy().to_string(), plaintext.len() as i64],
+            );
+        }
+
+        // .html variant
+        let html = ContentExporter::markdown_to_html(&markdown);
+        let html_path = dir.join(format!("{}.html", base_name));
+        if std::fs::write(&html_path, &html).is_ok() {
+            let html_id = uuid::Uuid::new_v4().to_string();
+            let _ = db.conn.execute(
+                "INSERT INTO generatedAsset (id, projectId, taskId, agentType, assetType, name, description, filePath, mimeType, fileSize, status, version, createdAt, updatedAt)
+                 VALUES (?1, ?2, ?3, ?4, 'document', ?5, '', ?6, 'text/html', ?7, 'generated', 1, datetime('now'), datetime('now'))",
+                params![html_id, task.project_id, task.id, task.agent_type,
+                    format!("{}.html", base_name), html_path.to_string_lossy().to_string(), html.len() as i64],
+            );
+        }
+
+        // .pdf variant
+        match ContentExporter::markdown_to_pdf(&markdown) {
+            Ok(pdf_bytes) => {
+                let pdf_path = dir.join(format!("{}.pdf", base_name));
+                if std::fs::write(&pdf_path, &pdf_bytes).is_ok() {
+                    let pdf_id = uuid::Uuid::new_v4().to_string();
+                    let _ = db.conn.execute(
+                        "INSERT INTO generatedAsset (id, projectId, taskId, agentType, assetType, name, description, filePath, mimeType, fileSize, status, version, createdAt, updatedAt)
+                         VALUES (?1, ?2, ?3, ?4, 'document', ?5, '', ?6, 'application/pdf', ?7, 'generated', 1, datetime('now'), datetime('now'))",
+                        params![pdf_id, task.project_id, task.id, task.agent_type,
+                            format!("{}.pdf", base_name), pdf_path.to_string_lossy().to_string(), pdf_bytes.len() as i64],
+                    );
+                }
+            }
+            Err(e) => log::warn!("Failed to generate PDF for {}: {}", name, e),
+        }
+
+        // .docx variant
+        match ContentExporter::markdown_to_docx(&markdown) {
+            Ok(docx_bytes) => {
+                let docx_path = dir.join(format!("{}.docx", base_name));
+                if std::fs::write(&docx_path, &docx_bytes).is_ok() {
+                    let docx_id = uuid::Uuid::new_v4().to_string();
+                    let _ = db.conn.execute(
+                        "INSERT INTO generatedAsset (id, projectId, taskId, agentType, assetType, name, description, filePath, mimeType, fileSize, status, version, createdAt, updatedAt)
+                         VALUES (?1, ?2, ?3, ?4, 'document', ?5, '', ?6, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ?7, 'generated', 1, datetime('now'), datetime('now'))",
+                        params![docx_id, task.project_id, task.id, task.agent_type,
+                            format!("{}.docx", base_name), docx_path.to_string_lossy().to_string(), docx_bytes.len() as i64],
+                    );
+                }
+            }
+            Err(e) => log::warn!("Failed to generate DOCX for {}: {}", name, e),
+        }
+    }
+}
+
+fn sanitize_title_for_file(title: &str) -> String {
+    title
+        .to_lowercase()
+        .replace(' ', "-")
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-')
+        .take(30)
+        .collect()
 }
 
 /// Git completion pipeline: auto-commit, merge, promote.

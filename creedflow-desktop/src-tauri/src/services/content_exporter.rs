@@ -1,4 +1,4 @@
-/// Content exporter — converts Markdown to HTML/plaintext/PDF for publishing.
+/// Content exporter — converts Markdown to HTML/plaintext/PDF/DOCX for publishing.
 
 pub struct ContentExporter;
 
@@ -70,6 +70,63 @@ impl ContentExporter {
         }
 
         text
+    }
+
+    /// Convert markdown to DOCX bytes using docx-rs.
+    pub fn markdown_to_docx(markdown: &str) -> Result<Vec<u8>, String> {
+        use docx_rs::*;
+
+        let mut docx = Docx::new();
+
+        let mut in_code_block = false;
+        for line in markdown.lines() {
+            if line.starts_with("```") {
+                in_code_block = !in_code_block;
+                continue;
+            }
+
+            let trimmed = line.trim();
+
+            if in_code_block {
+                // Code block — monospace style
+                let run = Run::new().add_text(line).fonts(RunFonts::new().ascii("Courier"));
+                let para = Paragraph::new().add_run(run);
+                docx = docx.add_paragraph(para);
+            } else if trimmed.is_empty() {
+                docx = docx.add_paragraph(Paragraph::new());
+            } else if let Some(heading) = trimmed.strip_prefix("# ") {
+                let run = Run::new().add_text(heading).bold();
+                let para = Paragraph::new().add_run(run)
+                    .style("Heading1");
+                docx = docx.add_paragraph(para);
+            } else if let Some(heading) = trimmed.strip_prefix("## ") {
+                let run = Run::new().add_text(heading).bold();
+                let para = Paragraph::new().add_run(run)
+                    .style("Heading2");
+                docx = docx.add_paragraph(para);
+            } else if let Some(heading) = trimmed.strip_prefix("### ") {
+                let run = Run::new().add_text(heading).bold();
+                let para = Paragraph::new().add_run(run)
+                    .style("Heading3");
+                docx = docx.add_paragraph(para);
+            } else if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+                let text = &trimmed[2..];
+                let run = Run::new().add_text(format!("• {}", strip_markdown(text)));
+                let para = Paragraph::new().add_run(run);
+                docx = docx.add_paragraph(para);
+            } else {
+                // Regular paragraph — strip inline markdown
+                let clean = strip_markdown(trimmed);
+                let run = Run::new().add_text(clean);
+                let para = Paragraph::new().add_run(run);
+                docx = docx.add_paragraph(para);
+            }
+        }
+
+        let mut buf = Vec::new();
+        let cursor = std::io::Cursor::new(&mut buf);
+        docx.build().pack(cursor).map_err(|e| format!("DOCX build error: {}", e))?;
+        Ok(buf)
     }
 
     /// Convert markdown to PDF bytes using printpdf.
@@ -197,6 +254,10 @@ fn inline_markdown(text: &str) -> String {
     let result = regex::Regex::new(r"`(.+?)`")
         .unwrap()
         .replace_all(&result, "<code>$1</code>");
+    // Images (before links to avoid conflict)
+    let result = regex::Regex::new(r"!\[(.+?)\]\((.+?)\)")
+        .unwrap()
+        .replace_all(&result, r#"<img src="$2" alt="$1" style="max-width:100%;">"#);
     // Links
     let result = regex::Regex::new(r"\[(.+?)\]\((.+?)\)")
         .unwrap()

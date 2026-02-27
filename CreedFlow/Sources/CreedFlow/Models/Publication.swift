@@ -29,6 +29,7 @@ package struct Publication: Codable, Identifiable, Equatable {
         case html
         case plaintext
         case pdf
+        case docx
     }
 
     package init(
