@@ -85,7 +85,8 @@ public struct ContentView: View {
                 case "4": selectedSection = .reviews; return nil
                 case "5": selectedSection = .deploys; return nil
                 case "6": selectedSection = .prompts; return nil
-                case "7": selectedSection = .gitGraph; return nil
+                case "7": selectedSection = .assets; return nil
+                case "8": selectedSection = .gitGraph; return nil
                 default: return event
                 }
             }
@@ -149,6 +150,8 @@ public struct ContentView: View {
             DeployView(appDatabase: appDatabase, selectedDeploymentId: $selectedDeploymentId)
         case .prompts:
             PromptsLibraryView(appDatabase: appDatabase)
+        case .assets:
+            ProjectAssetsView(appDatabase: appDatabase, selectedProjectId: $selectedProjectId)
         case .gitGraph:
             GitGraphView(appDatabase: appDatabase)
         case .projectTasks(let projectId):
@@ -245,6 +248,7 @@ enum SidebarSection: Hashable {
     case deploys
     case settings
     case prompts
+    case assets
     case gitGraph
     case projectTasks(UUID)
 }

@@ -100,6 +100,9 @@ struct SidebarView: View {
                 Section("Library") {
                     Label("Prompts", systemImage: "text.book.closed")
                         .tag(SidebarSection.prompts)
+
+                    Label("Assets", systemImage: "photo.on.rectangle.angled")
+                        .tag(SidebarSection.assets)
                 }
             }
             .listStyle(.sidebar)
