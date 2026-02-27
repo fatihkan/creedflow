@@ -24,28 +24,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Swift
-        uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: "6.0"
+      - name: Verify Swift version
+        run: swift --version
 
       - name: Build & Package DMG
         working-directory: CreedFlow
         run: |
           chmod +x Scripts/package-app.sh
-          ./Scripts/package-app.sh --arch ${{ matrix.arch }} --dmg
+          ./Scripts/package-app.sh --dmg
+
+      - name: Rename DMG with architecture
+        working-directory: CreedFlow/dist
+        run: |
+          VERSION=$(grep -A1 'CFBundleShortVersionString' ../Resources/Info.plist | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>/\1/')
+          # Script creates CreedFlow-VERSION-ARCH.dmg when --arch is used,
+          # or CreedFlow-VERSION-NATIVE_ARCH.dmg without --arch
+          # Ensure consistent naming
+          for f in *.dmg; do
+            TARGET="CreedFlow-${VERSION}-${{ matrix.arch }}.dmg"
+            if [ "$f" != "$TARGET" ]; then
+              mv "$f" "$TARGET"
+            fi
+          done
+          ls -la *.dmg
 
       - name: Verify binary architecture
         working-directory: CreedFlow
         run: |
           file dist/CreedFlow.app/Contents/MacOS/CreedFlow
-          file dist/CreedFlow.app/Contents/MacOS/CreedFlow | grep -q "${{ matrix.arch }}"
+          ACTUAL_ARCH=$(file dist/CreedFlow.app/Contents/MacOS/CreedFlow | awk '{print $NF}')
+          echo "Expected: ${{ matrix.arch }}, Actual: $ACTUAL_ARCH"
+          if [ "$ACTUAL_ARCH" != "${{ matrix.arch }}" ]; then
+            echo "Architecture mismatch!"
+            exit 1
+          fi
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
           name: dmg-${{ matrix.arch }}
-          path: CreedFlow/dist/*.dmg
+          path: CreedFlow/dist/CreedFlow-*-${{ matrix.arch }}.dmg
 
   release:
     needs: build

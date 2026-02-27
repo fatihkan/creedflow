@@ -56,7 +56,15 @@ echo ""
 echo "→ Building release binaries (${ARCH_LABEL})..."
 cd "$PROJECT_DIR"
 # shellcheck disable=SC2086
-swift build -c release --product CreedFlow --product CreedFlowMCPServer $TRIPLE_FLAG 2>&1 | tail -5
+set +e
+swift build -c release --product CreedFlow --product CreedFlowMCPServer $TRIPLE_FLAG 2>&1
+BUILD_EXIT=$?
+set -e
+if [ $BUILD_EXIT -ne 0 ]; then
+    echo ""
+    echo "ERROR: Build failed (exit code $BUILD_EXIT)"
+    exit $BUILD_EXIT
+fi
 echo "  Build complete."
 echo ""
 
