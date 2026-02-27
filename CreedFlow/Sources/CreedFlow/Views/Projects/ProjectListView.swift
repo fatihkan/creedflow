@@ -176,12 +176,33 @@ struct ProjectListView: View {
 
     private func openInEditor(at path: String) {
         guard !preferredEditor.isEmpty else { return }
+        // Try opening via NSWorkspace using the app's bundle identifier (reliable in .app bundles)
+        if let bundleId = Self.editorBundleIds[preferredEditor],
+           let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            let config = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.open(
+                [URL(fileURLWithPath: path)],
+                withApplicationAt: appURL,
+                configuration: config
+            )
+            return
+        }
+        // Fallback: use CLI command with full environment
         let process = Foundation.Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [preferredEditor, path]
         process.environment = ProcessInfo.processInfo.environment
         try? process.run()
     }
+
+    private static let editorBundleIds: [String: String] = [
+        "code": "com.microsoft.VSCode",
+        "cursor": "com.todesktop.230313mzl4w4u92",
+        "zed": "dev.zed.Zed",
+        "subl": "com.sublimetext.4",
+        "xed": "com.apple.dt.Xcode",
+        "windsurf": "com.codeium.windsurf",
+    ]
 
     private func deleteProject(_ project: Project) {
         guard let db = appDatabase else { return }

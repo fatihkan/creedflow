@@ -10,6 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Load the user's login shell environment so CLI tools are discoverable
+        // when running as a .app bundle (which gets a minimal PATH by default).
+        ShellEnvironment.shared.apply()
+
         // Ensure the app appears in the dock and accepts focus
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)

@@ -336,7 +336,7 @@ private struct DependencyRow: View {
                     ProgressView()
                         .scaleEffect(0.7)
                         .frame(width: 16, height: 16)
-                } else if !dep.isInstalled && brewAvailable {
+                } else if !dep.isInstalled && (brewAvailable || dep.customInstall != nil) {
                     Button("Install") { onInstall() }
                         .controlSize(.small)
                 }

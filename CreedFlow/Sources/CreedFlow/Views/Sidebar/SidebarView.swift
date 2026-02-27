@@ -123,9 +123,8 @@ struct SidebarView: View {
     private var brandHeader: some View {
         HStack(spacing: 10) {
             Group {
-                if let iconURL = Bundle.module.url(forResource: "AppIcon-preview", withExtension: "png"),
-                   let nsImage = NSImage(contentsOf: iconURL) {
-                    Image(nsImage: nsImage)
+                if let appIcon = NSApp.applicationIconImage {
+                    Image(nsImage: appIcon)
                         .resizable()
                         .interpolation(.high)
                         .aspectRatio(contentMode: .fit)

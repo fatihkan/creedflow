@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Auto-detects installed developer tools (AI CLIs, gh CLI, git config)
@@ -104,33 +105,33 @@ final class EnvironmentDetector {
         "/opt/homebrew/bin/gh",
     ]
 
-    /// Editor candidates: (display name, CLI command name, candidate paths)
-    private static let editorCandidates: [(name: String, command: String, paths: [String])] = [
-        ("VS Code", "code", [
+    /// Editor candidates: (display name, CLI command, bundle ID for NSWorkspace lookup, CLI paths)
+    private static let editorCandidates: [(name: String, command: String, bundleId: String, paths: [String])] = [
+        ("VS Code", "code", "com.microsoft.VSCode", [
             "/usr/local/bin/code",
             "\(home)/.local/bin/code",
             "/opt/homebrew/bin/code",
             "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
         ]),
-        ("Cursor", "cursor", [
+        ("Cursor", "cursor", "com.todesktop.230313mzl4w4u92", [
             "/usr/local/bin/cursor",
             "\(home)/.local/bin/cursor",
             "/opt/homebrew/bin/cursor",
             "/Applications/Cursor.app/Contents/Resources/app/bin/cursor",
         ]),
-        ("Zed", "zed", [
+        ("Zed", "zed", "dev.zed.Zed", [
             "/usr/local/bin/zed",
             "\(home)/.local/bin/zed",
             "/opt/homebrew/bin/zed",
             "/Applications/Zed.app/Contents/MacOS/cli/zed",
         ]),
-        ("Sublime Text", "subl", [
+        ("Sublime Text", "subl", "com.sublimetext.4", [
             "/usr/local/bin/subl",
             "/opt/homebrew/bin/subl",
             "/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl",
         ]),
-        ("Xcode", "xed", ["/usr/bin/xed"]),
-        ("Windsurf", "windsurf", [
+        ("Xcode", "xed", "com.apple.dt.Xcode", ["/usr/bin/xed"]),
+        ("Windsurf", "windsurf", "com.codeium.windsurf", [
             "/usr/local/bin/windsurf",
             "\(home)/.local/bin/windsurf",
             "/Applications/Windsurf.app/Contents/Resources/app/bin/windsurf",
@@ -240,6 +241,14 @@ final class EnvironmentDetector {
     private func detectEditors() async {
         var found: [(name: String, command: String, path: String)] = []
         for editor in Self.editorCandidates {
+            // Primary: use NSWorkspace to find installed .app by bundle ID (always works, even in .app bundles)
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: editor.bundleId) {
+                // Derive CLI path from .app bundle location
+                let cliPath = Self.cliPathFromApp(appURL: appURL, command: editor.command)
+                found.append((name: editor.name, command: editor.command, path: cliPath ?? appURL.path))
+                continue
+            }
+            // Fallback: check hardcoded CLI candidate paths
             for candidate in editor.paths {
                 if FileManager.default.isExecutableFile(atPath: candidate) {
                     found.append((name: editor.name, command: editor.command, path: candidate))
@@ -248,6 +257,22 @@ final class EnvironmentDetector {
             }
         }
         detectedEditors = found
+    }
+
+    /// Derive the CLI binary path from a .app bundle URL.
+    private static func cliPathFromApp(appURL: URL, command: String) -> String? {
+        let possibleRelPaths = [
+            "Contents/Resources/app/bin/\(command)",  // VS Code, Cursor, Windsurf
+            "Contents/MacOS/cli/\(command)",           // Zed
+            "Contents/SharedSupport/bin/\(command)",   // Sublime Text
+        ]
+        for rel in possibleRelPaths {
+            let fullPath = appURL.appendingPathComponent(rel).path
+            if FileManager.default.isExecutableFile(atPath: fullPath) {
+                return fullPath
+            }
+        }
+        return nil
     }
 
     // MARK: - Git Config

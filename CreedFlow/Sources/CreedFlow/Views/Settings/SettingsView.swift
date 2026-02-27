@@ -110,9 +110,15 @@ public struct SettingsView: View {
                         Text("\(editor.name) (\(editor.command))").tag(editor.command)
                     }
                 }
-                Text("Used for \"Open in Editor\" buttons throughout the app")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                if detectedEditors.isEmpty {
+                    Text("No editors detected. Install one from the Git & Tools tab.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Used for \"Open in Editor\" buttons throughout the app")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("Setup") {
@@ -414,7 +420,7 @@ public struct SettingsView: View {
                             Spacer()
                             if dep.isInstalling {
                                 ProgressView().scaleEffect(0.7).frame(width: 16, height: 16)
-                            } else if !dep.isInstalled && depInstaller.brewDetected {
+                            } else if !dep.isInstalled && (depInstaller.brewDetected || dep.customInstall != nil) {
                                 Button("Install") {
                                     Task { await depInstaller.install(dep.id) }
                                 }

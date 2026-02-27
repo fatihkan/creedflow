@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// A system dependency that can be detected and installed via Homebrew.
@@ -8,14 +9,33 @@ struct SystemDependency: Identifiable {
     let candidates: [String]
     let installCommand: String
     let isBrewCask: Bool
+    /// macOS bundle identifier for .app detection via NSWorkspace (optional)
+    let bundleId: String?
+    /// Custom install script (overrides brew install when set)
+    let customInstall: String?
     var isInstalled: Bool = false
     var detectedVersion: String = ""
     var isInstalling: Bool = false
     var installOutput: String = ""
     var installError: String?
+
+    init(
+        id: String, name: String, description: String,
+        candidates: [String], installCommand: String, isBrewCask: Bool,
+        bundleId: String? = nil, customInstall: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.candidates = candidates
+        self.installCommand = installCommand
+        self.isBrewCask = isBrewCask
+        self.bundleId = bundleId
+        self.customInstall = customInstall
+    }
 }
 
-/// Detects and installs system dependencies (Docker, git, gh, node, etc.)
+/// Detects and installs system dependencies (Docker, git, gh, node, editors, etc.)
 /// via Homebrew for the setup wizard.
 @Observable
 final class DependencyInstaller {
@@ -52,13 +72,24 @@ final class DependencyInstaller {
 
     private static func defaultDependencies() -> [SystemDependency] {
         [
+            // --- Dev Tools ---
+            SystemDependency(
+                id: "xcode-cli",
+                name: "Xcode CLI Tools",
+                description: "Git, compilers, and developer tools",
+                candidates: ["/usr/bin/xcodebuild", "/usr/bin/git"],
+                installCommand: "",
+                isBrewCask: false,
+                customInstall: "xcode-select --install"
+            ),
             SystemDependency(
                 id: "docker",
                 name: "Docker",
                 description: "Container runtime for deployments",
                 candidates: ["/usr/local/bin/docker", "/opt/homebrew/bin/docker"],
                 installCommand: "docker",
-                isBrewCask: true
+                isBrewCask: true,
+                bundleId: "com.docker.docker"
             ),
             SystemDependency(
                 id: "git",
@@ -124,6 +155,60 @@ final class DependencyInstaller {
                 installCommand: "llama.cpp",
                 isBrewCask: false
             ),
+
+            // --- Code Editors ---
+            SystemDependency(
+                id: "vscode",
+                name: "VS Code",
+                description: "Popular code editor by Microsoft",
+                candidates: [
+                    "/usr/local/bin/code",
+                    "\(home)/.local/bin/code",
+                    "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+                ],
+                installCommand: "visual-studio-code",
+                isBrewCask: true,
+                bundleId: "com.microsoft.VSCode"
+            ),
+            SystemDependency(
+                id: "cursor",
+                name: "Cursor",
+                description: "AI-powered code editor",
+                candidates: [
+                    "/usr/local/bin/cursor",
+                    "\(home)/.local/bin/cursor",
+                    "/Applications/Cursor.app/Contents/Resources/app/bin/cursor",
+                ],
+                installCommand: "cursor",
+                isBrewCask: true,
+                bundleId: "com.todesktop.230313mzl4w4u92"
+            ),
+            SystemDependency(
+                id: "zed",
+                name: "Zed",
+                description: "High-performance code editor",
+                candidates: [
+                    "/usr/local/bin/zed",
+                    "\(home)/.local/bin/zed",
+                    "/Applications/Zed.app/Contents/MacOS/cli/zed",
+                ],
+                installCommand: "zed",
+                isBrewCask: true,
+                bundleId: "dev.zed.Zed"
+            ),
+            SystemDependency(
+                id: "windsurf",
+                name: "Windsurf",
+                description: "AI-powered code editor by Codeium",
+                candidates: [
+                    "/usr/local/bin/windsurf",
+                    "\(home)/.local/bin/windsurf",
+                    "/Applications/Windsurf.app/Contents/Resources/app/bin/windsurf",
+                ],
+                installCommand: "windsurf",
+                isBrewCask: true,
+                bundleId: "com.codeium.windsurf"
+            ),
         ]
     }
 
@@ -174,6 +259,20 @@ final class DependencyInstaller {
     }
 
     private func detectDependency(_ dep: SystemDependency) async -> (Bool, String) {
+        // Special case: Xcode CLI Tools
+        if dep.id == "xcode-cli" {
+            return await detectXcodeCliTools()
+        }
+
+        // Primary: use NSWorkspace to find installed .app by bundle ID
+        if let bundleId = dep.bundleId,
+           let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            // Try to get version from the app's Info.plist
+            let version = Self.appVersion(at: appURL) ?? ""
+            return (true, version.isEmpty ? "Installed" : version)
+        }
+
+        // Fallback: check CLI candidate paths
         for candidate in dep.candidates {
             // Support glob-like patterns (e.g. nvm paths with *)
             if candidate.contains("*") {
@@ -190,6 +289,32 @@ final class DependencyInstaller {
             }
         }
         return (false, "")
+    }
+
+    private func detectXcodeCliTools() async -> (Bool, String) {
+        do {
+            let output = try await Process.run("/usr/bin/xcode-select", arguments: ["-p"])
+            let path = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !path.isEmpty && FileManager.default.fileExists(atPath: path) {
+                // Get CLT version
+                let versionOutput = try? await Process.run("/usr/bin/xcodebuild", arguments: ["-version"])
+                let version = versionOutput?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .components(separatedBy: "\n").first ?? "Installed"
+                return (true, version)
+            }
+        } catch {}
+        return (false, "")
+    }
+
+    /// Read CFBundleShortVersionString from an app's Info.plist
+    private static func appVersion(at appURL: URL) -> String? {
+        let plistURL = appURL.appendingPathComponent("Contents/Info.plist")
+        guard let data = try? Data(contentsOf: plistURL),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let version = plist["CFBundleShortVersionString"] as? String else {
+            return nil
+        }
+        return version
     }
 
     private func getVersion(_ path: String) async -> String {
@@ -244,10 +369,9 @@ final class DependencyInstaller {
         await detectBrew()
     }
 
-    /// Install a single dependency via Homebrew.
+    /// Install a single dependency via Homebrew (or custom install command).
     func install(_ depId: String) async {
         guard let index = dependencies.firstIndex(where: { $0.id == depId }) else { return }
-        guard brewDetected else { return }
 
         dependencies[index].isInstalling = true
         dependencies[index].installOutput = ""
@@ -255,6 +379,28 @@ final class DependencyInstaller {
         defer { dependencies[index].isInstalling = false }
 
         let dep = dependencies[index]
+
+        // Special: custom install command (e.g. xcode-select --install)
+        if let customInstall = dep.customInstall {
+            let components = customInstall.components(separatedBy: " ")
+            guard let executable = components.first else { return }
+            let args = Array(components.dropFirst())
+
+            let (output, error) = await runProcessStreaming(executable, arguments: args)
+            dependencies[index].installOutput = output
+            if !error.isEmpty {
+                dependencies[index].installError = error
+            }
+
+            // Re-detect
+            let (found, version) = await detectDependency(dependencies[index])
+            dependencies[index].isInstalled = found
+            dependencies[index].detectedVersion = version
+            return
+        }
+
+        guard brewDetected else { return }
+
         var args = ["install"]
         if dep.isBrewCask { args.append("--cask") }
         args.append(dep.installCommand)

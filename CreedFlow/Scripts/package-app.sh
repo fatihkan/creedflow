@@ -68,6 +68,24 @@ else
     echo "  Place an AppIcon.icns in Resources/ to add a custom icon."
 fi
 
+# ─── Step 6b: Copy SPM resource bundles ───
+# SPM's generated Bundle.module accessor looks at Bundle.main.bundleURL
+# which is the .app root directory, so bundles go there (not Contents/Resources/)
+BUNDLE_COUNT=0
+for bundle in "$BUILD_DIR"/*.bundle; do
+    if [ -d "$bundle" ]; then
+        BUNDLE_NAME=$(basename "$bundle")
+        echo "→ Copying resource bundle: $BUNDLE_NAME"
+        cp -R "$bundle" "$APP_BUNDLE/$BUNDLE_NAME"
+        BUNDLE_COUNT=$((BUNDLE_COUNT + 1))
+    fi
+done
+if [ "$BUNDLE_COUNT" -gt 0 ]; then
+    echo "  Copied $BUNDLE_COUNT resource bundle(s)."
+else
+    echo "→ No SPM resource bundles found."
+fi
+
 # ─── Step 7: Strip debug symbols (smaller binary) ───
 echo "→ Stripping debug symbols..."
 strip -x "$APP_BUNDLE/Contents/MacOS/CreedFlow" 2>/dev/null || true
