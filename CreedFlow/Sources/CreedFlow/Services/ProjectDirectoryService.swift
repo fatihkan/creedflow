@@ -14,6 +14,7 @@ actor ProjectDirectoryService {
     }
 
     /// Create a new project directory and initialize git with three-branch structure (main → staging → dev).
+    /// If the directory already exists with a git repo, reuses it and ensures branches exist.
     func createProjectDirectory(name: String) async throws -> String {
         let sanitized = sanitizeDirectoryName(name)
         let path = "\(baseDirectory)/\(sanitized)"
@@ -22,9 +23,13 @@ actor ProjectDirectoryService {
         // Create directory
         try fm.createDirectory(atPath: path, withIntermediateDirectories: true)
 
-        // Initialize git repo
         let git = GitService()
-        try await git.initRepo(at: path)
+        let gitDirExists = fm.fileExists(atPath: "\(path)/.git")
+
+        if !gitDirExists {
+            // Initialize git repo
+            try await git.initRepo(at: path)
+        }
 
         // Create initial CLAUDE.md
         let claudeMD = """
@@ -53,16 +58,26 @@ actor ProjectDirectoryService {
             """
         try gitignore.write(toFile: "\(path)/.gitignore", atomically: true, encoding: .utf8)
 
-        // Initial commit on main
+        // Initial commit on main (may already exist if dir was reused)
         try await git.addAll(in: path)
-        try await git.commit(message: "chore: initial project setup", in: path)
+        do {
+            try await git.commit(message: "chore: initial project setup", in: path)
+        } catch {
+            // Commit may fail if nothing to commit (directory reuse) — that's OK
+        }
 
-        // Create staging branch from main
-        try await git.createBranch("staging", in: path)
-        try await git.checkout("main", in: path)
-
-        // Create dev branch from main and stay on it
-        try await git.createBranch("dev", in: path)
+        // Create branches if they don't exist yet (best-effort)
+        let existingBranches = (try? await git.allBranches(in: path)) ?? []
+        if !existingBranches.contains("staging") {
+            try? await git.createBranch("staging", in: path)
+            try? await git.checkout("main", in: path)
+        }
+        if !existingBranches.contains("dev") {
+            try? await git.createBranch("dev", in: path)
+        } else {
+            // Ensure we're on dev
+            try? await git.checkout("dev", in: path)
+        }
 
         return path
     }
