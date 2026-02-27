@@ -185,6 +185,14 @@ actor GitBranchManager {
             try await gitService.checkout("dev", in: path)
             try await gitService.merge(branchName, message: "merge: \(branchName) into dev", in: path)
             logger.info("Merged branch \(branchName) into dev (local)")
+
+            // Clean up: delete the feature branch after successful merge
+            do {
+                try await gitService.deleteBranch(branchName, in: path)
+                logger.info("Deleted branch \(branchName) after merge")
+            } catch {
+                logger.warning("Could not delete branch \(branchName): \(error.localizedDescription)")
+            }
         } catch {
             // Best effort — try to get back to dev even if merge failed
             try? await gitService.checkout("dev", in: path)

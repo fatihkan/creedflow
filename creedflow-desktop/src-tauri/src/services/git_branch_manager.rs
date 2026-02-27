@@ -93,12 +93,20 @@ impl GitBranchManager {
         GitService::create_pr_via_gh(dir, title, "", "dev", branch).await
     }
 
-    /// Squash-merge a feature branch into dev.
+    /// Squash-merge a feature branch into dev, then delete the branch.
     pub async fn merge_feature_to_dev(dir: &str, branch: &str) -> Result<(), String> {
         GitService::checkout(dir, "dev").await?;
         GitService::merge(dir, branch, true).await?;
         let msg = format!("merge: {} into dev", branch);
         GitService::commit(dir, &msg).await?;
+
+        // Clean up: delete the feature branch after successful merge
+        if let Err(e) = GitService::delete_branch(dir, branch).await {
+            log::warn!("Could not delete branch {}: {}", branch, e);
+        } else {
+            log::info!("Deleted branch {} after merge", branch);
+        }
+
         Ok(())
     }
 

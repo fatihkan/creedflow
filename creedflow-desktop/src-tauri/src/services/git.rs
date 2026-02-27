@@ -38,6 +38,10 @@ impl GitService {
         run_git(dir, &["push", remote, branch]).await
     }
 
+    pub async fn delete_branch(dir: &str, name: &str) -> Result<String, String> {
+        run_git(dir, &["branch", "-D", name]).await
+    }
+
     pub async fn current_branch(dir: &str) -> Result<String, String> {
         run_git(dir, &["rev-parse", "--abbrev-ref", "HEAD"]).await
     }

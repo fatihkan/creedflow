@@ -85,6 +85,11 @@ actor GitService {
         return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Delete a local branch (force)
+    func deleteBranch(_ name: String, in path: String) async throws {
+        try await run(["branch", "-D", name], in: path)
+    }
+
     /// Get the HEAD commit hash (short)
     func headCommitHash(in path: String) async throws -> String {
         let output = try await run(["rev-parse", "--short", "HEAD"], in: path)
