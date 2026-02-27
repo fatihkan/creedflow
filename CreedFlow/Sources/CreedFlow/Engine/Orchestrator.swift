@@ -1783,6 +1783,7 @@ final class Orchestrator {
     /// Parse agent output for asset references and save them via AssetStorageService.
     /// Supports JSON format: {"assets": [{"type": "...", "name": "...", "url"?: "...", "filePath"?: "...", "content"?: "..."}]}
     /// Falls back to saving raw output as a text file.
+    /// Automatically links to previous versions when the task has been retried (retryCount > 0).
     private func extractAndSaveAssets(
         output: String?,
         task: AgentTask,
@@ -1793,6 +1794,8 @@ final class Orchestrator {
             try? await logInfo(taskId: task.id, agent: task.agentType, message: "No output to save")
             return
         }
+
+        let isRevision = task.retryCount > 0 || task.revisionPrompt != nil
 
         // Try parsing structured JSON output
         if let data = extractJSON(from: output) {
@@ -1813,31 +1816,41 @@ final class Orchestrator {
                 for (index, item) in items.enumerated() {
                     let assetType = item.type.flatMap { GeneratedAsset.AssetType(rawValue: $0) } ?? defaultAssetType
                     let name = item.name ?? "\(task.agentType.rawValue)-\(index + 1)"
+                    let logicalName = name.contains(".") ? name : "\(name).\(extensionForAssetType(assetType))"
+
+                    // Resolve version chain
+                    let (parentId, version) = await resolveVersionInfo(
+                        logicalName: logicalName, project: project, task: task, isRevision: isRevision
+                    )
 
                     if let urlStr = item.url, let url = URL(string: urlStr) {
                         _ = try await assetService.downloadAndSaveAsset(
                             url: url,
-                            fileName: name,
+                            fileName: logicalName,
                             project: project,
                             task: task,
-                            assetType: assetType
+                            assetType: assetType,
+                            parentAssetId: parentId,
+                            version: version
                         )
                     } else if let path = item.filePath, FileManager.default.fileExists(atPath: path) {
                         _ = try await assetService.recordExistingAsset(
                             filePath: path,
                             project: project,
                             task: task,
-                            assetType: assetType
+                            assetType: assetType,
+                            parentAssetId: parentId,
+                            version: version
                         )
                     } else if let content = item.content {
-                        let ext = extensionForAssetType(assetType)
-                        let fileName = name.contains(".") ? name : "\(name).\(ext)"
                         _ = try await assetService.saveTextAsset(
                             content: content,
-                            fileName: fileName,
+                            fileName: logicalName,
                             project: project,
                             task: task,
-                            assetType: assetType
+                            assetType: assetType,
+                            parentAssetId: parentId,
+                            version: version
                         )
                     }
                 }
@@ -1845,8 +1858,9 @@ final class Orchestrator {
                 // Generate thumbnails for saved assets
                 await generateThumbnailsForTask(taskId: task.id, projectName: project.name)
 
+                let versionNote = isRevision ? " (revision)" : ""
                 try? await logInfo(taskId: task.id, agent: task.agentType,
-                                  message: "Saved \(items.count) asset(s)")
+                                  message: "Saved \(items.count) asset(s)\(versionNote)")
                 return
             }
         }
@@ -1858,18 +1872,50 @@ final class Orchestrator {
         let fileName = sanitizedTitle.isEmpty
             ? "\(task.agentType.rawValue)-\(task.id.uuidString.prefix(8)).\(ext)"
             : "\(sanitizedTitle).\(ext)"
+
+        let (parentId, version) = await resolveVersionInfo(
+            logicalName: fileName, project: project, task: task, isRevision: isRevision
+        )
+
         _ = try await assetService.saveTextAsset(
             content: fallbackContent,
             fileName: fileName,
             project: project,
             task: task,
-            assetType: defaultAssetType
+            assetType: defaultAssetType,
+            parentAssetId: parentId,
+            version: version
         )
         // Generate thumbnail for the fallback asset
         await generateThumbnailsForTask(taskId: task.id, projectName: project.name)
 
         try? await logInfo(taskId: task.id, agent: task.agentType,
-                          message: "Saved output as \(fileName) (fallback)")
+                          message: "Saved output as \(fileName) v\(version) (fallback)")
+    }
+
+    /// Resolve parentAssetId and version for a new asset being saved.
+    /// When the task is a revision, look for a previous version by the same logical name.
+    private func resolveVersionInfo(
+        logicalName: String,
+        project: Project,
+        task: AgentTask,
+        isRevision: Bool
+    ) async -> (parentId: UUID?, version: Int) {
+        guard isRevision else { return (nil, 1) }
+
+        // First check: same task produced an earlier version with the same name
+        if let previous = try? await assetService.latestAsset(forTaskId: task.id, name: logicalName) {
+            return (previous.id, previous.version + 1)
+        }
+
+        // Second check: same project+agent produced an asset with this name in a previous task
+        if let previous = try? await assetService.previousAssets(
+            forProjectId: project.id, agentType: task.agentType, name: logicalName
+        ) {
+            return (previous.id, previous.version + 1)
+        }
+
+        return (nil, 1)
     }
 
     /// Generate thumbnails for all assets belonging to a task.

@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import CryptoKit
 
 /// Manages file storage and DB records for assets produced by creative agents.
 actor AssetStorageService {
@@ -16,26 +17,34 @@ actor AssetStorageService {
         project: Project,
         task: AgentTask,
         assetType: GeneratedAsset.AssetType,
-        mimeType: String? = nil
+        mimeType: String? = nil,
+        parentAssetId: UUID? = nil,
+        version: Int = 1
     ) throws -> GeneratedAsset {
         let dir = assetsDirectory(for: project)
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
 
-        let filePath = (dir as NSString).appendingPathComponent(fileName)
+        // For versioned files, include version in filename to avoid overwriting
+        let versionedFileName = version > 1 ? insertVersionInFileName(fileName, version: version) : fileName
+        let filePath = (dir as NSString).appendingPathComponent(versionedFileName)
         try content.write(toFile: filePath, atomically: true, encoding: .utf8)
 
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size] as? Int64) ?? Int64(content.utf8.count)
-
+        let checksum = Self.computeChecksum(filePath: filePath)
         let resolvedMime = mimeType ?? mimeTypeForExtension(fileName)
+
         var asset = GeneratedAsset(
             projectId: project.id,
             taskId: task.id,
             agentType: task.agentType,
             assetType: assetType,
-            name: fileName,
+            name: fileName, // Original logical name (without version suffix)
             filePath: filePath,
             mimeType: resolvedMime,
-            fileSize: fileSize
+            fileSize: fileSize,
+            version: version,
+            checksum: checksum,
+            parentAssetId: parentAssetId
         )
         try dbQueue.write { db in
             try asset.insert(db)
@@ -49,12 +58,15 @@ actor AssetStorageService {
         fileName: String,
         project: Project,
         task: AgentTask,
-        assetType: GeneratedAsset.AssetType
+        assetType: GeneratedAsset.AssetType,
+        parentAssetId: UUID? = nil,
+        version: Int = 1
     ) async throws -> GeneratedAsset {
         let dir = assetsDirectory(for: project)
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
 
-        let filePath = (dir as NSString).appendingPathComponent(fileName)
+        let versionedFileName = version > 1 ? insertVersionInFileName(fileName, version: version) : fileName
+        let filePath = (dir as NSString).appendingPathComponent(versionedFileName)
 
         let (tempURL, response) = try await URLSession.shared.download(from: url)
         try FileManager.default.moveItem(at: tempURL, to: URL(fileURLWithPath: filePath))
@@ -63,6 +75,7 @@ actor AssetStorageService {
         let responseMime = httpResponse?.mimeType
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size] as? Int64) ?? 0
         let resolvedMime = responseMime ?? mimeTypeForExtension(fileName)
+        let checksum = Self.computeChecksum(filePath: filePath)
 
         var asset = GeneratedAsset(
             projectId: project.id,
@@ -73,7 +86,10 @@ actor AssetStorageService {
             filePath: filePath,
             mimeType: resolvedMime,
             fileSize: fileSize,
-            sourceUrl: url.absoluteString
+            sourceUrl: url.absoluteString,
+            version: version,
+            checksum: checksum,
+            parentAssetId: parentAssetId
         )
         try await dbQueue.write { db in
             try asset.insert(db)
@@ -86,11 +102,14 @@ actor AssetStorageService {
         filePath: String,
         project: Project,
         task: AgentTask,
-        assetType: GeneratedAsset.AssetType
+        assetType: GeneratedAsset.AssetType,
+        parentAssetId: UUID? = nil,
+        version: Int = 1
     ) throws -> GeneratedAsset {
         let fileName = (filePath as NSString).lastPathComponent
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size] as? Int64) ?? 0
         let resolvedMime = mimeTypeForExtension(fileName)
+        let checksum = Self.computeChecksum(filePath: filePath)
 
         var asset = GeneratedAsset(
             projectId: project.id,
@@ -100,13 +119,45 @@ actor AssetStorageService {
             name: fileName,
             filePath: filePath,
             mimeType: resolvedMime,
-            fileSize: fileSize
+            fileSize: fileSize,
+            version: version,
+            checksum: checksum,
+            parentAssetId: parentAssetId
         )
         try dbQueue.write { db in
             try asset.insert(db)
         }
         return asset
     }
+
+    // MARK: - Versioning Queries
+
+    /// Find the latest asset for a given task by logical name.
+    /// Used to link new versions to previous ones on task retry.
+    func latestAsset(forTaskId taskId: UUID, name: String) throws -> GeneratedAsset? {
+        try dbQueue.read { db in
+            try GeneratedAsset
+                .filter(Column("taskId") == taskId)
+                .filter(Column("name") == name)
+                .order(Column("version").desc)
+                .fetchOne(db)
+        }
+    }
+
+    /// Find all previous assets produced by earlier runs of the same task.
+    /// Matches by projectId + agentType + logical name pattern.
+    func previousAssets(forProjectId projectId: UUID, agentType: AgentTask.AgentType, name: String) throws -> GeneratedAsset? {
+        try dbQueue.read { db in
+            try GeneratedAsset
+                .filter(Column("projectId") == projectId)
+                .filter(Column("agentType") == agentType.rawValue)
+                .filter(Column("name") == name)
+                .order(Column("version").desc)
+                .fetchOne(db)
+        }
+    }
+
+    // MARK: - Listing & Status
 
     /// List assets, optionally filtered by project and/or type.
     func listAssets(projectId: UUID? = nil, assetType: GeneratedAsset.AssetType? = nil) throws -> [GeneratedAsset] {
@@ -144,11 +195,25 @@ actor AssetStorageService {
         }
     }
 
-    // MARK: - Private
+    // MARK: - Helpers
 
-    private func assetsDirectory(for project: Project) -> String {
+    /// Compute SHA256 checksum of a file.
+    static func computeChecksum(filePath: String) -> String? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { return nil }
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    func assetsDirectory(for project: Project) -> String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return "\(home)/CreedFlow/projects/\(project.name)/assets"
+    }
+
+    /// Insert version number into filename: "blog-post.md" → "blog-post-v2.md"
+    private func insertVersionInFileName(_ fileName: String, version: Int) -> String {
+        let name = (fileName as NSString).deletingPathExtension
+        let ext = (fileName as NSString).pathExtension
+        return ext.isEmpty ? "\(name)-v\(version)" : "\(name)-v\(version).\(ext)"
     }
 
     private func mimeTypeForExtension(_ fileName: String) -> String {
