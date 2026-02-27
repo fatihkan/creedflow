@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "CreedFlow — AI Orchestration Platform"
 authors = ["CreedFlow"]
 edition = "2021"
+default-run = "creedflow-desktop"
 
 [lib]
 name = "creedflow_desktop_lib"

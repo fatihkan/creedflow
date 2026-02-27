@@ -41,7 +41,27 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     for (version, sql) in migrations {
         if !applied.contains(&version) {
-            conn.execute_batch(sql)?;
+            // Run each statement individually so that "duplicate column"
+            // errors (from a DB already migrated by Swift/GRDB) don't
+            // prevent subsequent statements in the same migration from
+            // executing.
+            for statement in sql.split(';') {
+                let stmt = statement.trim();
+                if stmt.is_empty() {
+                    continue;
+                }
+                match conn.execute_batch(stmt) {
+                    Ok(()) => {}
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("duplicate column name") || msg.contains("already exists") {
+                            log::warn!("Migration v{}: skipping already-applied statement", version);
+                        } else {
+                            return Err(e);
+                        }
+                    }
+                }
+            }
             conn.execute(
                 "INSERT INTO creedflow_migrations (version) VALUES (?1)",
                 [version],
