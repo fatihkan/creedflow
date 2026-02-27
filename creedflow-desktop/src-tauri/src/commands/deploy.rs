@@ -114,3 +114,30 @@ pub async fn delete_deployments(
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn cancel_deployment(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.conn.execute(
+        "UPDATE deployment SET status = 'cancelled', completedAt = datetime('now') WHERE id = ?1 AND status IN ('pending', 'in_progress')",
+        [&id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_deployment_logs(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<String>, String> {
+    let db = state.db.lock().await;
+    let logs: Option<String> = db.conn.query_row(
+        "SELECT logs FROM deployment WHERE id = ?1",
+        [&id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    Ok(logs)
+}

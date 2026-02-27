@@ -3,6 +3,8 @@ import { usePromptStore } from "../../store/promptStore";
 import { PromptCard } from "./PromptCard";
 import { PromptEditDialog } from "./PromptEditDialog";
 import { Plus, Search, Star, BookOpen } from "lucide-react";
+import { PromptChainList } from "./PromptChainList";
+import { PromptEffectivenessDashboard } from "./PromptEffectivenessDashboard";
 
 const CATEGORIES = [
   "All",
@@ -145,17 +147,9 @@ export function PromptsLibrary() {
         </>
       )}
 
-      {tab === "chains" && (
-        <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
-          Prompt chains — coming soon
-        </div>
-      )}
+      {tab === "chains" && <PromptChainList />}
 
-      {tab === "effectiveness" && (
-        <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
-          Effectiveness tracking — coming soon
-        </div>
-      )}
+      {tab === "effectiveness" && <PromptEffectivenessDashboard />}
 
       {/* Create dialog */}
       {showCreate && <PromptEditDialog onClose={() => setShowCreate(false)} />}

@@ -15,6 +15,10 @@ import type {
   DependencyStatus,
   PackageManagerInfo,
   DetectedEditor,
+  PromptChainWithSteps,
+  PromptChain,
+  PromptChainStep,
+  PromptEffectivenessStats,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -113,6 +117,22 @@ export const getCostSummary = () => invoke<CostSummary>("get_cost_summary");
 export const getCostsByProject = (projectId: string) =>
   invoke<CostTracking[]>("get_costs_by_project", { projectId });
 
+export interface CostBreakdown {
+  label: string;
+  cost: number;
+  tasks: number;
+  tokens: number;
+}
+
+export const getCostByAgent = () =>
+  invoke<CostBreakdown[]>("get_cost_by_agent");
+
+export const getCostByBackend = () =>
+  invoke<CostBreakdown[]>("get_cost_by_backend");
+
+export const getCostTimeline = () =>
+  invoke<CostBreakdown[]>("get_cost_timeline");
+
 // ─── Reviews ─────────────────────────────────────────────────────────────────
 
 export const listReviews = () => invoke<Review[]>("list_reviews");
@@ -143,6 +163,18 @@ export const getAgentBackendInfo = () =>
 export const listAssets = (projectId: string) =>
   invoke<GeneratedAsset[]>("list_assets", { projectId });
 
+export const getAsset = (id: string) =>
+  invoke<GeneratedAsset>("get_asset", { id });
+
+export const getAssetVersions = (assetId: string) =>
+  invoke<GeneratedAsset[]>("get_asset_versions", { assetId });
+
+export const approveAsset = (id: string, approved: boolean) =>
+  invoke<void>("approve_asset", { id, approved });
+
+export const deleteAsset = (id: string) =>
+  invoke<void>("delete_asset", { id });
+
 // ─── Publishing ──────────────────────────────────────────────────────────────
 
 export const listChannels = () => invoke<PublishingChannel[]>("list_channels");
@@ -170,6 +202,12 @@ export const createDeployment = (
 
 export const deleteDeployments = (ids: string[]) =>
   invoke<void>("delete_deployments", { ids });
+
+export const cancelDeployment = (id: string) =>
+  invoke<void>("cancel_deployment", { id });
+
+export const getDeploymentLogs = (id: string) =>
+  invoke<string | null>("get_deployment_logs", { id });
 
 // ─── Dependencies ────────────────────────────────────────────────────────────
 
@@ -218,6 +256,36 @@ export interface GitLogEntry {
   timestamp: number;
   message: string;
 }
+
+// ─── Prompt Chains ───────────────────────────────────────────────────────────
+
+export const listPromptChains = () =>
+  invoke<PromptChainWithSteps[]>("list_prompt_chains");
+
+export const getPromptChain = (id: string) =>
+  invoke<PromptChainWithSteps>("get_prompt_chain", { id });
+
+export const createPromptChain = (name: string, description: string, category: string) =>
+  invoke<PromptChain>("create_prompt_chain", { name, description, category });
+
+export const deletePromptChain = (id: string) =>
+  invoke<void>("delete_prompt_chain", { id });
+
+export const addChainStep = (chainId: string, promptId: string, stepOrder: number, transitionNote?: string) =>
+  invoke<PromptChainStep>("add_chain_step", { chainId, promptId, stepOrder, transitionNote: transitionNote ?? null });
+
+export const removeChainStep = (id: string) =>
+  invoke<void>("remove_chain_step", { id });
+
+export const reorderChainSteps = (steps: [string, number][]) =>
+  invoke<void>("reorder_chain_steps", { steps });
+
+// ─── Prompt Effectiveness ────────────────────────────────────────────────────
+
+export const getPromptEffectiveness = () =>
+  invoke<PromptEffectivenessStats[]>("get_prompt_effectiveness");
+
+// ─── Git ────────────────────────────────────────────────────────────────────
 
 export const gitEnsureBranchStructure = (projectId: string) =>
   invoke<void>("git_ensure_branch_structure", { projectId });

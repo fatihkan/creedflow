@@ -1,4 +1,4 @@
-/// Content exporter — converts Markdown to HTML/plaintext for publishing.
+/// Content exporter — converts Markdown to HTML/plaintext/PDF for publishing.
 
 pub struct ContentExporter;
 
@@ -71,6 +71,109 @@ impl ContentExporter {
 
         text
     }
+
+    /// Convert markdown to PDF bytes using printpdf.
+    pub fn markdown_to_pdf(markdown: &str) -> Result<Vec<u8>, String> {
+        use printpdf::*;
+
+        let (doc, page1, layer1) = PdfDocument::new(
+            "CreedFlow Export",
+            Mm(210.0),
+            Mm(297.0),
+            "Content",
+        );
+
+        let font = doc
+            .add_builtin_font(BuiltinFont::Helvetica)
+            .map_err(|e| format!("Font error: {}", e))?;
+        let font_bold = doc
+            .add_builtin_font(BuiltinFont::HelveticaBold)
+            .map_err(|e| format!("Font error: {}", e))?;
+        let font_mono = doc
+            .add_builtin_font(BuiltinFont::Courier)
+            .map_err(|e| format!("Font error: {}", e))?;
+
+        let mut current_layer = doc.get_page(page1).get_layer(layer1);
+        let mut y = Mm(280.0);
+        let left_margin = Mm(20.0);
+        let line_height = Mm(5.0);
+        let mut in_code_block = false;
+        let mut page_count = 1;
+
+        for line in markdown.lines() {
+            // Page break if near bottom
+            if y.0 < 25.0 {
+                let (new_page, new_layer) = doc.add_page(Mm(210.0), Mm(297.0), "Content");
+                current_layer = doc.get_page(new_page).get_layer(new_layer);
+                y = Mm(280.0);
+                page_count += 1;
+            }
+
+            if line.starts_with("```") {
+                in_code_block = !in_code_block;
+                y -= Mm(2.0);
+                continue;
+            }
+
+            let trimmed = line.trim();
+
+            if in_code_block {
+                current_layer.use_text(line, 9.0, left_margin, y, &font_mono);
+                y -= line_height;
+            } else if trimmed.is_empty() {
+                y -= Mm(3.0);
+            } else if let Some(heading) = trimmed.strip_prefix("# ") {
+                y -= Mm(3.0);
+                current_layer.use_text(heading, 18.0, left_margin, y, &font_bold);
+                y -= Mm(8.0);
+            } else if let Some(heading) = trimmed.strip_prefix("## ") {
+                y -= Mm(2.0);
+                current_layer.use_text(heading, 14.0, left_margin, y, &font_bold);
+                y -= Mm(7.0);
+            } else if let Some(heading) = trimmed.strip_prefix("### ") {
+                y -= Mm(1.0);
+                current_layer.use_text(heading, 12.0, left_margin, y, &font_bold);
+                y -= Mm(6.0);
+            } else if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+                let text = format!("  • {}", &trimmed[2..]);
+                current_layer.use_text(&strip_markdown(&text), 10.0, left_margin, y, &font);
+                y -= line_height;
+            } else {
+                // Word wrap at ~80 chars for A4
+                let clean = strip_markdown(trimmed);
+                let words: Vec<&str> = clean.split_whitespace().collect();
+                let mut current_line = String::new();
+
+                for word in words {
+                    if current_line.len() + word.len() + 1 > 85 {
+                        current_layer.use_text(&current_line, 10.0, left_margin, y, &font);
+                        y -= line_height;
+                        current_line = word.to_string();
+
+                        if y.0 < 25.0 {
+                            let (new_page, new_layer) = doc.add_page(Mm(210.0), Mm(297.0), "Content");
+                            current_layer = doc.get_page(new_page).get_layer(new_layer);
+                            y = Mm(280.0);
+                            page_count += 1;
+                        }
+                    } else {
+                        if !current_line.is_empty() {
+                            current_line.push(' ');
+                        }
+                        current_line.push_str(word);
+                    }
+                }
+
+                if !current_line.is_empty() {
+                    current_layer.use_text(&current_line, 10.0, left_margin, y, &font);
+                    y -= line_height;
+                }
+            }
+        }
+
+        let _ = page_count; // suppress unused warning
+        doc.save_to_bytes().map_err(|e| format!("PDF save error: {}", e))
+    }
 }
 
 fn escape_html(text: &str) -> String {
@@ -100,4 +203,13 @@ fn inline_markdown(text: &str) -> String {
         .replace_all(&result, "<a href=\"$2\">$1</a>");
 
     result.to_string()
+}
+
+/// Strip markdown formatting for plain text rendering (PDF).
+fn strip_markdown(text: &str) -> String {
+    text.replace("**", "")
+        .replace("__", "")
+        .replace('*', "")
+        .replace('_', "")
+        .replace('`', "")
 }

@@ -183,9 +183,16 @@ export interface GeneratedAsset {
   filePath: string;
   mimeType: string | null;
   fileSize: number | null;
+  sourceUrl: string | null;
+  metadata: string | null;
   status: string;
+  reviewTaskId: string | null;
   version: number;
+  thumbnailPath: string | null;
+  checksum: string | null;
+  parentAssetId: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface PublishingChannel {
@@ -245,4 +252,36 @@ export interface DetectedEditor {
   name: string;
   command: string;
   path: string;
+}
+
+export interface PromptChain {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromptChainStep {
+  id: string;
+  chainId: string;
+  promptId: string;
+  stepOrder: number;
+  transitionNote: string | null;
+}
+
+export interface PromptChainWithSteps extends PromptChain {
+  steps: PromptChainStep[];
+  stepCount: number;
+}
+
+export interface PromptEffectivenessStats {
+  promptId: string;
+  promptTitle: string;
+  totalUses: number;
+  successCount: number;
+  failCount: number;
+  avgReviewScore: number | null;
+  successRate: number;
 }

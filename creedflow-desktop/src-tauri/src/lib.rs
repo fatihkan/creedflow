@@ -64,6 +64,9 @@ pub fn run() {
             // Costs
             commands::costs::get_cost_summary,
             commands::costs::get_costs_by_project,
+            commands::costs::get_cost_by_agent,
+            commands::costs::get_cost_by_backend,
+            commands::costs::get_cost_timeline,
             // Reviews
             commands::reviews::list_reviews,
             commands::reviews::approve_review,
@@ -75,6 +78,10 @@ pub fn run() {
             commands::agents::get_agent_backend_info,
             // Assets
             commands::assets::list_assets,
+            commands::assets::get_asset,
+            commands::assets::get_asset_versions,
+            commands::assets::approve_asset,
+            commands::assets::delete_asset,
             // Publishing
             commands::publishing::list_channels,
             commands::publishing::list_publications,
@@ -83,11 +90,23 @@ pub fn run() {
             commands::deploy::create_deployment,
             commands::deploy::get_deployment,
             commands::deploy::delete_deployments,
+            commands::deploy::cancel_deployment,
+            commands::deploy::get_deployment_logs,
             // Prompts
             commands::prompts::list_prompts,
             commands::prompts::create_prompt,
             commands::prompts::delete_prompt,
             commands::prompts::toggle_favorite,
+            // Prompt Chains
+            commands::prompts::list_prompt_chains,
+            commands::prompts::get_prompt_chain,
+            commands::prompts::create_prompt_chain,
+            commands::prompts::delete_prompt_chain,
+            commands::prompts::add_chain_step,
+            commands::prompts::remove_chain_step,
+            commands::prompts::reorder_chain_steps,
+            // Prompt Effectiveness
+            commands::prompts::get_prompt_effectiveness,
             // Platform
             commands::platform::open_terminal,
             commands::platform::open_in_file_manager,

@@ -9,6 +9,7 @@ import { DeployList } from "../deploy/DeployList";
 import { ReviewList } from "../reviews/ReviewList";
 import { GitGraphView } from "../git/GitGraphView";
 import { PromptsLibrary } from "../prompts/PromptsLibrary";
+import { ProjectAssetsView } from "../assets/ProjectAssetsView";
 
 interface ContentAreaProps {
   section: SidebarSection;
@@ -45,6 +46,8 @@ export function ContentArea({ section, selectedProjectId }: ContentAreaProps) {
       );
     case "prompts":
       return <PromptsLibrary />;
+    case "assets":
+      return <ProjectAssetsView />;
     default:
       return <EmptyState message="Select a section" />;
   }

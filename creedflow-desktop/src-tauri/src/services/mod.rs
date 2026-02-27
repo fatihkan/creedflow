@@ -9,3 +9,4 @@ pub mod content_exporter;
 pub mod asset_storage;
 pub mod asset_versioning;
 pub mod publishing;
+pub mod thumbnail;

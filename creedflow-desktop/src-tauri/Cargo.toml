@@ -13,6 +13,10 @@ crate-type = ["lib", "cdylib", "staticlib"]
 name = "creedflow-desktop"
 path = "src/main.rs"
 
+[[bin]]
+name = "creedflow-mcp-server"
+path = "src/mcp_server/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -37,6 +41,7 @@ thiserror = "2"
 regex = "1"
 once_cell = "1"
 open = "5"
+printpdf = "0.7"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
