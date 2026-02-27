@@ -756,12 +756,13 @@ final class Orchestrator {
                         default: agentType = .coder
                         }
 
-                        // Build enriched description with acceptance criteria and file list
+                        // Build enriched description with skill persona, acceptance criteria and file list
                         let enrichedDescription = buildEnrichedTaskDescription(
                             base: taskOutput.description,
                             acceptanceCriteria: taskOutput.acceptanceCriteria,
                             filesToCreate: taskOutput.filesToCreate,
-                            estimatedComplexity: taskOutput.estimatedComplexity
+                            estimatedComplexity: taskOutput.estimatedComplexity,
+                            skillPersona: taskOutput.skillPersona
                         )
 
                         let newTask = AgentTask(
@@ -824,14 +825,20 @@ final class Orchestrator {
         }
     }
 
-    /// Build an enriched task description that includes acceptance criteria and files to create.
+    /// Build an enriched task description that includes skill persona, acceptance criteria and files to create.
     private func buildEnrichedTaskDescription(
         base: String,
         acceptanceCriteria: [String]?,
         filesToCreate: [String]?,
-        estimatedComplexity: String?
+        estimatedComplexity: String?,
+        skillPersona: String? = nil
     ) -> String {
         var parts: [String] = [base]
+
+        if let persona = skillPersona, !persona.isEmpty {
+            parts.append("\n--- Required Skill ---")
+            parts.append("  \(persona)")
+        }
 
         if let complexity = estimatedComplexity, !complexity.isEmpty {
             parts.append("\n[Complexity: \(complexity)]")
