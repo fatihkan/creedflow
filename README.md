@@ -3,7 +3,9 @@
 **AI-powered project orchestration platform.** Describe a project in natural language — CreedFlow analyzes it, creates tasks, routes them to cloud or local AI backends, reviews code, generates creative assets, publishes content, and deploys.
 
 [![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple)](https://github.com/fatihkan/creedflow/releases)
+[![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](https://github.com/fatihkan/creedflow/releases)
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)](https://swift.org)
+[![Rust](https://img.shields.io/badge/Rust-Tauri-DEA584?logo=rust&logoColor=black)](https://tauri.app)
 [![License](https://img.shields.io/badge/License-Proprietary-blue)](#license)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/fatihkan)
 
@@ -11,17 +13,18 @@
 
 ## Download
 
-| Platform | Status | Download |
-|----------|--------|----------|
-| **macOS** (Apple Silicon) | v1.0.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/latest) |
-| **macOS** (Intel) | v1.0.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/latest) |
-| **Linux** | In Development | Coming soon (Tauri + React) |
+| Platform | Architecture | Version | Download |
+|----------|-------------|---------|----------|
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.1.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow-1.1.0-arm64.dmg) |
+| **macOS** | Intel | v1.1.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow-1.1.0-x86_64.dmg) |
+| **Linux** | x86_64 (AppImage) | v1.1.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow_1.1.0_amd64.AppImage) |
+| **Linux** | x86_64 (Debian/Ubuntu) | v1.1.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow_1.1.0_amd64.deb) |
 
-> **Requirements:** macOS 14+, at least one AI backend available (Claude CLI, Codex CLI, Gemini CLI, Ollama, LM Studio, llama.cpp, or MLX).
+> **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, Ollama, LM Studio, llama.cpp, or MLX.
 
-### macOS Installation Note
+### macOS Installation
 
-Since CreedFlow is not signed with an Apple Developer ID, macOS Gatekeeper will show a warning on first launch. To open the app:
+Since CreedFlow is not signed with an Apple Developer ID, macOS Gatekeeper will show a warning on first launch:
 
 **Option A — Right-click:**
 1. Right-click (or Control-click) on `CreedFlow.app` in Applications
@@ -38,7 +41,20 @@ xattr -cr /Applications/CreedFlow.app
 2. Scroll down to find the CreedFlow blocked message
 3. Click **Open Anyway**
 
-This only needs to be done once. The app runs normally after that.
+This only needs to be done once.
+
+### Linux Installation
+
+**AppImage:**
+```bash
+chmod +x CreedFlow_1.1.0_amd64.AppImage
+./CreedFlow_1.1.0_amd64.AppImage
+```
+
+**Debian/Ubuntu:**
+```bash
+sudo dpkg -i CreedFlow_1.1.0_amd64.deb
+```
 
 ---
 
@@ -68,7 +84,7 @@ Telegram notification → You approve → Deploy
 - **Deep Analysis** — Architecture docs, data models with field-level detail, Mermaid diagrams (ER, flowchart, sequence, class), tasks with acceptance criteria and file lists
 - **7 AI Backends** — Claude, Codex, Gemini (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
 - **Kanban Board** — Drag-and-drop task management with live agent output
-- **Setup Wizard** — 6-step wizard with environment detection, one-click dependency install via Homebrew
+- **Setup Wizard** — Environment detection, one-click dependency install via Homebrew (macOS) or apt/dnf/pacman (Linux)
 - **Asset Pipeline** — Creative agents produce images/videos/designs with versioning, checksums, and format variants (.md → .html, .txt, .pdf)
 - **Content Publishing** — Publish to Medium, WordPress, Twitter, LinkedIn with scheduled publishing
 - **Prompt Library** — Versioning, chaining, tagging, effectiveness-based selection
@@ -80,18 +96,19 @@ Telegram notification → You approve → Deploy
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Swift 6.0 |
-| UI | SwiftUI (macOS 14+) |
-| Database | SQLite via GRDB.swift |
-| AI Backends | Claude CLI, Codex CLI, Gemini CLI + Ollama, LM Studio, llama.cpp, MLX |
-| MCP | modelcontextprotocol/swift-sdk |
-| Deployment | Docker / Docker Compose / Direct Process |
-| Notifications | Telegram Bot API |
+| Component | macOS | Linux |
+|-----------|-------|-------|
+| Language | Swift 6.0 | Rust + TypeScript |
+| UI | SwiftUI | React + Tailwind CSS (Tauri) |
+| Database | SQLite via GRDB.swift | SQLite via rusqlite |
+| AI Backends | Claude CLI, Codex CLI, Gemini CLI + Ollama, LM Studio, llama.cpp, MLX | Same |
+| MCP | modelcontextprotocol/swift-sdk | — |
+| Deployment | Docker / Docker Compose / Direct Process | Same |
+| Notifications | Telegram Bot API | Same |
 
 ## Build from Source
 
+**macOS (Swift):**
 ```bash
 cd CreedFlow && swift build
 .build/debug/CreedFlow
@@ -100,11 +117,19 @@ cd CreedFlow && swift build
 ./Scripts/package-app.sh --dmg
 ```
 
+**Linux (Tauri):**
+```bash
+cd creedflow-desktop
+pnpm install
+pnpm tauri dev        # Development
+pnpm tauri build      # Production (.deb + .AppImage)
+```
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     macOS App (SwiftUI)                      │
+│              Desktop App (SwiftUI / Tauri+React)             │
 │  ┌──────────┐  ┌──────────────┐  ┌────────────────────────┐│
 │  │ Sidebar   │  │ Task Board   │  │ Detail Panel (Right)   ││
 │  │ Projects  │  │ (Kanban)     │  │ Live Output / Review   ││
@@ -138,7 +163,7 @@ cd CreedFlow && swift build
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
 │                    Storage & Services                         │
-│  SQLite (GRDB) · Asset Pipeline · Content Publishing        │
+│  SQLite (GRDB/rusqlite) · Asset Pipeline · Content Publishing│
 │  Telegram Bot · MCP Server · Git Branch Manager             │
 └─────────────────────────────────────────────────────────────┘
 ```
