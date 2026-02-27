@@ -32,13 +32,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Determine build directory and arch label
+# Determine arch label and build flags
 if [ -n "$TARGET_ARCH" ]; then
-    BUILD_DIR="$PROJECT_DIR/.build/${TARGET_ARCH}-apple-macosx/release"
     ARCH_FLAG="--triple ${TARGET_ARCH}-apple-macosx"
     ARCH_LABEL="$TARGET_ARCH"
 else
-    BUILD_DIR="$PROJECT_DIR/.build/release"
     ARCH_FLAG=""
     ARCH_LABEL=$(uname -m)
 fi
@@ -55,17 +53,89 @@ echo ""
 # ─── Step 1: Build release binaries ───
 echo "→ Building release binaries (${ARCH_LABEL})..."
 cd "$PROJECT_DIR"
+# Build each product separately to ensure both are compiled
 # shellcheck disable=SC2086
 set +e
-swift build -c release --product CreedFlow --product CreedFlowMCPServer $ARCH_FLAG 2>&1
+echo "  Building CreedFlow..."
+swift build -c release --product CreedFlow $ARCH_FLAG 2>&1
+BUILD_EXIT=$?
+if [ $BUILD_EXIT -ne 0 ]; then
+    set -e
+    echo ""
+    echo "ERROR: CreedFlow build failed (exit code $BUILD_EXIT)"
+    exit $BUILD_EXIT
+fi
+echo "  Building CreedFlowMCPServer..."
+swift build -c release --product CreedFlowMCPServer $ARCH_FLAG 2>&1
 BUILD_EXIT=$?
 set -e
 if [ $BUILD_EXIT -ne 0 ]; then
     echo ""
-    echo "ERROR: Build failed (exit code $BUILD_EXIT)"
+    echo "ERROR: CreedFlowMCPServer build failed (exit code $BUILD_EXIT)"
     exit $BUILD_EXIT
 fi
 echo "  Build complete."
+echo ""
+
+# ─── Locate binaries ───
+echo "→ Locating binaries..."
+# Try known paths first, then fall back to find
+if [ -n "$TARGET_ARCH" ]; then
+    CANDIDATE_DIRS=(
+        "$PROJECT_DIR/.build/${TARGET_ARCH}-apple-macosx/release"
+        "$PROJECT_DIR/.build/release"
+        "$PROJECT_DIR/.build/apple/Products/Release"
+    )
+else
+    CANDIDATE_DIRS=(
+        "$PROJECT_DIR/.build/release"
+        "$PROJECT_DIR/.build/$(uname -m)-apple-macosx/release"
+    )
+fi
+
+CREEDFLOW_BIN=""
+MCP_BIN=""
+for dir in "${CANDIDATE_DIRS[@]}"; do
+    if [ -x "$dir/CreedFlow" ] && [ -x "$dir/CreedFlowMCPServer" ]; then
+        CREEDFLOW_BIN="$dir/CreedFlow"
+        MCP_BIN="$dir/CreedFlowMCPServer"
+        break
+    fi
+done
+
+# Fallback: find by architecture
+if [ -z "$CREEDFLOW_BIN" ]; then
+    while IFS= read -r bin; do
+        if [ -n "$TARGET_ARCH" ]; then
+            if file "$bin" | grep -q "$TARGET_ARCH"; then
+                CREEDFLOW_BIN="$bin"
+                break
+            fi
+        else
+            CREEDFLOW_BIN="$bin"
+            break
+        fi
+    done < <(find "$PROJECT_DIR/.build" -name "CreedFlow" -type f -perm +111 \
+        -not -path "*/CreedFlow.build/*" -not -path "*/CreedFlow.product/*" \
+        -not -path "*/.build/checkouts/*" -not -path "*/dSYM/*" \
+        -not -path "*/debug/*" 2>/dev/null)
+    if [ -n "$CREEDFLOW_BIN" ]; then
+        MCP_BIN="$(dirname "$CREEDFLOW_BIN")/CreedFlowMCPServer"
+    fi
+fi
+
+BUILD_DIR=$(dirname "$CREEDFLOW_BIN")
+
+if [ -z "$CREEDFLOW_BIN" ] || [ -z "$MCP_BIN" ]; then
+    echo "ERROR: Could not find release binaries"
+    echo "  CreedFlow: $CREEDFLOW_BIN"
+    echo "  MCP Server: $MCP_BIN"
+    find "$PROJECT_DIR/.build" -name "CreedFlow" -type f 2>/dev/null
+    exit 1
+fi
+echo "  CreedFlow: $CREEDFLOW_BIN"
+echo "  MCP Server: $MCP_BIN"
+echo "  Build dir: $BUILD_DIR"
 echo ""
 
 # ─── Step 2: Create .app bundle structure ───
@@ -76,8 +146,8 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 # ─── Step 3: Copy executables ───
 echo "→ Copying executables..."
-cp "$BUILD_DIR/CreedFlow" "$APP_BUNDLE/Contents/MacOS/CreedFlow"
-cp "$BUILD_DIR/CreedFlowMCPServer" "$APP_BUNDLE/Contents/MacOS/CreedFlowMCPServer"
+cp "$CREEDFLOW_BIN" "$APP_BUNDLE/Contents/MacOS/CreedFlow"
+cp "$MCP_BIN" "$APP_BUNDLE/Contents/MacOS/CreedFlowMCPServer"
 
 # ─── Step 4: Copy Info.plist ───
 echo "→ Installing Info.plist..."
