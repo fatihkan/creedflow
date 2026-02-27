@@ -12,7 +12,7 @@ struct SidebarView: View {
     @State private var activeTaskCount: Int = 0
     @State private var archivedTaskCount: Int = 0
     @State private var pendingDeployCount: Int = 0
-    @State private var showSubscriptionSheet = false
+    @State private var isHoveringCoffee = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -180,25 +180,33 @@ struct SidebarView: View {
                 Spacer()
 
                 Button {
-                    showSubscriptionSheet = true
+                    if let url = URL(string: "https://buymeacoffee.com/fatihkan") {
+                        NSWorkspace.shared.open(url)
+                    }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.forgeAmber)
-                        Text("PRO")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(.forgeAmber)
+                    HStack(spacing: 5) {
+                        Text("\u{2615}")
+                            .font(.system(size: 12))
+                        Text("Buy me a coffee")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.primary.opacity(0.7))
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.forgeAmber.opacity(0.1), in: Capsule())
+                    .padding(.vertical, 4)
+                    .background {
+                        Capsule()
+                            .fill(Color.forgeAmber.opacity(isHoveringCoffee ? 0.18 : 0.1))
+                            .overlay {
+                                Capsule()
+                                    .strokeBorder(Color.forgeAmber.opacity(isHoveringCoffee ? 0.3 : 0.15), lineWidth: 0.5)
+                            }
+                    }
+                    .scaleEffect(isHoveringCoffee ? 1.03 : 1.0)
+                    .animation(.easeOut(duration: 0.15), value: isHoveringCoffee)
                 }
                 .buttonStyle(.plain)
-                .help("Subscribe to Pro")
-                .sheet(isPresented: $showSubscriptionSheet) {
-                    SubscriptionSheetView()
-                }
+                .onHover { isHoveringCoffee = $0 }
+                .help("Support the project")
             }
         }
         .padding(.horizontal, 12)
@@ -317,224 +325,3 @@ struct SidebarView: View {
     }
 }
 
-// MARK: - Subscription Sheet
-
-struct SubscriptionSheetView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var hoveredPlan: String?
-    @State private var selectedPlan: String?
-
-    private static let monthlyCheckoutURL = URL(string: "https://buy.stripe.com/test_monthly")!
-    private static let yearlyCheckoutURL = URL(string: "https://buy.stripe.com/test_yearly")!
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 0) {
-            // Header with app icon
-            VStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color.forgeAmber.opacity(0.15), Color.clear],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: 50
-                            )
-                        )
-                        .frame(width: 100, height: 100)
-                    if let appIcon = NSApp.applicationIconImage {
-                        Image(nsImage: appIcon)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 64, height: 64)
-                            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
-                    }
-                }
-                Text("CreedFlow Pro")
-                    .font(.system(.title2, weight: .bold))
-                Text("Support the project and unlock all features")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 300)
-            }
-            .padding(.top, 24)
-            .padding(.bottom, 20)
-
-            // Plan cards
-            HStack(spacing: 12) {
-                planCard(
-                    id: "monthly",
-                    title: "Monthly",
-                    price: "$9.99",
-                    period: "/mo",
-                    highlight: false
-                )
-                planCard(
-                    id: "yearly",
-                    title: "Yearly",
-                    price: "$99.99",
-                    period: "/yr",
-                    highlight: true
-                )
-            }
-            .padding(.horizontal, 24)
-
-            // Action buttons
-            VStack(spacing: 10) {
-                Button {
-                    if let url = selectedCheckoutURL {
-                        NSWorkspace.shared.open(url)
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
-                        Text("Continue with Stripe")
-                            .font(.system(.body, weight: .semibold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.forgeAmber)
-                .disabled(selectedPlan == nil)
-
-                Button {} label: {
-                    HStack(spacing: 8) {
-                        Text("Sign In")
-                            .font(.system(.body, weight: .medium))
-                        comingSoonBadge
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                }
-                .buttonStyle(.bordered)
-                .disabled(true)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
-            .padding(.bottom, 24)
-        }
-
-            // Close button
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .background {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
-                    }
-                    .overlay {
-                        Circle()
-                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
-                    }
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .padding(12)
-            .help("Close")
-        }
-        .frame(width: 380, height: 440)
-    }
-
-    private func planCard(id: String, title: String, price: String, period: String, highlight: Bool) -> some View {
-        let isHovered = hoveredPlan == id
-        let isSelected = selectedPlan == id
-        return VStack(spacing: 8) {
-            HStack(spacing: 4) {
-                if highlight {
-                    Text("Popular")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(.forgeAmber)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.forgeAmber.opacity(0.12), in: Capsule())
-                }
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.forgeAmber)
-                }
-            }
-            Text(title)
-                .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(.secondary)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(price)
-                    .font(.system(.title2, weight: .bold))
-                Text(period)
-                    .font(.system(.footnote, weight: .medium))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(highlight || isSelected ? 0.08 : 0.04),
-                                    Color.clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
-                .shadow(
-                    color: isSelected ? Color.forgeAmber.opacity(0.18) : (highlight ? Color.forgeAmber.opacity(0.12) : Color.black.opacity(0.06)),
-                    radius: isHovered || isSelected ? 8 : 4,
-                    y: 2
-                )
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    isSelected
-                        ? Color.forgeAmber.opacity(0.7)
-                        : (highlight
-                            ? Color.forgeAmber.opacity(isHovered ? 0.5 : 0.3)
-                            : Color.primary.opacity(isHovered ? 0.12 : 0.06)),
-                    lineWidth: isSelected ? 1.5 : (highlight ? 1 : 0.5)
-                )
-        }
-        .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isHovered)
-        .animation(.easeOut(duration: 0.15), value: isSelected)
-        .onHover { hovering in
-            hoveredPlan = hovering ? id : nil
-        }
-        .onTapGesture {
-            selectedPlan = id
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private var selectedCheckoutURL: URL? {
-        switch selectedPlan {
-        case "monthly": return Self.monthlyCheckoutURL
-        case "yearly": return Self.yearlyCheckoutURL
-        default: return nil
-        }
-    }
-
-    private var comingSoonBadge: some View {
-        Text("Coming Soon")
-            .font(.system(size: 11, weight: .bold, design: .rounded))
-            .foregroundStyle(.white.opacity(0.9))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Color.secondary.opacity(0.6), in: Capsule())
-    }
-}
