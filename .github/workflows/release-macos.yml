@@ -1,0 +1,101 @@
+name: "macOS Release"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14
+            label: "Apple Silicon"
+          - arch: x86_64
+            runner: macos-13
+            label: "Intel"
+
+    name: "Build (${{ matrix.label }})"
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+
+      - name: Build & Package DMG
+        working-directory: CreedFlow
+        run: |
+          chmod +x Scripts/package-app.sh
+          ./Scripts/package-app.sh --arch ${{ matrix.arch }} --dmg
+
+      - name: Verify binary architecture
+        working-directory: CreedFlow
+        run: |
+          file dist/CreedFlow.app/Contents/MacOS/CreedFlow
+          file dist/CreedFlow.app/Contents/MacOS/CreedFlow | grep -q "${{ matrix.arch }}"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.arch }}
+          path: CreedFlow/dist/*.dmg
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all DMGs
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f -name "*.dmg"
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "CreedFlow ${{ steps.version.outputs.version }}"
+          body: |
+            ## CreedFlow ${{ steps.version.outputs.version }}
+
+            ### Downloads
+
+            | Platform | Architecture | File |
+            |----------|-------------|------|
+            | macOS | Apple Silicon (M1/M2/M3/M4) | `CreedFlow-*-arm64.dmg` |
+            | macOS | Intel | `CreedFlow-*-x86_64.dmg` |
+
+            ### Install
+
+            1. Download the DMG for your Mac
+            2. Open the DMG and drag CreedFlow to Applications
+            3. Launch CreedFlow — the Setup Wizard will guide you
+
+            ### Requirements
+
+            - macOS 14+
+            - At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, Ollama, LM Studio, llama.cpp, or MLX
+
+            ---
+
+            [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/fatihkan)
+          files: |
+            artifacts/**/*.dmg
+          generate_release_notes: true
