@@ -14,9 +14,31 @@
 | Platform | Status | Download |
 |----------|--------|----------|
 | **macOS** (Apple Silicon) | v1.0.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/latest) |
+| **macOS** (Intel) | v1.0.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/latest) |
 | **Linux** | In Development | Coming soon (Tauri + React) |
 
 > **Requirements:** macOS 14+, at least one AI backend available (Claude CLI, Codex CLI, Gemini CLI, Ollama, LM Studio, llama.cpp, or MLX).
+
+### macOS Installation Note
+
+Since CreedFlow is not signed with an Apple Developer ID, macOS Gatekeeper will show a warning on first launch. To open the app:
+
+**Option A — Right-click:**
+1. Right-click (or Control-click) on `CreedFlow.app` in Applications
+2. Select **Open** from the context menu
+3. Click **Open** in the dialog
+
+**Option B — Terminal:**
+```bash
+xattr -cr /Applications/CreedFlow.app
+```
+
+**Option C — System Settings:**
+1. Open **System Settings → Privacy & Security**
+2. Scroll down to find the CreedFlow blocked message
+3. Click **Open Anyway**
+
+This only needs to be done once. The app runs normally after that.
 
 ---
 
