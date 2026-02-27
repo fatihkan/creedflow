@@ -228,7 +228,21 @@ export interface DeploymentInfo {
 
 export interface DependencyStatus {
   name: string;
+  displayName: string;
+  category: string;
   installed: boolean;
   version: string | null;
   path: string | null;
+}
+
+export interface PackageManagerInfo {
+  name: string;
+  displayName: string;
+  available: boolean;
+}
+
+export interface DetectedEditor {
+  name: string;
+  command: string;
+  path: string;
 }

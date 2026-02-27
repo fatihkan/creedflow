@@ -19,10 +19,160 @@ pub struct BackendInfo {
 #[serde(rename_all = "camelCase")]
 pub struct DependencyStatus {
     pub name: String,
+    pub display_name: String,
+    pub category: String,
     pub installed: bool,
     pub version: Option<String>,
     pub path: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageManagerInfo {
+    pub name: String,
+    pub display_name: String,
+    pub available: bool,
+}
+
+// ─── Package Manager Detection ───────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum PackageManager {
+    Brew,
+    Apt,
+    Dnf,
+    Pacman,
+    Winget,
+    Choco,
+    Scoop,
+    None,
+}
+
+impl PackageManager {
+    fn name(&self) -> &str {
+        match self {
+            Self::Brew => "brew",
+            Self::Apt => "apt",
+            Self::Dnf => "dnf",
+            Self::Pacman => "pacman",
+            Self::Winget => "winget",
+            Self::Choco => "choco",
+            Self::Scoop => "scoop",
+            Self::None => "none",
+        }
+    }
+
+    fn display_name(&self) -> &str {
+        match self {
+            Self::Brew => "Homebrew",
+            Self::Apt => "APT",
+            Self::Dnf => "DNF",
+            Self::Pacman => "Pacman",
+            Self::Winget => "WinGet",
+            Self::Choco => "Chocolatey",
+            Self::Scoop => "Scoop",
+            Self::None => "None",
+        }
+    }
+}
+
+fn detect_package_manager() -> PackageManager {
+    #[cfg(target_os = "macos")]
+    {
+        if backends::detect::find_cli("brew").is_some() {
+            return PackageManager::Brew;
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if backends::detect::find_cli("apt").is_some() {
+            return PackageManager::Apt;
+        }
+        if backends::detect::find_cli("dnf").is_some() {
+            return PackageManager::Dnf;
+        }
+        if backends::detect::find_cli("pacman").is_some() {
+            return PackageManager::Pacman;
+        }
+        if backends::detect::find_cli("brew").is_some() {
+            return PackageManager::Brew; // Linuxbrew
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if backends::detect::find_cli("winget").is_some() {
+            return PackageManager::Winget;
+        }
+        if backends::detect::find_cli("choco").is_some() {
+            return PackageManager::Choco;
+        }
+        if backends::detect::find_cli("scoop").is_some() {
+            return PackageManager::Scoop;
+        }
+    }
+
+    PackageManager::None
+}
+
+/// Returns the package name for a given dependency and package manager.
+fn package_name_for(dep: &str, pm: PackageManager) -> Option<&'static str> {
+    match (dep, pm) {
+        // git
+        ("git", PackageManager::Brew) => Some("git"),
+        ("git", PackageManager::Apt) => Some("git"),
+        ("git", PackageManager::Dnf) => Some("git"),
+        ("git", PackageManager::Pacman) => Some("git"),
+        ("git", PackageManager::Winget) => Some("Git.Git"),
+        ("git", PackageManager::Choco) => Some("git"),
+        ("git", PackageManager::Scoop) => Some("git"),
+        // docker
+        ("docker", PackageManager::Brew) => Some("docker"),
+        ("docker", PackageManager::Apt) => Some("docker.io"),
+        ("docker", PackageManager::Dnf) => Some("docker"),
+        ("docker", PackageManager::Pacman) => Some("docker"),
+        ("docker", PackageManager::Winget) => Some("Docker.DockerDesktop"),
+        ("docker", PackageManager::Choco) => Some("docker-desktop"),
+        // gh
+        ("gh", PackageManager::Brew) => Some("gh"),
+        ("gh", PackageManager::Apt) => Some("gh"),
+        ("gh", PackageManager::Dnf) => Some("gh"),
+        ("gh", PackageManager::Pacman) => Some("github-cli"),
+        ("gh", PackageManager::Winget) => Some("GitHub.cli"),
+        ("gh", PackageManager::Choco) => Some("gh"),
+        ("gh", PackageManager::Scoop) => Some("gh"),
+        // node
+        ("node", PackageManager::Brew) => Some("node"),
+        ("node", PackageManager::Apt) => Some("nodejs"),
+        ("node", PackageManager::Dnf) => Some("nodejs"),
+        ("node", PackageManager::Pacman) => Some("nodejs"),
+        ("node", PackageManager::Winget) => Some("OpenJS.NodeJS"),
+        ("node", PackageManager::Choco) => Some("nodejs"),
+        ("node", PackageManager::Scoop) => Some("nodejs"),
+        // python3
+        ("python3", PackageManager::Brew) => Some("python"),
+        ("python3", PackageManager::Apt) => Some("python3"),
+        ("python3", PackageManager::Dnf) => Some("python3"),
+        ("python3", PackageManager::Pacman) => Some("python"),
+        ("python3", PackageManager::Winget) => Some("Python.Python.3.12"),
+        ("python3", PackageManager::Choco) => Some("python3"),
+        ("python3", PackageManager::Scoop) => Some("python"),
+        // go
+        ("go", PackageManager::Brew) => Some("go"),
+        ("go", PackageManager::Apt) => Some("golang"),
+        ("go", PackageManager::Dnf) => Some("golang"),
+        ("go", PackageManager::Pacman) => Some("go"),
+        ("go", PackageManager::Winget) => Some("GoLang.Go"),
+        ("go", PackageManager::Choco) => Some("golang"),
+        ("go", PackageManager::Scoop) => Some("go"),
+        // ollama
+        ("ollama", PackageManager::Brew) => Some("ollama"),
+        _ => None,
+    }
+}
+
+// ─── Tauri Commands ──────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub async fn list_backends() -> Result<Vec<BackendInfo>, String> {
@@ -115,10 +265,62 @@ pub async fn toggle_backend(
 }
 
 #[tauri::command]
+pub async fn detect_package_manager_cmd() -> Result<PackageManagerInfo, String> {
+    let pm = detect_package_manager();
+    Ok(PackageManagerInfo {
+        name: pm.name().to_string(),
+        display_name: pm.display_name().to_string(),
+        available: pm != PackageManager::None,
+    })
+}
+
+#[tauri::command]
 pub async fn detect_dependencies() -> Result<Vec<DependencyStatus>, String> {
-    let deps = vec!["git", "docker", "gh", "node", "claude", "codex", "gemini", "brew"];
+    let deps: Vec<(&str, &str, &str)> = vec![
+        // Core tools
+        ("git", "Git", "core"),
+        ("docker", "Docker", "core"),
+        ("gh", "GitHub CLI", "core"),
+        ("node", "Node.js", "core"),
+        ("python3", "Python 3", "core"),
+        ("go", "Go", "core"),
+        // AI CLIs
+        ("claude", "Claude", "ai"),
+        ("codex", "Codex", "ai"),
+        ("gemini", "Gemini", "ai"),
+        ("ollama", "Ollama", "ai"),
+        ("llama-cli", "llama.cpp", "ai"),
+        // Editors
+        ("code", "VS Code", "editor"),
+        ("cursor", "Cursor", "editor"),
+        ("zed", "Zed", "editor"),
+        ("windsurf", "Windsurf", "editor"),
+        // Platform-specific build tools
+        #[cfg(target_os = "macos")]
+        ("xcode-select", "Xcode CLI Tools", "platform"),
+        #[cfg(target_os = "linux")]
+        ("gcc", "Build Essential", "platform"),
+    ];
+
+    // Also detect package manager
+    let pm = detect_package_manager();
     let mut results = Vec::new();
-    for name in deps {
+
+    // Add package manager as first entry
+    results.push(DependencyStatus {
+        name: pm.name().to_string(),
+        display_name: pm.display_name().to_string(),
+        category: "package_manager".to_string(),
+        installed: pm != PackageManager::None,
+        version: None,
+        path: if pm != PackageManager::None {
+            backends::detect::find_cli(pm.name())
+        } else {
+            None
+        },
+    });
+
+    for (name, display_name, category) in deps {
         let path = backends::detect::find_cli(name);
         let installed = path.is_some();
         let version = if installed {
@@ -128,6 +330,8 @@ pub async fn detect_dependencies() -> Result<Vec<DependencyStatus>, String> {
         };
         results.push(DependencyStatus {
             name: name.to_string(),
+            display_name: display_name.to_string(),
+            category: category.to_string(),
             installed,
             version,
             path,
@@ -140,37 +344,78 @@ pub async fn detect_dependencies() -> Result<Vec<DependencyStatus>, String> {
 pub async fn install_dependency(name: String) -> Result<String, String> {
     use tokio::process::Command;
 
-    // Check if brew is available (macOS)
-    let brew_path = backends::detect::find_cli("brew");
-    if brew_path.is_none() {
+    // CLI-specific install instructions (no package manager needed)
+    match name.as_str() {
+        "claude" => return Err("Install Claude CLI from https://claude.ai/cli".to_string()),
+        "codex" => {
+            return Err(
+                "Install Codex CLI via npm: npm install -g @openai/codex".to_string(),
+            )
+        }
+        "gemini" => {
+            return Err(
+                "Install Gemini CLI via npm: npm install -g @google/gemini-cli".to_string(),
+            )
+        }
+        _ => {}
+    }
+
+    let pm = detect_package_manager();
+    if pm == PackageManager::None {
         return Err(format!(
-            "Homebrew not found. Install {} manually or install Homebrew first: https://brew.sh",
+            "No package manager found. Install {} manually.\n\
+             macOS: Install Homebrew from https://brew.sh\n\
+             Linux: Use apt, dnf, or pacman\n\
+             Windows: Install winget, choco, or scoop",
             name
         ));
     }
 
-    let formula = match name.as_str() {
-        "git" => "git",
-        "docker" => "docker",
-        "gh" => "gh",
-        "node" => "node",
-        "claude" => return Err("Install Claude CLI from https://claude.ai/cli".to_string()),
-        "codex" => return Err("Install Codex CLI via npm: npm install -g @openai/codex".to_string()),
-        "gemini" => return Err("Install Gemini CLI via npm: npm install -g @google/gemini-cli".to_string()),
-        "brew" => return Err("Install Homebrew from https://brew.sh".to_string()),
-        _ => return Err(format!("Unknown dependency: {}", name)),
+    let package = match package_name_for(&name, pm) {
+        Some(pkg) => pkg,
+        None => {
+            return Err(format!(
+                "{} cannot be installed via {}. Install it manually.",
+                name,
+                pm.display_name()
+            ))
+        }
     };
 
-    let output = Command::new("brew")
-        .args(["install", formula])
+    let (cmd, args): (&str, Vec<&str>) = match pm {
+        PackageManager::Brew => ("brew", vec!["install", package]),
+        PackageManager::Apt => ("sudo", vec!["apt", "install", "-y", package]),
+        PackageManager::Dnf => ("sudo", vec!["dnf", "install", "-y", package]),
+        PackageManager::Pacman => ("sudo", vec!["pacman", "-S", "--noconfirm", package]),
+        PackageManager::Winget => ("winget", vec!["install", "--id", package, "-e", "--accept-source-agreements"]),
+        PackageManager::Choco => ("choco", vec!["install", package, "-y"]),
+        PackageManager::Scoop => ("scoop", vec!["install", package]),
+        PackageManager::None => unreachable!(),
+    };
+
+    log::info!(
+        "Installing {} via {} (package: {})",
+        name,
+        pm.display_name(),
+        package
+    );
+
+    let output = Command::new(cmd)
+        .args(&args)
         .output()
         .await
-        .map_err(|e| format!("brew install failed: {}", e))?;
+        .map_err(|e| format!("{} install failed: {}", pm.display_name(), e))?;
 
     if output.status.success() {
-        Ok(format!("Successfully installed {}", name))
+        Ok(format!(
+            "Successfully installed {} via {}",
+            name,
+            pm.display_name()
+        ))
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Err(if stderr.is_empty() { stdout } else { stderr })
     }
 }
 
@@ -182,10 +427,22 @@ async fn get_version(name: &str) -> Result<String, String> {
         "docker" => ("docker", &["--version"]),
         "gh" => ("gh", &["--version"]),
         "node" => ("node", &["--version"]),
+        "python3" => ("python3", &["--version"]),
+        "go" => ("go", &["version"]),
         "brew" => ("brew", &["--version"]),
         "claude" => ("claude", &["--version"]),
         "codex" => ("codex", &["--version"]),
         "gemini" => ("gemini", &["--version"]),
+        "ollama" => ("ollama", &["--version"]),
+        "llama-cli" => ("llama-cli", &["--version"]),
+        "code" => ("code", &["--version"]),
+        "cursor" => ("cursor", &["--version"]),
+        "zed" => ("zed", &["--version"]),
+        "windsurf" => ("windsurf", &["--version"]),
+        #[cfg(target_os = "macos")]
+        "xcode-select" => ("xcode-select", &["--version"]),
+        #[cfg(target_os = "linux")]
+        "gcc" => ("gcc", &["--version"]),
         _ => return Err("Unknown".to_string()),
     };
 
@@ -196,7 +453,12 @@ async fn get_version(name: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().lines().next().unwrap_or("").to_string())
+        Ok(String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .lines()
+            .next()
+            .unwrap_or("")
+            .to_string())
     } else {
         Err("Failed to get version".to_string())
     }

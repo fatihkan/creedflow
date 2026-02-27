@@ -35,6 +35,12 @@ export function ContentArea({ section, selectedProjectId }: ContentAreaProps) {
       return <DeployList />;
     case "settings":
       return <SettingsDialog />;
+    case "gitHistory":
+      return selectedProjectId ? (
+        <EmptyState message="Git history view — coming soon" />
+      ) : (
+        <EmptyState message="Select a project to view git history" />
+      );
     case "prompts":
       return <EmptyState message="Prompt library coming soon" />;
     default:

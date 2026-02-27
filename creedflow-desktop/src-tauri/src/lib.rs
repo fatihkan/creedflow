@@ -56,6 +56,7 @@ pub fn run() {
             commands::backends::toggle_backend,
             commands::backends::detect_dependencies,
             commands::backends::install_dependency,
+            commands::backends::detect_package_manager_cmd,
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,
@@ -87,6 +88,15 @@ pub fn run() {
             commands::prompts::create_prompt,
             commands::prompts::delete_prompt,
             commands::prompts::toggle_favorite,
+            // Platform
+            commands::platform::open_terminal,
+            commands::platform::open_in_file_manager,
+            commands::platform::open_url,
+            commands::platform::detect_editors,
+            commands::platform::open_in_editor,
+            commands::platform::get_preferred_editor,
+            commands::platform::set_preferred_editor,
+            commands::platform::get_platform,
             // Git
             commands::git::git_ensure_branch_structure,
             commands::git::git_setup_feature_branch,

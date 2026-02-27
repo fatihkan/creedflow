@@ -9,6 +9,7 @@ import {
   Settings,
   BookOpen,
   Archive,
+  GitBranch,
 } from "lucide-react";
 import { useTaskStore } from "../../store/taskStore";
 import { useReviewStore } from "../../store/reviewStore";
@@ -22,7 +23,8 @@ export type SidebarSection =
   | "deploys"
   | "settings"
   | "prompts"
-  | "archive";
+  | "archive"
+  | "gitHistory";
 
 interface SidebarProps {
   selected: SidebarSection;
@@ -41,6 +43,7 @@ const SECTIONS: {
   { id: "costs", label: "Costs", icon: DollarSign },
   { id: "reviews", label: "Reviews", icon: FileCheck },
   { id: "deploys", label: "Deploy", icon: Rocket },
+  { id: "gitHistory", label: "Git History", icon: GitBranch },
   { id: "prompts", label: "Prompts", icon: BookOpen },
   { id: "settings", label: "Settings", icon: Settings },
 ];

@@ -1,16 +1,52 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Terminal, FolderOpen, Code2 } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { NewProjectDialog } from "./NewProjectDialog";
+import {
+  openTerminal,
+  openInFileManager,
+  openInEditor,
+  detectEditors,
+  getPreferredEditor,
+} from "../../tauri";
+import type { DetectedEditor } from "../../types/models";
 
 export function ProjectList() {
   const { projects, fetchProjects, selectProject, selectedProjectId, deleteProject } =
     useProjectStore();
   const [showNew, setShowNew] = useState(false);
+  const [editors, setEditors] = useState<DetectedEditor[]>([]);
+  const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProjects();
+    detectEditors().then(setEditors).catch(() => {});
+    getPreferredEditor().then(setPreferredEditor).catch(() => {});
   }, [fetchProjects]);
+
+  const getEditorCommand = (): string | null => {
+    if (preferredEditor) return preferredEditor;
+    if (editors.length > 0) return editors[0].command;
+    return null;
+  };
+
+  const handleOpenTerminal = (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    openTerminal(path).catch((err) => console.error("Failed to open terminal:", err));
+  };
+
+  const handleOpenFileManager = (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    openInFileManager(path).catch((err) => console.error("Failed to open file manager:", err));
+  };
+
+  const handleOpenEditor = (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    const cmd = getEditorCommand();
+    if (cmd) {
+      openInEditor(path, cmd).catch((err) => console.error("Failed to open editor:", err));
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col">
@@ -53,7 +89,7 @@ export function ProjectList() {
                       {project.description}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 ml-2">
+                  <div className="flex items-center gap-1 ml-2">
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded ${
                         project.status === "completed"
@@ -65,6 +101,34 @@ export function ProjectList() {
                     >
                       {project.status}
                     </span>
+                    {/* Action buttons — visible on hover */}
+                    {project.directoryPath && (
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => handleOpenTerminal(e, project.directoryPath)}
+                          className="p-1 text-zinc-600 hover:text-zinc-200"
+                          title="Open in Terminal"
+                        >
+                          <Terminal className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleOpenFileManager(e, project.directoryPath)}
+                          className="p-1 text-zinc-600 hover:text-zinc-200"
+                          title="Open in File Manager"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" />
+                        </button>
+                        {getEditorCommand() && (
+                          <button
+                            onClick={(e) => handleOpenEditor(e, project.directoryPath)}
+                            className="p-1 text-zinc-600 hover:text-zinc-200"
+                            title={`Open in ${editors.find((e) => e.command === getEditorCommand())?.name ?? "Editor"}`}
+                          >
+                            <Code2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

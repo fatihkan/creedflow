@@ -13,6 +13,8 @@ import type {
   Publication,
   DeploymentInfo,
   DependencyStatus,
+  PackageManagerInfo,
+  DetectedEditor,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -176,6 +178,34 @@ export const detectDependencies = () =>
 
 export const installDependency = (name: string) =>
   invoke<string>("install_dependency", { name });
+
+export const detectPackageManager = () =>
+  invoke<PackageManagerInfo>("detect_package_manager_cmd");
+
+// ─── Platform ────────────────────────────────────────────────────────────────
+
+export const openTerminal = (path: string) =>
+  invoke<void>("open_terminal", { path });
+
+export const openInFileManager = (path: string) =>
+  invoke<void>("open_in_file_manager", { path });
+
+export const openUrl = (url: string) =>
+  invoke<void>("open_url", { url });
+
+export const detectEditors = () =>
+  invoke<DetectedEditor[]>("detect_editors");
+
+export const openInEditor = (path: string, editorCommand: string) =>
+  invoke<void>("open_in_editor", { path, editorCommand });
+
+export const getPreferredEditor = () =>
+  invoke<string | null>("get_preferred_editor");
+
+export const setPreferredEditor = (editorCommand: string | null) =>
+  invoke<void>("set_preferred_editor", { editorCommand });
+
+export const getPlatform = () => invoke<string>("get_platform");
 
 // ─── Git ────────────────────────────────────────────────────────────────────
 
