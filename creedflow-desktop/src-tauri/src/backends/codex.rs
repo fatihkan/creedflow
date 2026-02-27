@@ -40,11 +40,17 @@ impl CliBackend for CodexBackend {
         let id = Uuid::new_v4();
         let (tx, rx) = mpsc::channel(256);
 
+        // Temp file to capture clean agent output (bypasses banner on stdout)
+        let output_file = std::env::temp_dir().join(format!("codex-output-{}.txt", id));
+        let output_file_path = output_file.to_string_lossy().to_string();
+
         let args = vec![
             "exec".to_string(),
             input.prompt,
             "--full-auto".to_string(),
             "--skip-git-repo-check".to_string(),
+            "--output-last-message".to_string(),
+            output_file_path.clone(),
         ];
 
         let mut child = Command::new(&path)
@@ -64,16 +70,32 @@ impl CliBackend for CodexBackend {
 
         let active = self.active.clone();
         let children = self.children.clone();
+        let output_file_for_task = output_file.clone();
 
         tokio::spawn(async move {
-            let mut output = String::new();
+            // Read stdout for live streaming (includes banner)
+            let mut stdout_text = String::new();
             if let Some(mut stdout) = child.stdout.take() {
-                let _ = stdout.read_to_string(&mut output).await;
+                let _ = stdout.read_to_string(&mut stdout_text).await;
             }
 
-            let _ = tx.send(OutputEvent::Text(output.clone())).await;
+            let _ = tx.send(OutputEvent::Text(stdout_text.clone())).await;
+
+            let _ = child.wait().await;
+            PROCESS_TRACKER.untrack(pid);
+            children.lock().unwrap().remove(&id);
+            active.fetch_sub(1, Ordering::SeqCst);
+
+            // Prefer clean output from --output-last-message file (no banner)
+            let clean_output = tokio::fs::read_to_string(&output_file_for_task)
+                .await
+                .ok()
+                .filter(|s| !s.is_empty());
+            let _ = tokio::fs::remove_file(&output_file_for_task).await;
+
+            let final_output = clean_output.unwrap_or(stdout_text);
             let _ = tx.send(OutputEvent::Result(AgentResult {
-                output,
+                output: final_output,
                 cost_usd: None,
                 input_tokens: None,
                 output_tokens: None,
@@ -81,11 +103,6 @@ impl CliBackend for CodexBackend {
                 session_id: None,
                 model: Some("codex".to_string()),
             })).await;
-
-            let _ = child.wait().await;
-            PROCESS_TRACKER.untrack(pid);
-            children.lock().unwrap().remove(&id);
-            active.fetch_sub(1, Ordering::SeqCst);
         });
 
         Ok((id, rx))

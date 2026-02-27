@@ -525,9 +525,38 @@ final class Orchestrator {
         return regex.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: "")
     }
 
+    /// Strip known CLI banners (Codex header, Gemini preamble, etc.) from output
+    private func stripCLIBanners(_ text: String) -> String {
+        var result = text
+        // Codex CLI banner: "OpenAI Codex vX.Y.Z (research preview)\n--------\n..."
+        // Ends at a blank line after the key-value header block
+        if result.hasPrefix("OpenAI Codex") || result.hasPrefix("Codex") {
+            // Find the end of the banner (double newline or "--------" separator followed by key-value lines)
+            let lines = result.components(separatedBy: "\n")
+            var bannerEnd = 0
+            var passedSeparator = false
+            for (i, line) in lines.enumerated() {
+                if line.hasPrefix("--------") { passedSeparator = true; continue }
+                if passedSeparator && line.trimmingCharacters(in: .whitespaces).isEmpty {
+                    bannerEnd = i + 1
+                    break
+                }
+                if passedSeparator && !line.contains(":") && !line.isEmpty {
+                    bannerEnd = i
+                    break
+                }
+            }
+            if bannerEnd > 0 && bannerEnd < lines.count {
+                result = lines[bannerEnd...].joined(separator: "\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return result
+    }
+
     /// Extract JSON from text that might contain markdown code blocks or extra text
     private func extractJSON(from rawText: String) -> Data? {
-        let text = stripANSI(rawText)
+        let text = stripCLIBanners(stripANSI(rawText))
 
         // Try direct parse first
         if let data = text.data(using: .utf8),

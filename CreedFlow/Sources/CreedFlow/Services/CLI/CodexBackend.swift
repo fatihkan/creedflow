@@ -1,7 +1,9 @@
 import Foundation
 
 /// CLIBackend for OpenAI's Codex CLI.
-/// Spawns `codex -q "<prompt>" --full-auto` and collects plain text output.
+/// Spawns `codex exec "<prompt>" --full-auto` and collects output.
+/// Uses `--output-last-message` to capture the clean agent response
+/// separately from the banner/diagnostic text that Codex writes to stdout.
 actor CodexBackend: CLIBackend {
     nonisolated let backendType = CLIBackendType.codex
 
@@ -27,9 +29,19 @@ actor CodexBackend: CLIBackend {
             fullPrompt = "System instructions:\n\(sys)\n\n---\n\nTask:\n\(input.prompt)"
         }
 
+        // Temp file to capture clean agent output (bypasses banner pollution on stdout)
+        let outputFile = FileManager.default.temporaryDirectory
+            .appendingPathComponent("codex-output-\(processId.uuidString).txt")
+        let outputFilePath = outputFile.path
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: cliPath)
-        process.arguments = ["exec", fullPrompt, "--full-auto", "--skip-git-repo-check"]
+        process.arguments = [
+            "exec", fullPrompt,
+            "--full-auto",
+            "--skip-git-repo-check",
+            "--output-last-message", outputFilePath,
+        ]
         process.currentDirectoryURL = URL(fileURLWithPath: input.workingDirectory)
         process.environment = ProcessInfo.processInfo.environment
 
@@ -67,7 +79,7 @@ actor CodexBackend: CLIBackend {
                     return data
                 }
 
-                // Stream stdout chunks
+                // Stream stdout chunks (includes banner + agent output for live display)
                 while true {
                     let data = handle.availableData
                     if data.isEmpty { break }
@@ -86,11 +98,21 @@ actor CodexBackend: CLIBackend {
 
                 let stderrText = String(data: stderrData, encoding: .utf8) ?? ""
 
+                // Read clean output from --output-last-message file (no banner contamination)
+                let cleanOutput: String? = {
+                    guard let data = try? Data(contentsOf: outputFile),
+                          let text = String(data: data, encoding: .utf8),
+                          !text.isEmpty else { return nil }
+                    return text
+                }()
+                // Clean up temp file
+                try? FileManager.default.removeItem(at: outputFile)
+
                 if exitCode != 0 {
                     let errorOutput = stderrText.isEmpty ? "Unknown error" : stderrText
                     continuation.yield(.error(errorOutput))
                     let result = CLIResult(
-                        output: collectedOutput.isEmpty ? errorOutput : collectedOutput,
+                        output: cleanOutput ?? (collectedOutput.isEmpty ? errorOutput : collectedOutput),
                         isError: true,
                         sessionId: nil,
                         model: "codex",
@@ -102,8 +124,9 @@ actor CodexBackend: CLIBackend {
                     continuation.yield(.result(result))
                     continuation.finish()
                 } else {
-                    // Fallback to stderr when stdout is empty (some CLIs write output to stderr)
-                    let output = collectedOutput.isEmpty ? (stderrText.isEmpty ? nil : stderrText) : collectedOutput
+                    // Prefer clean output file, fall back to stdout, then stderr
+                    let output = cleanOutput
+                        ?? (collectedOutput.isEmpty ? (stderrText.isEmpty ? nil : stderrText) : collectedOutput)
                     let result = CLIResult(
                         output: output,
                         isError: false,
@@ -124,6 +147,8 @@ actor CodexBackend: CLIBackend {
                 if process.isRunning {
                     process.interrupt()
                 }
+                // Clean up temp file on cancellation
+                try? FileManager.default.removeItem(atPath: outputFilePath)
             }
         }
 
