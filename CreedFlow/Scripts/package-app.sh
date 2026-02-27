@@ -35,11 +35,11 @@ done
 # Determine build directory and arch label
 if [ -n "$TARGET_ARCH" ]; then
     BUILD_DIR="$PROJECT_DIR/.build/${TARGET_ARCH}-apple-macosx/release"
-    TRIPLE_FLAG="--triple ${TARGET_ARCH}-apple-macosx"
+    ARCH_FLAG="--triple ${TARGET_ARCH}-apple-macosx"
     ARCH_LABEL="$TARGET_ARCH"
 else
     BUILD_DIR="$PROJECT_DIR/.build/release"
-    TRIPLE_FLAG=""
+    ARCH_FLAG=""
     ARCH_LABEL=$(uname -m)
 fi
 
@@ -57,7 +57,7 @@ echo "→ Building release binaries (${ARCH_LABEL})..."
 cd "$PROJECT_DIR"
 # shellcheck disable=SC2086
 set +e
-swift build -c release --product CreedFlow --product CreedFlowMCPServer $TRIPLE_FLAG 2>&1
+swift build -c release --product CreedFlow --product CreedFlowMCPServer $ARCH_FLAG 2>&1
 BUILD_EXIT=$?
 set -e
 if [ $BUILD_EXIT -ne 0 ]; then
