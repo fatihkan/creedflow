@@ -8,18 +8,10 @@ struct AnalyzerAgent: AgentProtocol {
     let agentType = AgentTask.AgentType.analyzer
 
     let systemPrompt = """
-        You are a senior software architect and project planner. \
+        You are a senior project strategist and planner. \
         You analyze project descriptions and produce comprehensive, production-grade \
-        technical breakdowns including architecture design, data models, diagrams, \
-        and detailed implementation tasks.
-
-        You think deeply about:
-        - System architecture (layers, services, data flow)
-        - Data modeling (entities, relationships, constraints)
-        - API design (endpoints, request/response schemas)
-        - Dependency ordering (what must be built first)
-        - Edge cases and error handling strategies
-        - Security considerations
+        breakdowns including structure, planning, diagrams, \
+        and detailed implementation tasks appropriate to the project type.
 
         You produce Mermaid diagrams for visual documentation.
         Output MUST be valid JSON matching the provided schema.
@@ -40,26 +32,30 @@ struct AnalyzerAgent: AgentProtocol {
             return buildRevisionPrompt(cleanDescription, projectType: projectType)
         }
 
+        let systemContext = buildSystemContext(for: projectType)
         let strategy = decompositionStrategy(for: projectType)
         let agentTypes = allowedAgentTypes(for: projectType)
         let modelGuidance = dataModelGuidance(for: projectType)
         let diagramGuidance = diagramGuidance(for: projectType)
+        let rules = buildRules(for: projectType, agentTypes: agentTypes)
 
         return """
-        Analyze the following project description and create a COMPREHENSIVE technical breakdown.
+        \(systemContext)
+
+        Analyze the following project description and create a COMPREHENSIVE breakdown.
 
         Respond with ONLY a JSON object (no markdown, no explanation) in this exact schema:
 
         {
           "projectName": "string",
-          "techStack": "string — recommended technologies with reasoning",
-          "architecture": "string — multi-paragraph architecture overview: layers, services, data flow, key design decisions, security considerations",
+          "techStack": "string — recommended technologies/tools with reasoning",
+          "architecture": "string — multi-paragraph overview: structure, workflow, key decisions",
           "dataModels": [
             {
               "name": "EntityName",
-              "type": "database_table | api_endpoint | interface | enum",
+              "type": "database_table | api_endpoint | interface | enum | content_type | asset_type",
               "fields": [
-                {"name": "fieldName", "type": "dataType", "constraints": "PRIMARY KEY | NOT NULL | UNIQUE | FOREIGN KEY(table.field) | optional description"}
+                {"name": "fieldName", "type": "dataType", "constraints": "description or constraint"}
               ],
               "relationships": ["has_many: OtherEntity", "belongs_to: ParentEntity"]
             }
@@ -73,7 +69,7 @@ struct AnalyzerAgent: AgentProtocol {
           ],
           "configFiles": [
             {
-              "path": ".gitignore",
+              "path": "relative/path",
               "content": "full file content with newlines"
             }
           ],
@@ -85,43 +81,27 @@ struct AnalyzerAgent: AgentProtocol {
               "tasks": [
                 {
                   "title": "Clear imperative task title",
-                  "description": "Multi-paragraph description: what to build, how to implement it, key files/modules to create, error handling approach",
+                  "description": "Multi-paragraph description: what to do, how to approach it, key deliverables, quality criteria",
                   "agentType": "\(agentTypes)",
                   "priority": 1-10,
                   "dependsOn": ["other task title"],
                   "acceptanceCriteria": ["criterion 1", "criterion 2", "criterion 3"],
-                  "filesToCreate": ["path/to/file.ext"],
+                  "filesToCreate": ["path/to/deliverable.ext"],
                   "estimatedComplexity": "low | medium | high",
-                  "skillPersona": "Senior React/TypeScript frontend developer with accessibility expertise and component architecture skills"
+                  "skillPersona": "Specific expert role for this task"
                 }
               ]
             }
           ]
         }
 
-        RULES:
-        - Be thorough: up to 8 features, up to 6 tasks per feature
-        - Every task MUST have 2-5 acceptanceCriteria (testable conditions)
-        - Every task MUST have filesToCreate listing specific files/modules to create or modify
-        - Every task description must be detailed enough for a developer to implement without asking questions
-        - Data models: define ALL entities with ALL fields, types, and constraints
-        - Diagrams: include at least an ER diagram for data models and a flowchart for the main user flow
-        - Architecture: describe layers, patterns (MVC/MVVM/etc), API structure, auth strategy, error handling
-        - Priority 10 = highest, 1 = lowest. No circular dependencies.
-
-        CONFIG FILES:
-        - Generate project config files appropriate for the detected tech stack
-        - MUST include: .gitignore (comprehensive for the detected tech stack)
-        - Include when relevant: .editorconfig, .prettierrc, .eslintrc.json, tsconfig.json, docker-compose.yml, Dockerfile, Makefile, pyproject.toml, Package.swift, etc.
-        - Each file must have complete, production-ready content
-        - Use the "path" field for relative file paths (e.g. ".gitignore", ".editorconfig", "docker-compose.yml")
+        \(rules)
 
         SKILL PERSONAS:
         - Every task MUST have a skillPersona describing the expert role for that specific task
-        - Be specific: "Senior React/TypeScript frontend developer with accessibility expertise"
-        - NOT generic: "developer" or "frontend developer"
-        - Include domain expertise relevant to the task (e.g. "database migration specialist" for schema tasks)
-        - Tailor to the task's tech stack and responsibilities
+        - Be specific and include domain expertise relevant to the task
+        - NOT generic: "developer" or "writer"
+        - Tailor to the task's responsibilities and domain
 
         \(modelGuidance)
 
@@ -141,6 +121,7 @@ struct AnalyzerAgent: AgentProtocol {
     }
 
     private func buildRevisionPrompt(_ description: String, projectType: Project.ProjectType) -> String {
+        let systemContext = buildSystemContext(for: projectType)
         let strategy = decompositionStrategy(for: projectType)
         let agentTypes = allowedAgentTypes(for: projectType)
 
@@ -150,6 +131,8 @@ struct AnalyzerAgent: AgentProtocol {
         let newRequirements = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : description
 
         return """
+        \(systemContext)
+
         You are adding NEW features to an existing project. Do NOT duplicate any existing features.
 
         \(existingContext)
@@ -194,6 +177,7 @@ struct AnalyzerAgent: AgentProtocol {
 
         Up to 8 features, up to 6 tasks per feature.
         Priority 10 = highest. No circular dependencies.
+        agentType MUST be one of: \(agentTypes)
 
         \(strategy)
 
@@ -345,6 +329,119 @@ struct AnalyzerAgent: AgentProtocol {
             DIAGRAM REQUIREMENTS (Mermaid syntax):
             - Include at least one flowchart showing the main workflow
             - Add ER diagram if data models are defined
+            """
+        }
+    }
+
+    // MARK: - System Context (Project-Type-Aware)
+
+    private func buildSystemContext(for type: Project.ProjectType) -> String {
+        switch type {
+        case .software:
+            return """
+            SYSTEM CONTEXT: You are a senior software architect and project planner.
+            You think deeply about system architecture (layers, services, data flow), \
+            data modeling (entities, relationships, constraints), API design, \
+            dependency ordering, edge cases, error handling, and security.
+            """
+        case .content:
+            return """
+            SYSTEM CONTEXT: You are a senior content strategist and editorial planner.
+            You analyze content project descriptions and produce comprehensive content plans \
+            including editorial calendar, content structure, audience analysis, and detailed \
+            writing/publishing tasks. You think about tone, SEO, audience engagement, \
+            content distribution, and editorial workflow.
+            IMPORTANT: This is NOT a software project. Do NOT create coder, devops, or tester tasks. \
+            Do NOT generate code files, config files, or infrastructure tasks.
+            """
+        case .image:
+            return """
+            SYSTEM CONTEXT: You are a senior creative director and visual design strategist.
+            You analyze design/image project descriptions and produce comprehensive visual \
+            production plans including mood boards, style guides, prompt engineering, \
+            generation pipelines, and review workflows.
+            IMPORTANT: This is NOT a software project. Do NOT create coder, devops, or tester tasks. \
+            Do NOT generate code files, config files, or infrastructure tasks.
+            """
+        case .video:
+            return """
+            SYSTEM CONTEXT: You are a senior video production director and creative strategist.
+            You analyze video project descriptions and produce comprehensive production plans \
+            including scripts, storyboards, shot lists, audio planning, and post-production workflows.
+            IMPORTANT: This is NOT a software project. Do NOT create coder, devops, or tester tasks. \
+            Do NOT generate code files, config files, or infrastructure tasks.
+            """
+        case .general:
+            return """
+            SYSTEM CONTEXT: You are a senior project strategist.
+            Analyze the project type from the description and use the most appropriate agent types. \
+            Choose agent types that match the actual work: contentWriter for writing, \
+            imageGenerator/designer for visuals, videoEditor for video, coder for code, etc.
+            """
+        }
+    }
+
+    // MARK: - Rules (Project-Type-Aware)
+
+    private func buildRules(for type: Project.ProjectType, agentTypes: String) -> String {
+        let commonRules = """
+        RULES:
+        - Be thorough: up to 8 features, up to 6 tasks per feature
+        - Every task MUST have 2-5 acceptanceCriteria (testable conditions)
+        - Every task description must be detailed enough to implement without asking questions
+        - Priority 10 = highest, 1 = lowest. No circular dependencies.
+        - agentType MUST be one of: \(agentTypes)
+        """
+
+        switch type {
+        case .software:
+            return """
+            \(commonRules)
+            - Every task MUST have filesToCreate listing specific files/modules to create or modify
+            - Data models: define ALL entities with ALL fields, types, and constraints
+            - Diagrams: include at least an ER diagram for data models and a flowchart for the main user flow
+            - Architecture: describe layers, patterns (MVC/MVVM/etc), API structure, auth strategy, error handling
+
+            CONFIG FILES:
+            - Generate project config files appropriate for the detected tech stack
+            - MUST include: .gitignore (comprehensive for the detected tech stack)
+            - Include when relevant: .editorconfig, .prettierrc, .eslintrc.json, tsconfig.json, docker-compose.yml, Dockerfile, Makefile, pyproject.toml, Package.swift, etc.
+            - Each file must have complete, production-ready content
+            - Use the "path" field for relative file paths (e.g. ".gitignore", ".editorconfig", "docker-compose.yml")
+            """
+        case .content:
+            return """
+            \(commonRules)
+            - filesToCreate should list content documents (articles, outlines, briefs), NOT code files
+            - Do NOT generate infrastructure, CI/CD, Docker, or code compilation tasks
+            - Focus on: research, writing, editing, SEO optimization, publishing, content distribution
+            - configFiles array should be empty or contain only editorial guidelines/style guides
+            - Data models should describe content types (articles, newsletters, social posts), NOT database tables
+            """
+        case .image:
+            return """
+            \(commonRules)
+            - filesToCreate should list image assets, design specs, mood boards, and style guides
+            - Do NOT generate infrastructure, CI/CD, Docker, or code compilation tasks
+            - Focus on: concept development, prompt engineering, image generation, design review, asset export
+            - configFiles array should be empty or contain only design guidelines
+            - Data models should describe asset types and generation parameters, NOT database tables
+            """
+        case .video:
+            return """
+            \(commonRules)
+            - filesToCreate should list scripts, storyboards, video files, audio files, and export specs
+            - Do NOT generate infrastructure, CI/CD, Docker, or code compilation tasks
+            - Focus on: scripting, storyboarding, video generation, audio production, post-production, export
+            - configFiles array should be empty or contain only production guidelines
+            - Data models should describe production assets and workflow stages, NOT database tables
+            """
+        case .general:
+            return """
+            \(commonRules)
+            - Every task MUST have filesToCreate listing specific deliverables
+            - Choose agent types that match the actual work described in the project
+            - configFiles should only be included if the project involves software or configuration
             """
         }
     }
