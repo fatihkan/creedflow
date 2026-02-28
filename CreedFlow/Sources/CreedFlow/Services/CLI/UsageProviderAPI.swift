@@ -15,6 +15,8 @@ package struct ProviderUsageData: Sendable {
 
 package enum UsageAPIError: LocalizedError, Sendable {
     case noAPIKey
+    case invalidAPIKey
+    case forbidden
     case httpError(statusCode: Int, body: String)
     case decodingError(String)
     case networkError(String)
@@ -22,9 +24,11 @@ package enum UsageAPIError: LocalizedError, Sendable {
     package var errorDescription: String? {
         switch self {
         case .noAPIKey: return "No Admin API key"
-        case .httpError(let code, let body): return "HTTP \(code): \(body)"
+        case .invalidAPIKey: return "Invalid key (need sk-ant-admin-...)"
+        case .forbidden: return "Access denied — admin role required"
+        case .httpError(let code, _): return "HTTP \(code) error"
         case .decodingError(let msg): return "Decode error: \(msg)"
-        case .networkError(let msg): return "Network error: \(msg)"
+        case .networkError(let msg): return "Network: \(msg)"
         }
     }
 }
@@ -75,6 +79,8 @@ package enum AnthropicUsageAPI {
                 return .failure(.networkError("No HTTP response"))
             }
             guard http.statusCode == 200 else {
+                if http.statusCode == 401 { return .failure(.invalidAPIKey) }
+                if http.statusCode == 403 { return .failure(.forbidden) }
                 let body = String(data: data, encoding: .utf8) ?? ""
                 return .failure(.httpError(statusCode: http.statusCode, body: String(body.prefix(200))))
             }
@@ -163,6 +169,8 @@ package enum OpenAIUsageAPI {
                 return .failure(.networkError("No HTTP response"))
             }
             guard http.statusCode == 200 else {
+                if http.statusCode == 401 { return .failure(.invalidAPIKey) }
+                if http.statusCode == 403 { return .failure(.forbidden) }
                 let body = String(data: data, encoding: .utf8) ?? ""
                 return .failure(.httpError(statusCode: http.statusCode, body: String(body.prefix(200))))
             }
@@ -205,6 +213,8 @@ package enum OpenAIUsageAPI {
                 return .failure(.networkError("No HTTP response"))
             }
             guard http.statusCode == 200 else {
+                if http.statusCode == 401 { return .failure(.invalidAPIKey) }
+                if http.statusCode == 403 { return .failure(.forbidden) }
                 let body = String(data: data, encoding: .utf8) ?? ""
                 return .failure(.httpError(statusCode: http.statusCode, body: String(body.prefix(200))))
             }
