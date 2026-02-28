@@ -108,6 +108,40 @@ impl Orchestrator {
                     Ok(Some(task)) => {
                         // Try to acquire a concurrency slot
                         if let Some(permit) = scheduler.try_acquire() {
+                            let agent_type = AgentType::from_str(&task.agent_type);
+
+                            // Validate creative agents have at least one MCP service configured
+                            if is_creative_agent(&agent_type) {
+                                let agent = crate::agents::resolve_agent(&agent_type);
+                                if let Some(mcp_servers) = agent.mcp_servers() {
+                                    let creative_names: Vec<&str> = mcp_servers.iter()
+                                        .map(|s| s.as_str())
+                                        .filter(|s| *s != "creedflow")
+                                        .collect();
+                                    let has_config = {
+                                        let db_lock = db.lock().await;
+                                        creative_names.iter().any(|name| {
+                                            db_lock.conn.query_row(
+                                                "SELECT COUNT(*) FROM mcpServerConfig WHERE name = ? AND isEnabled = 1",
+                                                rusqlite::params![name],
+                                                |row| row.get::<_, i64>(0),
+                                            ).unwrap_or(0) > 0
+                                        })
+                                    };
+                                    if !has_config {
+                                        let service_list = creative_names.join(", ");
+                                        let error_msg = format!(
+                                            "No creative AI service configured. Go to Settings → MCP Servers to add an API key for {}.",
+                                            service_list
+                                        );
+                                        log::warn!("Task {} failed: {}", task.id, error_msg);
+                                        let _ = task_queue.fail(&task.id, &error_msg).await;
+                                        drop(permit);
+                                        continue;
+                                    }
+                                }
+                            }
+
                             log::info!("Dispatching task {} ({})", task.id, task.agent_type);
 
                             // Emit event to frontend
@@ -1165,4 +1199,12 @@ async fn handle_git_completion(
             "agentType": task.agent_type,
         }));
     }
+}
+
+/// Returns true if the agent type is a creative agent that requires MCP services
+fn is_creative_agent(agent_type: &AgentType) -> bool {
+    matches!(
+        agent_type,
+        AgentType::ImageGenerator | AgentType::VideoEditor | AgentType::Designer
+    )
 }

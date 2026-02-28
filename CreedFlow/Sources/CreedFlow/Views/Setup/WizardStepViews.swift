@@ -434,11 +434,17 @@ struct WizardMCPStep: View {
     }
 
     private var creativeTemplates: [MCPServerTemplate] {
-        [.dalle, .figma, .stability, .elevenlabs, .runway]
+        [.dalle, .figma, .stability, .elevenlabs, .runway, .heygen, .replicate, .leonardo]
     }
 
     private var otherTemplates: [MCPServerTemplate] {
         [.promptsChat]
+    }
+
+    /// Whether at least one creative MCP service is configured
+    private var hasConfiguredCreativeService: Bool {
+        let creativeIds = Set(creativeTemplates.map(\.id))
+        return store.configs.contains { creativeIds.contains($0.name) }
     }
 
     var body: some View {
@@ -462,7 +468,7 @@ struct WizardMCPStep: View {
                 .padding(.vertical, 4)
             }
 
-            Section("Creative Tools") {
+            Section("Creative AI Services") {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 10),
                     GridItem(.flexible(), spacing: 10),
@@ -473,6 +479,18 @@ struct WizardMCPStep: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                if !hasConfiguredCreativeService {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.forgeWarning)
+                            .font(.footnote)
+                        Text("Content and image projects require at least one creative AI service. Configure an API key above to enable image/video generation.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
             }
 
             Section("Other") {

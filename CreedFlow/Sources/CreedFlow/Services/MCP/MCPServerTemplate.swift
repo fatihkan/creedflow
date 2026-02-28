@@ -76,7 +76,8 @@ struct MCPServerTemplate: Identifiable {
 
     static let all: [MCPServerTemplate] = [
         filesystem, github, promptsChat, creedFlow,
-        dalle, figma, stability, elevenlabs, runway
+        dalle, figma, stability, elevenlabs, runway,
+        heygen, replicate, leonardo
     ]
 
     static let filesystem = MCPServerTemplate(
@@ -237,6 +238,63 @@ struct MCPServerTemplate: Identifiable {
                 placeholder: "rw_...",
                 type: .secret,
                 envKey: "RUNWAY_API_KEY"
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let heygen = MCPServerTemplate(
+        id: "heygen",
+        displayName: "HeyGen",
+        description: "AI avatar video generation, lip-sync, translation",
+        icon: "person.crop.rectangle.badge.plus",
+        command: "npx",
+        defaultArgs: ["-y", "@anthropic/mcp-heygen"],
+        requiredInputs: [
+            RequiredInput(
+                id: "heygen_api_key",
+                label: "HeyGen API Key",
+                placeholder: "your-heygen-api-key",
+                type: .secret,
+                envKey: "HEYGEN_API_KEY"
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let replicate = MCPServerTemplate(
+        id: "replicate",
+        displayName: "Replicate",
+        description: "Universal AI model hosting (FLUX, SDXL, video models)",
+        icon: "cpu.fill",
+        command: "npx",
+        defaultArgs: ["-y", "@anthropic/mcp-replicate"],
+        requiredInputs: [
+            RequiredInput(
+                id: "replicate_api_token",
+                label: "Replicate API Token",
+                placeholder: "r8_...",
+                type: .secret,
+                envKey: "REPLICATE_API_TOKEN"
+            )
+        ],
+        defaultEnv: [:]
+    )
+
+    static let leonardo = MCPServerTemplate(
+        id: "leonardo",
+        displayName: "Leonardo.AI",
+        description: "AI image generation with motion and style control",
+        icon: "sparkles",
+        command: "npx",
+        defaultArgs: ["-y", "@anthropic/mcp-leonardo"],
+        requiredInputs: [
+            RequiredInput(
+                id: "leonardo_api_key",
+                label: "Leonardo API Key",
+                placeholder: "your-leonardo-api-key",
+                type: .secret,
+                envKey: "LEONARDO_API_KEY"
             )
         ],
         defaultEnv: [:]

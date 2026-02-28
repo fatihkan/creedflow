@@ -46,6 +46,11 @@ final class Orchestrator {
     private let branchManager: GitBranchManager
     private let preferencesStore = AgentBackendPreferencesStore()
 
+    /// Agent types that require at least one creative MCP service to be configured
+    private static let creativeAgentTypes: Set<AgentTask.AgentType> = [
+        .imageGenerator, .videoEditor, .designer
+    ]
+
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
     private var pollingTask: Task<Void, Never>?
@@ -176,6 +181,24 @@ final class Orchestrator {
 
             // Select backend and create a runner for this task
             let agent = resolveAgent(for: task.agentType)
+
+            // Validate creative agents have at least one MCP service configured
+            if let mcpServers = agent.mcpServers, Self.creativeAgentTypes.contains(task.agentType) {
+                let creativeMCPNames = mcpServers.filter { $0 != "creedflow" }
+                let hasCreativeMCP = (try? await dbQueue.read { db in
+                    try MCPServerConfig.fetchEnabled(names: creativeMCPNames, in: db).isEmpty == false
+                }) ?? false
+                if !hasCreativeMCP {
+                    await scheduler.release(task: task)
+                    let serviceList = creativeMCPNames.map { $0.capitalized }.joined(separator: ", ")
+                    try? await taskQueue.fail(
+                        task,
+                        error: "No creative AI service configured. Go to Settings \u{2192} MCP Servers to add an API key for \(serviceList)."
+                    )
+                    continue
+                }
+            }
+
             let effectivePrefs = preferencesStore.preferences(for: task.agentType)
             guard let backend = await backendRouter.selectBackend(preferences: effectivePrefs, task: task) else {
                 // No enabled/available backend — defer the task back to queue
