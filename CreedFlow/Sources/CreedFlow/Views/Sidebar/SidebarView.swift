@@ -101,18 +101,8 @@ struct SidebarView: View {
                     .tag(SidebarSection.agents)
                 }
 
-                Section("Usage") {
-                    ForEach(CLIUsageStore.trackedBackends, id: \.self) { backendType in
-                        if isBackendEnabled(backendType) {
-                            CLIUsageRow(
-                                backend: backendType,
-                                usage: usageStore.usage(for: backendType),
-                                limit4h: usageLimitValue(for: backendType, window: .fourHour),
-                                limitWeek: usageLimitValue(for: backendType, window: .weekly)
-                            )
-                        }
-                    }
-                }
+                // Usage section hidden — revisit with correct API approach
+                // Section("Usage") { ... }
 
                 Section("Library") {
                     Label("Prompts", systemImage: "text.book.closed")
@@ -136,7 +126,7 @@ struct SidebarView: View {
         .task { await observeActiveTaskCount() }
         .task { await observeArchivedTaskCount() }
         .task { await observePendingDeployCount() }
-        .task { await observeUsage() }
+        // .task { await observeUsage() }
     }
 
     // MARK: - Brand Header
