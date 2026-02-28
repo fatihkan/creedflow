@@ -344,7 +344,7 @@ struct SidebarView: View {
 
     private func observeUsage() async {
         guard let db = appDatabase else { return }
-        await usageStore.observe(in: db.dbQueue)
+        usageStore.startPolling(dbQueue: db.dbQueue)
     }
 
     private func isBackendEnabled(_ type: CLIBackendType) -> Bool {
@@ -377,15 +377,51 @@ private struct CLIUsageRow: View {
                 Text(backend.displayName)
                     .font(.system(size: 12, weight: .medium))
                 Spacer()
-                Text(formatCost(usage.lastWeek.cost))
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                statusIndicator
             }
 
-            usageBar(label: "4h", cost: usage.last4h.cost, limit: limit4h)
-            usageBar(label: "7d", cost: usage.lastWeek.cost, limit: limitWeek)
+            switch usage.status {
+            case .loading:
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 12, height: 12)
+                    Text("Fetching usage...")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            case .error(let message):
+                Text(message)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.orange)
+            case .loaded, .idle:
+                usageBar(label: "4h", cost: usage.last4h.cost, limit: limit4h)
+                usageBar(label: "7d", cost: usage.lastWeek.cost, limit: limitWeek)
+            }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var statusIndicator: some View {
+        switch usage.status {
+        case .loaded:
+            Text(formatCost(usage.lastWeek.cost))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+        case .error:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.orange)
+        case .loading:
+            ProgressView()
+                .scaleEffect(0.4)
+                .frame(width: 12, height: 12)
+        case .idle:
+            Text(formatCost(usage.lastWeek.cost))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func usageBar(label: String, cost: Double, limit: Double) -> some View {

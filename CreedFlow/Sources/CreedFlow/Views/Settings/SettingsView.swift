@@ -29,6 +29,10 @@ public struct SettingsView: View {
     @AppStorage("mlxModel") private var mlxModel = ""
     @AppStorage("preferredEditor") private var preferredEditor = ""
 
+    // Admin API keys for real usage tracking
+    @AppStorage("anthropicAdminAPIKey") private var anthropicAdminKey = ""
+    @AppStorage("openaiAdminAPIKey") private var openaiAdminKey = ""
+
     // Usage limits
     @AppStorage("claude4hLimitUSD") private var claude4hLimit: Double = 5.0
     @AppStorage("claudeWeeklyLimitUSD") private var claudeWeeklyLimit: Double = 25.0
@@ -148,6 +152,11 @@ public struct SettingsView: View {
                 CLISettingsRow(label: "Claude CLI Path", path: $claudePath, version: claudeVersion, enabled: claudeEnabled)
                 if claudeEnabled {
                     UsageLimitFields(limit4h: $claude4hLimit, limitWeek: $claudeWeeklyLimit)
+                    SecureField("Admin API Key (for usage tracking)", text: $anthropicAdminKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Get from console.anthropic.com \u{2192} Settings \u{2192} Admin Keys (sk-ant-admin...)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             } header: {
                 HStack {
@@ -165,6 +174,11 @@ public struct SettingsView: View {
                 CLISettingsRow(label: "Codex CLI Path", path: $codexPath, version: codexVersion, enabled: codexEnabled)
                 if codexEnabled {
                     UsageLimitFields(limit4h: $codex4hLimit, limitWeek: $codexWeeklyLimit)
+                    SecureField("Admin API Key (for usage tracking)", text: $openaiAdminKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Get from platform.openai.com \u{2192} Settings \u{2192} Admin Keys")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 Text("Install: npm install -g @openai/codex")
                     .font(.footnote)
