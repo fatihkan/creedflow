@@ -13,6 +13,7 @@ struct SidebarView: View {
     @State private var archivedTaskCount: Int = 0
     @State private var pendingDeployCount: Int = 0
     @State private var isHoveringCoffee = false
+    @State private var usageStore = CLIUsageStore()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -100,6 +101,19 @@ struct SidebarView: View {
                     .tag(SidebarSection.agents)
                 }
 
+                Section("Usage") {
+                    ForEach(CLIUsageStore.trackedBackends, id: \.self) { backendType in
+                        if isBackendEnabled(backendType) {
+                            CLIUsageRow(
+                                backend: backendType,
+                                usage: usageStore.usage(for: backendType),
+                                limit4h: usageLimitValue(for: backendType, window: .fourHour),
+                                limitWeek: usageLimitValue(for: backendType, window: .weekly)
+                            )
+                        }
+                    }
+                }
+
                 Section("Library") {
                     Label("Prompts", systemImage: "text.book.closed")
                         .tag(SidebarSection.prompts)
@@ -122,6 +136,7 @@ struct SidebarView: View {
         .task { await observeActiveTaskCount() }
         .task { await observeArchivedTaskCount() }
         .task { await observePendingDeployCount() }
+        .task { await observeUsage() }
     }
 
     // MARK: - Brand Header
@@ -325,6 +340,88 @@ struct SidebarView: View {
                 pendingDeployCount = count
             }
         } catch { /* observation error — sidebar badges may be stale */ }
+    }
+
+    private func observeUsage() async {
+        guard let db = appDatabase else { return }
+        await usageStore.observe(in: db.dbQueue)
+    }
+
+    private func isBackendEnabled(_ type: CLIBackendType) -> Bool {
+        UserDefaults.standard.object(forKey: "\(type.rawValue)Enabled") as? Bool ?? true
+    }
+
+    private enum UsageWindowType { case fourHour, weekly }
+
+    private func usageLimitValue(for backend: CLIBackendType, window: UsageWindowType) -> Double {
+        let suffix = window == .fourHour ? "4hLimitUSD" : "WeeklyLimitUSD"
+        let key = "\(backend.rawValue)\(suffix)"
+        return UserDefaults.standard.object(forKey: key) as? Double ?? (window == .fourHour ? 5.0 : 25.0)
+    }
+}
+
+// MARK: - CLI Usage Row
+
+private struct CLIUsageRow: View {
+    let backend: CLIBackendType
+    let usage: CLIUsageStore.BackendUsage
+    let limit4h: Double
+    let limitWeek: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Circle()
+                    .fill(backend.backendColor)
+                    .frame(width: 8, height: 8)
+                Text(backend.displayName)
+                    .font(.system(size: 12, weight: .medium))
+                Spacer()
+                Text(formatCost(usage.lastWeek.cost))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
+            usageBar(label: "4h", cost: usage.last4h.cost, limit: limit4h)
+            usageBar(label: "7d", cost: usage.lastWeek.cost, limit: limitWeek)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func usageBar(label: String, cost: Double, limit: Double) -> some View {
+        let fraction = limit > 0 ? min(cost / limit, 1.0) : 0
+        let percent = Int(fraction * 100)
+        let barColor: Color = fraction >= 0.9 ? .red : (fraction >= 0.7 ? .orange : backend.backendColor)
+
+        return HStack(spacing: 6) {
+            Text(label)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 20, alignment: .leading)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.primary.opacity(0.08))
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(barColor.opacity(0.7))
+                        .frame(width: geo.size.width * fraction)
+                }
+            }
+            .frame(height: 6)
+
+            Text("\(percent)%")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 30, alignment: .trailing)
+        }
+    }
+
+    private func formatCost(_ cost: Double) -> String {
+        if cost < 0.01 && cost > 0 {
+            return "<$0.01"
+        }
+        return String(format: "$%.2f", cost)
     }
 }
 

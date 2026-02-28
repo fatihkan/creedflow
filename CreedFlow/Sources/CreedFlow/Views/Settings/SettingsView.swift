@@ -29,6 +29,14 @@ public struct SettingsView: View {
     @AppStorage("mlxModel") private var mlxModel = ""
     @AppStorage("preferredEditor") private var preferredEditor = ""
 
+    // Usage limits
+    @AppStorage("claude4hLimitUSD") private var claude4hLimit: Double = 5.0
+    @AppStorage("claudeWeeklyLimitUSD") private var claudeWeeklyLimit: Double = 25.0
+    @AppStorage("codex4hLimitUSD") private var codex4hLimit: Double = 5.0
+    @AppStorage("codexWeeklyLimitUSD") private var codexWeeklyLimit: Double = 25.0
+    @AppStorage("gemini4hLimitUSD") private var gemini4hLimit: Double = 5.0
+    @AppStorage("geminiWeeklyLimitUSD") private var geminiWeeklyLimit: Double = 25.0
+
     @State private var claudeVersion = "Checking..."
     @State private var detectedEditors: [(name: String, command: String, path: String)] = []
     @State private var codexVersion = "Checking..."
@@ -138,6 +146,9 @@ public struct SettingsView: View {
             Section {
                 Toggle("Enabled", isOn: $claudeEnabled)
                 CLISettingsRow(label: "Claude CLI Path", path: $claudePath, version: claudeVersion, enabled: claudeEnabled)
+                if claudeEnabled {
+                    UsageLimitFields(limit4h: $claude4hLimit, limitWeek: $claudeWeeklyLimit)
+                }
             } header: {
                 HStack {
                     Text("Claude CLI")
@@ -152,6 +163,9 @@ public struct SettingsView: View {
             Section {
                 Toggle("Enabled", isOn: $codexEnabled)
                 CLISettingsRow(label: "Codex CLI Path", path: $codexPath, version: codexVersion, enabled: codexEnabled)
+                if codexEnabled {
+                    UsageLimitFields(limit4h: $codex4hLimit, limitWeek: $codexWeeklyLimit)
+                }
                 Text("Install: npm install -g @openai/codex")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -169,6 +183,9 @@ public struct SettingsView: View {
             Section {
                 Toggle("Enabled", isOn: $geminiEnabled)
                 CLISettingsRow(label: "Gemini CLI Path", path: $geminiPath, version: geminiVersion, enabled: geminiEnabled)
+                if geminiEnabled {
+                    UsageLimitFields(limit4h: $gemini4hLimit, limitWeek: $geminiWeeklyLimit)
+                }
                 Text("Install: npm install -g @anthropic-ai/gemini-cli")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -537,6 +554,39 @@ public struct SettingsView: View {
         } catch {
             return "Not found"
         }
+    }
+}
+
+// MARK: - CLI Settings Row
+
+// MARK: - Usage Limit Fields
+
+private struct UsageLimitFields: View {
+    @Binding var limit4h: Double
+    @Binding var limitWeek: Double
+
+    var body: some View {
+        GroupBox("Usage Limits") {
+            HStack {
+                Text("4-hour limit ($)")
+                    .font(.subheadline)
+                Spacer()
+                TextField("", value: $limit4h, format: .number.precision(.fractionLength(0...2)))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+                    .multilineTextAlignment(.trailing)
+            }
+            HStack {
+                Text("Weekly limit ($)")
+                    .font(.subheadline)
+                Spacer()
+                TextField("", value: $limitWeek, format: .number.precision(.fractionLength(0...2)))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .font(.subheadline)
     }
 }
 
