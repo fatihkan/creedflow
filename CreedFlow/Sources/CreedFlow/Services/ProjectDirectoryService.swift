@@ -2,6 +2,13 @@ import Foundation
 
 /// Manages project working directories under ~/CreedFlow/projects/
 actor ProjectDirectoryService {
+
+    struct ImportValidation {
+        let hasGitRepo: Bool
+        let hasClaudeMD: Bool
+        let detectedTechStack: String?
+    }
+
     private let baseDirectory: String
 
     init(baseDirectory: String? = nil) {
@@ -200,6 +207,39 @@ actor ProjectDirectoryService {
             return String(trimmed[...lastDot])
         }
         return trimmed + "..."
+    }
+
+    /// Validate an existing directory for import into CreedFlow.
+    func validateImportPath(_ path: String) throws -> ImportValidation {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+            throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "Directory does not exist: \(path)"])
+        }
+
+        let hasGitRepo = fm.fileExists(atPath: "\(path)/.git")
+        let hasClaudeMD = fm.fileExists(atPath: "\(path)/CLAUDE.md")
+
+        // Simple tech stack detection by manifest files
+        let detectedTechStack: String? = {
+            let markers: [(file: String, stack: String)] = [
+                ("Package.swift", "Swift"),
+                ("package.json", "Node.js"),
+                ("Cargo.toml", "Rust"),
+                ("go.mod", "Go"),
+                ("pom.xml", "Java"),
+                ("requirements.txt", "Python"),
+                ("Gemfile", "Ruby"),
+                ("composer.json", "PHP"),
+                ("build.gradle", "Kotlin/Java"),
+                ("CMakeLists.txt", "C/C++"),
+                ("pubspec.yaml", "Dart/Flutter"),
+            ]
+            let detected = markers.filter { fm.fileExists(atPath: "\(path)/\($0.file)") }.map(\.stack)
+            return detected.isEmpty ? nil : detected.joined(separator: ", ")
+        }()
+
+        return ImportValidation(hasGitRepo: hasGitRepo, hasClaudeMD: hasClaudeMD, detectedTechStack: detectedTechStack)
     }
 
     /// Check if a project directory exists

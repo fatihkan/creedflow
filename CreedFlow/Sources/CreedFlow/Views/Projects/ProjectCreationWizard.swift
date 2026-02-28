@@ -19,6 +19,9 @@ struct ProjectCreationWizard: View {
     @State private var errorMessage: String?
     @State private var showPromptPicker = false
     @State private var useNotebookLMResearch: Bool?  // nil = not decided yet
+    @State private var isImporting = false
+    @State private var importedPath: String?
+    @State private var importValidation: ProjectDirectoryService.ImportValidation?
 
     private let totalSteps = 4
     private let stepTitles = ["Project Type", "Details", "MCP Check", "Summary"]
@@ -28,7 +31,7 @@ struct ProjectCreationWizard: View {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("New Project")
+                    Text(isImporting ? "Import Project" : "New Project")
                         .font(.title3.bold())
                     Text("Step \(currentStep + 1) of \(totalSteps): \(stepTitles[currentStep])")
                         .font(.footnote)
@@ -167,10 +170,49 @@ struct ProjectCreationWizard: View {
     private var projectTypeStep: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("What type of project are you creating?")
-                    .font(.headline)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
+                // Import existing project button
+                Button {
+                    importExistingProject()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.forgeAmber)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Import Existing Project")
+                                .font(.system(.subheadline, weight: .semibold))
+                            Text("Select a project folder from your machine")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(12)
+                    .background {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.forgeAmber.opacity(0.06))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Color.forgeAmber.opacity(0.2), lineWidth: 0.5)
+                            }
+                    }
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+
+                // Divider
+                HStack {
+                    Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 0.5)
+                    Text("or create new")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 0.5)
+                }
+                .padding(.horizontal, 24)
 
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 12),
@@ -194,11 +236,50 @@ struct ProjectCreationWizard: View {
         }
     }
 
+    private func importExistingProject() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Select a project folder to import"
+        panel.prompt = "Import"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let path = url.path
+        let dirService = ProjectDirectoryService()
+
+        Task {
+            do {
+                let validation = try await dirService.validateImportPath(path)
+                importedPath = path
+                importValidation = validation
+                isImporting = true
+                name = url.lastPathComponent
+                if let stack = validation.detectedTechStack {
+                    techStack = stack
+                }
+                withAnimation { currentStep = 1 }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     // MARK: - Step 1: Details
 
     private var detailsStep: some View {
         Form {
             Section("Project Info") {
+                if let path = importedPath {
+                    LabeledContent("Imported from") {
+                        Text(path)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
                 TextField("Project Name", text: $name)
                     .textFieldStyle(.roundedBorder)
             }
@@ -547,6 +628,25 @@ struct ProjectCreationWizard: View {
             if !techStack.isEmpty {
                 LabeledContent("Tech Stack", value: techStack)
             }
+            if let path = importedPath {
+                LabeledContent("Source") {
+                    Text(path)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            if isImporting {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.forgeAmber)
+                        .font(.footnote)
+                    Text("Analyzer will not run automatically. You can trigger it manually after import.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -625,8 +725,19 @@ struct ProjectCreationWizard: View {
         }
 
         do {
-            let dirService = ProjectDirectoryService()
-            let path = try await dirService.createProjectDirectory(name: name)
+            let path: String
+            if let importPath = importedPath {
+                // Import mode: use existing directory, optionally init git
+                path = importPath
+                if let validation = importValidation, !validation.hasGitRepo {
+                    let git = GitService()
+                    try await git.initRepo(at: path)
+                }
+            } else {
+                // New project: create directory with git branches
+                let dirService = ProjectDirectoryService()
+                path = try await dirService.createProjectDirectory(name: name)
+            }
 
             // Capture state values before entering Sendable closure
             let capturedName = name
@@ -634,6 +745,7 @@ struct ProjectCreationWizard: View {
             let capturedTechStack = techStack
             let capturedProjectType = projectType
             let capturedAutomationSteps = automationSteps
+            let capturedIsImporting = isImporting
             let analyzerDescription = "[ProjectType: \(capturedProjectType.rawValue)] \(capturedDescription)"
 
             try await db.dbQueue.write { dbConn in
@@ -653,7 +765,9 @@ struct ProjectCreationWizard: View {
                     .filter(Column("usedAt") >= fiveMinAgo)
                     .updateAll(dbConn, Column("projectId").set(to: project.id))
 
-                if capturedProjectType == .automation && !capturedAutomationSteps.isEmpty {
+                if capturedIsImporting {
+                    // Import mode: no analyzer task — user triggers manually
+                } else if capturedProjectType == .automation && !capturedAutomationSteps.isEmpty {
                     // Create tasks directly from automation steps (no Analyzer)
                     var createdTasks: [String: UUID] = [:]
 
