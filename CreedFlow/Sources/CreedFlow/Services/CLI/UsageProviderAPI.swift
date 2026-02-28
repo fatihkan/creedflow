@@ -32,7 +32,7 @@ package enum UsageAPIError: LocalizedError, Sendable {
 // MARK: - Anthropic Usage API
 
 /// Fetches real usage data from the Anthropic Admin API.
-/// GET https://api.anthropic.com/v1/organizations/usage
+/// GET https://api.anthropic.com/v1/organizations/usage_report/messages
 package enum AnthropicUsageAPI {
 
     /// Fetch usage for a given time range.
@@ -52,7 +52,7 @@ package enum AnthropicUsageAPI {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
 
-        var components = URLComponents(string: "https://api.anthropic.com/v1/organizations/usage")!
+        var components = URLComponents(string: "https://api.anthropic.com/v1/organizations/usage_report/messages")!
         components.queryItems = [
             URLQueryItem(name: "starting_at", value: formatter.string(from: startingAt)),
             URLQueryItem(name: "ending_at", value: formatter.string(from: endingAt)),
@@ -99,7 +99,7 @@ package enum AnthropicUsageAPI {
         for bucket in dataArray {
             guard let results = bucket["results"] as? [[String: Any]] else { continue }
             for result in results {
-                totalInput += result["input_tokens"] as? Int ?? 0
+                totalInput += result["uncached_input_tokens"] as? Int ?? 0
                 totalOutput += result["output_tokens"] as? Int ?? 0
                 totalCached += result["cache_read_input_tokens"] as? Int ?? 0
                 totalRequests += result["num_api_requests"] as? Int ?? 0
@@ -256,8 +256,7 @@ package enum OpenAIUsageAPI {
             for result in results {
                 if let amount = result["amount"] as? [String: Any],
                    let value = amount["value"] as? Double {
-                    // API returns cents, convert to dollars
-                    totalCost += value / 100.0
+                    totalCost += value
                 }
             }
         }
