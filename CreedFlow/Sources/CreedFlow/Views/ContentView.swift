@@ -131,7 +131,8 @@ public struct ContentView: View {
                 projectId: nil,
                 selectedTaskId: $selectedTaskId,
                 appDatabase: appDatabase,
-                orchestrator: orchestrator
+                orchestrator: orchestrator,
+                onNavigateToSettings: { selectedSection = .settings }
             )
         case .archive:
             ArchivedTasksView(appDatabase: appDatabase, selectedTaskId: $selectedTaskId)
@@ -154,12 +155,15 @@ public struct ContentView: View {
             ProjectAssetsView(appDatabase: appDatabase, selectedProjectId: $selectedProjectId)
         case .gitGraph:
             GitGraphView(appDatabase: appDatabase)
+        case .automationFlows:
+            AutomationFlowsView(appDatabase: appDatabase)
         case .projectTasks(let projectId):
             TaskBoardView(
                 projectId: projectId,
                 selectedTaskId: $selectedTaskId,
                 appDatabase: appDatabase,
-                orchestrator: orchestrator
+                orchestrator: orchestrator,
+                onNavigateToSettings: { selectedSection = .settings }
             )
             .onAppear { selectedProjectId = projectId }
         case .settings:
@@ -250,5 +254,6 @@ enum SidebarSection: Hashable {
     case prompts
     case assets
     case gitGraph
+    case automationFlows
     case projectTasks(UUID)
 }

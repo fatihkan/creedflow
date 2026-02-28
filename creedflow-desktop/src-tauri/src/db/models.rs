@@ -51,6 +51,7 @@ pub enum ProjectType {
     Content,
     Image,
     Video,
+    Automation,
     General,
 }
 
@@ -61,6 +62,7 @@ impl ProjectType {
             Self::Content => "content",
             Self::Image => "image",
             Self::Video => "video",
+            Self::Automation => "automation",
             Self::General => "general",
         }
     }
@@ -70,6 +72,7 @@ impl ProjectType {
             "content" => Self::Content,
             "image" => Self::Image,
             "video" => Self::Video,
+            "automation" => Self::Automation,
             "general" => Self::General,
             _ => Self::Software,
         }

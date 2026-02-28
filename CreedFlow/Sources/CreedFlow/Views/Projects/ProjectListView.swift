@@ -129,7 +129,7 @@ struct ProjectListView: View {
             }
         }
         .sheet(isPresented: $showNewProject) {
-            NewProjectSheet(appDatabase: appDatabase)
+            ProjectCreationWizard(appDatabase: appDatabase)
         }
         .confirmationDialog(
             "Delete Project",

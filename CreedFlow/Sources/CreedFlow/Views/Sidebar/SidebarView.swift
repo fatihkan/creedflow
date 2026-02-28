@@ -29,6 +29,9 @@ struct SidebarView: View {
                     .badge(activeTaskCount > 0 ? activeTaskCount : 0)
                     .tag(SidebarSection.tasks)
 
+                    Label("Automations", systemImage: "gearshape.2")
+                        .tag(SidebarSection.automationFlows)
+
                     Label("Archive", systemImage: "archivebox")
                         .badge(archivedTaskCount > 0 ? archivedTaskCount : 0)
                         .tag(SidebarSection.archive)

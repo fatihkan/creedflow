@@ -128,6 +128,12 @@ fn build_system_context(project_type: &ProjectType) -> &'static str {
              IMPORTANT: This is NOT a software project. Do NOT create coder, devops, or tester tasks. \
              Do NOT generate code files, config files, or infrastructure tasks."
         }
+        ProjectType::Automation => {
+            "SYSTEM CONTEXT: You are a senior project strategist. \
+             Analyze the project type from the description and use the most appropriate agent types. \
+             Choose agent types that match the actual work: contentWriter for writing, \
+             imageGenerator/designer for visuals, videoEditor for video, coder for code, etc."
+        }
         ProjectType::General => {
             "SYSTEM CONTEXT: You are a senior project strategist. \
              Analyze the project type from the description and use the most appropriate agent types. \
@@ -145,6 +151,7 @@ fn allowed_agent_types(project_type: &ProjectType) -> &'static str {
         ProjectType::Content => "contentWriter|reviewer",
         ProjectType::Image => "imageGenerator|designer|reviewer",
         ProjectType::Video => "videoEditor|imageGenerator|contentWriter",
+        ProjectType::Automation => "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer",
         ProjectType::General => "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer",
     }
 }
@@ -189,6 +196,11 @@ fn decomposition_strategy(project_type: &ProjectType) -> &'static str {
              4. Production: scene generation, B-roll, graphics, animations\n\
              5. Post-Production: editing, color grading, audio sync, subtitles\n\
              6. Review & Export: final review, format exports, thumbnail, metadata"
+        }
+        ProjectType::Automation => {
+            "Analyze the project thoroughly and use the most appropriate decomposition.\n\
+             Consider all aspects: planning, implementation, testing, review, and delivery.\n\
+             Each task should be self-contained with clear inputs and outputs."
         }
         ProjectType::General => {
             "Analyze the project thoroughly and use the most appropriate decomposition.\n\
@@ -243,6 +255,11 @@ fn build_rules(project_type: &ProjectType, agent_types: &str) -> String {
              - Focus on: scripting, storyboarding, video generation, audio production, post-production, export\n\
              - configFiles array should be empty or contain only production guidelines\n\
              - Data models should describe production assets and workflow stages, NOT database tables"
+        }
+        ProjectType::Automation => {
+            "- Every task MUST have filesToCreate listing specific deliverables\n\
+             - Choose agent types that match the actual work described in the project\n\
+             - configFiles should only be included if the project involves software or configuration"
         }
         ProjectType::General => {
             "- Every task MUST have filesToCreate listing specific deliverables\n\

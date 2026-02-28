@@ -620,11 +620,13 @@ final class Orchestrator {
     private func handleAnalyzerCompletion(task: AgentTask, result: AgentResult) async {
         guard let output = result.output else {
             try? await logError(taskId: task.id, agent: .analyzer, message: "Analyzer returned no output")
+            try? await taskQueue.fail(task, error: "Analyzer returned no output")
             return
         }
 
         guard let data = extractJSON(from: output) else {
             try? await logError(taskId: task.id, agent: .analyzer, message: "Could not extract JSON from analyzer output: \(output.prefix(200))")
+            try? await taskQueue.fail(task, error: "Could not extract JSON from analyzer output")
             return
         }
 
@@ -1068,11 +1070,13 @@ final class Orchestrator {
     private func handleReviewerCompletion(task: AgentTask, result: AgentResult) async {
         guard let output = result.output else {
             try? await logError(taskId: task.id, agent: .reviewer, message: "Reviewer returned no output")
+            try? await taskQueue.fail(task, error: "Reviewer returned no output")
             return
         }
 
         guard let data = extractJSON(from: output) else {
             try? await logError(taskId: task.id, agent: .reviewer, message: "Could not extract JSON from reviewer output: \(output.prefix(200))")
+            try? await taskQueue.fail(task, error: "Could not extract structured review from output")
             return
         }
 
@@ -1561,7 +1565,10 @@ final class Orchestrator {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
         }
-        guard let project else { return }
+        guard let project else {
+            try? await taskQueue.fail(task, error: "Project not found for creative task")
+            return
+        }
 
         do {
             try await extractAndSaveAssets(output: result.output, task: task, project: project, defaultAssetType: assetType)
@@ -1569,6 +1576,7 @@ final class Orchestrator {
         } catch {
             try? await logError(taskId: task.id, agent: task.agentType,
                                message: "Creative completion error: \(error.localizedDescription)")
+            try? await taskQueue.fail(task, error: error.localizedDescription)
         }
     }
 
@@ -1577,7 +1585,10 @@ final class Orchestrator {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
         }
-        guard let project else { return }
+        guard let project else {
+            try? await taskQueue.fail(task, error: "Project not found for content writer task")
+            return
+        }
 
         do {
             let parsed = parseContentWriterOutput(rawOutput: result.output, task: task)
@@ -2009,11 +2020,13 @@ final class Orchestrator {
     private func handlePublisherCompletion(task: AgentTask, result: AgentResult) async {
         guard let output = result.output else {
             try? await logError(taskId: task.id, agent: .publisher, message: "Publisher returned no output")
+            try? await taskQueue.fail(task, error: "Publisher returned no output")
             return
         }
 
         guard let data = extractJSON(from: output) else {
             try? await logInfo(taskId: task.id, agent: .publisher, message: "No structured publication plan in output")
+            try? await taskQueue.fail(task, error: "Could not extract publication plan from output")
             return
         }
 
