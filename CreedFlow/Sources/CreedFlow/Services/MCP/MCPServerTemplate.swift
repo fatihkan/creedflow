@@ -77,7 +77,7 @@ struct MCPServerTemplate: Identifiable {
     static let all: [MCPServerTemplate] = [
         filesystem, github, promptsChat, creedFlow,
         dalle, figma, stability, elevenlabs, runway,
-        heygen, replicate, leonardo
+        heygen, replicate, leonardo, notebooklm
     ]
 
     static let filesystem = MCPServerTemplate(
@@ -297,6 +297,17 @@ struct MCPServerTemplate: Identifiable {
                 envKey: "LEONARDO_API_KEY"
             )
         ],
+        defaultEnv: [:]
+    )
+
+    static let notebooklm = MCPServerTemplate(
+        id: "notebooklm",
+        displayName: "NotebookLM",
+        description: "Google NotebookLM — research, infographics, slide decks, podcasts",
+        icon: "note.text",
+        command: "uvx",
+        defaultArgs: ["--from", "notebooklm-mcp-cli", "notebooklm-mcp"],
+        requiredInputs: [],
         defaultEnv: [:]
     )
 }

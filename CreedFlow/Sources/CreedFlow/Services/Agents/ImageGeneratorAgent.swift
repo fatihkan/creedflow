@@ -65,7 +65,7 @@ struct ImageGeneratorAgent: AgentProtocol {
     let maxBudgetUSD: Double = 5.0
     let timeoutSeconds = 600 // 10 minutes
     let streamOutput = true
-    let mcpServers: [String]? = ["dalle", "stability", "replicate", "leonardo", "creedflow"]
+    let mcpServers: [String]? = ["dalle", "stability", "replicate", "leonardo", "creedflow", "notebooklm"]
     let backendPreferences: BackendPreferences = .claudePreferred
 
     func buildPrompt(for task: AgentTask) -> String {

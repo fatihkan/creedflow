@@ -13,10 +13,12 @@ struct ProjectCreationWizard: View {
     @State private var description = ""
     @State private var techStack = ""
     @State private var automationSteps: [AutomationStep] = []
-    @State private var mcpCheckResults: [MCPCheckResult] = []
+    @State private var mcpStore = MCPServerConfigStore()
+    @State private var mcpSetupTemplate: MCPServerTemplate?
     @State private var isCreating = false
     @State private var errorMessage: String?
     @State private var showPromptPicker = false
+    @State private var useNotebookLMResearch: Bool?  // nil = not decided yet
 
     private let totalSteps = 4
     private let stepTitles = ["Project Type", "Details", "MCP Check", "Summary"]
@@ -132,6 +134,9 @@ struct ProjectCreationWizard: View {
                 projectType = initial
                 currentStep = 1
             }
+            if let db = appDatabase {
+                mcpStore.observe(in: db.dbQueue)
+            }
         }
         .sheet(isPresented: $showPromptPicker) {
             PromptPickerSheet(
@@ -146,18 +151,13 @@ struct ProjectCreationWizard: View {
                 }
             }
         }
+        .sheet(item: $mcpSetupTemplate) { template in
+            MCPInlineSetupSheet(appDatabase: appDatabase, template: template)
+        }
     }
 
     private func advanceStep() {
         withAnimation {
-            if currentStep == 1 {
-                // Trigger MCP check before showing step 2
-                Task {
-                    if let db = appDatabase {
-                        mcpCheckResults = await MCPRequirementsChecker.check(for: projectType, in: db.dbQueue)
-                    }
-                }
-            }
             currentStep += 1
         }
     }
@@ -224,6 +224,8 @@ struct ProjectCreationWizard: View {
                     .padding(8)
                     .background(.quaternary.opacity(0.3))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                descriptionHint
             }
 
             if projectType == .software || projectType == .general {
@@ -239,79 +241,289 @@ struct ProjectCreationWizard: View {
                         .frame(minHeight: 120)
                 }
             }
+
+            notebookLMSection
         }
         .formStyle(.grouped)
     }
 
-    // MARK: - Step 2: MCP Check
+    /// Whether NotebookLM is configured in DB
+    private var isNotebookLMConfigured: Bool {
+        mcpStore.configs.contains { $0.name == "notebooklm" }
+    }
+
+    @ViewBuilder
+    private var notebookLMSection: some View {
+        let isContentOrImage = projectType == .content || projectType == .image
+        Section {
+            if isNotebookLMConfigured {
+                Toggle(isOn: Binding(
+                    get: { useNotebookLMResearch ?? isContentOrImage },
+                    set: { useNotebookLMResearch = $0 }
+                )) {
+                    notebookLMLabel(
+                        subtitle: isContentOrImage
+                            ? "Research, infographics, and slide decks for your content"
+                            : "Use NotebookLM for project research before task planning"
+                    )
+                }
+                .tint(.forgeAmber)
+            } else {
+                HStack(spacing: 12) {
+                    notebookLMLabel(
+                        subtitle: "Research, infographics, slide decks, and podcasts"
+                    )
+                    Spacer()
+                    Button {
+                        mcpSetupTemplate = MCPServerTemplate.notebooklm
+                    } label: {
+                        Text("Setup")
+                            .font(.footnote.weight(.medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.forgeAmber)
+                    .controlSize(.small)
+                }
+            }
+        } header: {
+            Text("NotebookLM")
+        }
+    }
+
+    private func notebookLMLabel(subtitle: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "note.text")
+                .font(.system(size: 18))
+                .foregroundStyle(.forgeAmber)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("NotebookLM")
+                    .font(.system(.body, weight: .medium))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var descriptionHint: some View {
+        let hint: String? = {
+            switch projectType {
+            case .content:
+                return "Tip: Mention the media types your content needs (e.g. image, video, voiceover, illustration) so CreedFlow can set up the right AI services automatically."
+            case .image:
+                return "Tip: Describe the visual style, format, and purpose of the images you need. CreedFlow will configure the best image generation services."
+            case .video:
+                return "Tip: Specify if your video needs voiceover, sound effects, or AI avatars so the right services can be configured."
+            case .general:
+                return "Tip: If your project involves images, video, audio, or design work, mention it here so CreedFlow can detect the required AI services."
+            default:
+                return nil
+            }
+        }()
+        if let hint {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.forgeAmber)
+                    .padding(.top, 1)
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    // MARK: - Step 2: MCP Check (Description-Aware)
+
+    /// Capabilities detected from project type + description, respecting user's NotebookLM toggle
+    private var detectedCapabilities: [DetectedCapability] {
+        let all = MCPRequirementsChecker.analyzeRequirements(type: projectType, description: description)
+        let isContentOrImage = projectType == .content || projectType == .image
+        let nlmEnabled = useNotebookLMResearch ?? isContentOrImage
+        if nlmEnabled { return all }
+        return all.filter { $0.id != "notebookLM" }
+    }
+
+    /// All unique MCP server IDs from detected capabilities (excluding "creedflow" — always present)
+    private var relevantTemplates: [MCPServerTemplate] {
+        let serverIds = MCPRequirementsChecker.allRequiredServers(from: detectedCapabilities)
+            .filter { $0 != "creedflow" }
+        return serverIds.compactMap { serverId in
+            MCPServerTemplate.all.first { $0.id == serverId }
+        }
+    }
+
+    private func isServerConfigured(_ serverId: String) -> Bool {
+        mcpStore.configs.contains { $0.name == serverId }
+    }
 
     private var mcpCheckStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("MCP Server Configuration")
+        VStack(spacing: 0) {
+            mcpCheckHeader
+            Divider().padding(.horizontal, 16)
+            mcpCheckBody
+        }
+    }
+
+    @ViewBuilder
+    private var mcpCheckHeader: some View {
+        let caps = detectedCapabilities.filter { $0.id != "orchestration" }
+        VStack(alignment: .leading, spacing: 4) {
+            Text("AI Services & MCP Configuration")
                 .font(.headline)
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-
-            if mcpCheckResults.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundStyle(.forgeSuccess)
-                    Text("No additional MCP servers required")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if caps.isEmpty {
+                Text("No additional AI services detected for this project.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             } else {
-                let hasAnyConfigured = mcpCheckResults.contains { $0.isConfigured }
-                let allConfigured = mcpCheckResults.allSatisfy { $0.isConfigured }
-                let requiresAtLeastOne = MCPRequirementsChecker.requiresAtLeastOne(for: projectType)
+                Text("Based on your project description, these capabilities were detected:")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+    }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    if requiresAtLeastOne {
-                        Text("At least one of these MCP servers should be configured:")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 24)
-                    } else {
-                        Text("The following MCP servers are recommended:")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 24)
-                    }
-
-                    ForEach(mcpCheckResults) { result in
-                        HStack(spacing: 12) {
-                            Image(systemName: result.isConfigured ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundStyle(result.isConfigured ? .forgeSuccess : .forgeDanger)
-                                .font(.title3)
-                            Text(result.displayName)
-                                .font(.body)
-                            Spacer()
-                            Text(result.isConfigured ? "Configured" : "Missing")
-                                .font(.footnote)
-                                .foregroundStyle(result.isConfigured ? .forgeSuccess : .forgeDanger)
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 4)
-                    }
-
-                    if !allConfigured && !(requiresAtLeastOne && hasAnyConfigured) {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.forgeWarning)
-                            Text("Some creative tasks may fail without these servers. You can configure them in Settings.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 8)
+    @ViewBuilder
+    private var mcpCheckBody: some View {
+        let caps = detectedCapabilities.filter { $0.id != "orchestration" }
+        if caps.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(.forgeSuccess)
+                Text("No additional MCP servers required")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text("Your project doesn't need any external AI services.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(spacing: 14) {
+                    ForEach(caps) { cap in
+                        capabilitySection(cap)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Spacer()
+                .padding(16)
             }
+        }
+    }
+
+    private func capabilitySection(_ cap: DetectedCapability) -> some View {
+        let servers = cap.mcpServers.compactMap { serverId in
+            MCPServerTemplate.all.first { $0.id == serverId }
+        }
+        let anyConfigured = cap.mcpServers.contains { isServerConfigured($0) }
+        return VStack(alignment: .leading, spacing: 8) {
+            // Capability header
+            capabilitySectionHeader(cap: cap, anyConfigured: anyConfigured)
+
+            // MCP server rows for this capability
+            ForEach(servers) { template in
+                capabilityServerRow(template)
+            }
+        }
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(anyConfigured ? Color.forgeSuccess.opacity(0.03) : Color.forgeAmber.opacity(0.03))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(
+                            anyConfigured ? Color.forgeSuccess.opacity(0.15) : Color.forgeAmber.opacity(0.15),
+                            lineWidth: 0.5
+                        )
+                }
+        }
+    }
+
+    private func capabilitySectionHeader(cap: DetectedCapability, anyConfigured: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: cap.icon)
+                .font(.system(size: 16))
+                .foregroundStyle(anyConfigured ? .forgeSuccess : .forgeAmber)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(cap.name)
+                        .font(.system(.subheadline, weight: .semibold))
+                    if cap.isOptional {
+                        Text("Optional")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.primary.opacity(0.06), in: Capsule())
+                    }
+                }
+                Text(cap.reason)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            Text(cap.agentDisplayName)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private func capabilityServerRow(_ template: MCPServerTemplate) -> some View {
+        let configured = isServerConfigured(template.id)
+        return HStack(spacing: 10) {
+            Image(systemName: configured ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 13))
+                .foregroundStyle(configured ? Color.forgeSuccess : Color.secondary.opacity(0.4))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(template.displayName)
+                    .font(.system(.footnote, weight: .medium))
+                Text(template.description)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            if configured {
+                Text("Ready")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.forgeSuccess)
+            } else {
+                Button {
+                    if template.requiredInputs.isEmpty {
+                        installMCPDirectly(template)
+                    } else {
+                        mcpSetupTemplate = template
+                    }
+                } label: {
+                    Text("Configure")
+                        .font(.caption2.weight(.medium))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.forgeAmber)
+                .controlSize(.mini)
+            }
+        }
+        .padding(.leading, 32)
+    }
+
+    private func installMCPDirectly(_ template: MCPServerTemplate) {
+        guard let db = appDatabase else { return }
+        var config = template.buildConfig(inputs: [:])
+        try? db.dbQueue.write { dbConn in
+            try config.insert(dbConn)
         }
     }
 
@@ -370,17 +582,31 @@ struct ProjectCreationWizard: View {
 
     @ViewBuilder
     private var summaryMCPSection: some View {
-        let missing = mcpCheckResults.filter { !$0.isConfigured }
-        if !missing.isEmpty {
-            Section("MCP Warnings") {
-                ForEach(missing) { result in
+        let caps = detectedCapabilities.filter { $0.id != "orchestration" }
+        if !caps.isEmpty {
+            Section("Detected Capabilities") {
+                ForEach(caps) { cap in
+                    let anyReady = cap.mcpServers.contains { isServerConfigured($0) }
                     HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.forgeWarning)
+                        Image(systemName: cap.icon)
+                            .foregroundStyle(anyReady ? .forgeSuccess : .forgeWarning)
                             .font(.footnote)
-                        Text("\(result.displayName) not configured")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(cap.name)
+                                .font(.footnote.weight(.medium))
+                            Text(cap.agentDisplayName)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        if cap.isOptional {
+                            Text("Optional")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(anyReady ? "Ready" : "Missing")
+                            .font(.caption)
+                            .foregroundStyle(anyReady ? .forgeSuccess : .forgeDanger)
                     }
                 }
             }
@@ -528,5 +754,107 @@ private struct ProjectTypeCard: View {
                 }
         }
         .contentShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+// MARK: - MCP Inline Setup Sheet
+
+private struct MCPInlineSetupSheet: View {
+    let appDatabase: AppDatabase?
+    let template: MCPServerTemplate
+    @Environment(\.dismiss) private var dismiss
+    @State private var inputValues: [String: String] = [:]
+
+    private var allInputsFilled: Bool {
+        template.requiredInputs.allSatisfy { input in
+            guard let value = inputValues[input.id] else { return false }
+            return !value.isEmpty
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            mcpSetupHeader
+            mcpSetupForm
+            Divider()
+            mcpSetupActions
+        }
+        .frame(width: 420, height: 320)
+    }
+
+    private var mcpSetupHeader: some View {
+        VStack(spacing: 8) {
+            Image(systemName: template.icon)
+                .font(.largeTitle)
+                .foregroundStyle(Color.forgeAmber)
+            Text("Setup \(template.displayName)")
+                .font(.headline)
+            Text(template.description)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+    }
+
+    private var mcpSetupForm: some View {
+        Form {
+            ForEach(template.requiredInputs) { input in
+                Section(input.label) {
+                    switch input.type {
+                    case .path:
+                        HStack {
+                            TextField(input.placeholder, text: binding(for: input.id))
+                                .textFieldStyle(.roundedBorder)
+                            Button("Browse") {
+                                let panel = NSOpenPanel()
+                                panel.canChooseDirectories = true
+                                panel.canChooseFiles = true
+                                panel.allowsMultipleSelection = false
+                                if panel.runModal() == .OK, let url = panel.url {
+                                    inputValues[input.id] = url.path
+                                }
+                            }
+                        }
+                    case .secret:
+                        SecureField(input.placeholder, text: binding(for: input.id))
+                            .textFieldStyle(.roundedBorder)
+                    case .text:
+                        TextField(input.placeholder, text: binding(for: input.id))
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var mcpSetupActions: some View {
+        HStack {
+            Button("Cancel") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+            Spacer()
+            Button("Save") { install() }
+                .buttonStyle(.borderedProminent)
+                .tint(.forgeAmber)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!allInputsFilled)
+        }
+        .padding()
+    }
+
+    private func binding(for key: String) -> Binding<String> {
+        Binding(
+            get: { inputValues[key, default: ""] },
+            set: { inputValues[key] = $0 }
+        )
+    }
+
+    private func install() {
+        guard let db = appDatabase else { return }
+        var config = template.buildConfig(inputs: inputValues)
+        try? db.dbQueue.write { dbConn in
+            try config.insert(dbConn)
+        }
+        dismiss()
     }
 }

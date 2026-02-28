@@ -66,7 +66,7 @@ struct ContentWriterAgent: AgentProtocol {
     let maxBudgetUSD: Double = 2.0
     let timeoutSeconds = 600 // 10 minutes
     let streamOutput = true
-    let mcpServers: [String]? = ["creedflow"]
+    let mcpServers: [String]? = ["creedflow", "notebooklm"]
     let backendPreferences: BackendPreferences = .claudePreferred
 
     func buildPrompt(for task: AgentTask) -> String {

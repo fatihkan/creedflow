@@ -18,10 +18,11 @@ struct AnalyzerAgent: AgentProtocol {
         No circular dependencies allowed in the task graph.
         """
 
-    let allowedTools: [String]? = [] // No tools needed — pure text analysis
+    let allowedTools: [String]? = nil
     let maxBudgetUSD: Double = 1.0
     let timeoutSeconds = 300 // 5 minutes — Gemini/Codex CLIs may retry on rate limits
     let streamOutput = true  // Show live progress in UI
+    let mcpServers: [String]? = ["notebooklm"]
     let backendPreferences: BackendPreferences = .anyBackend
 
     func buildPrompt(for task: AgentTask) -> String {
