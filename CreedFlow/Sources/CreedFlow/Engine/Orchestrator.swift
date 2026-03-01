@@ -32,7 +32,7 @@ final class Orchestrator {
     private let taskQueue: TaskQueue
     private let scheduler: AgentScheduler
     private let processManager: ClaudeProcessManager
-    private let backendRouter: BackendRouter
+    let backendRouter: BackendRouter
     private let gitService: GitService
     private let gitHubService: GitHubService
     private let projectDirService: ProjectDirectoryService

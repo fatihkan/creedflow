@@ -448,6 +448,26 @@ public struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v19_project_chat") { db in
+            try db.create(table: "projectMessage") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("projectId", .text).notNull()
+                    .references("project", onDelete: .cascade)
+                t.column("role", .text).notNull()
+                t.column("content", .text).notNull()
+                t.column("backend", .text)
+                t.column("costUSD", .double)
+                t.column("durationMs", .integer)
+                t.column("metadata", .text)
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "projectMessage_on_projectId_createdAt",
+                on: "projectMessage",
+                columns: ["projectId", "createdAt"]
+            )
+        }
+
         return migrator
     }
 }

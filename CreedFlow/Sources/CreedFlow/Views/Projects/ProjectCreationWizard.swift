@@ -746,7 +746,6 @@ struct ProjectCreationWizard: View {
             let capturedProjectType = projectType
             let capturedAutomationSteps = automationSteps
             let capturedIsImporting = isImporting
-            let analyzerDescription = "[ProjectType: \(capturedProjectType.rawValue)] \(capturedDescription)"
 
             try await db.dbQueue.write { dbConn in
                 let project = Project(
@@ -794,15 +793,7 @@ struct ProjectCreationWizard: View {
                         }
                     }
                 } else {
-                    // Standard flow: queue analyzer task
-                    let analyzerTask = AgentTask(
-                        projectId: project.id,
-                        agentType: .analyzer,
-                        title: "Analyze: \(capturedName)",
-                        description: analyzerDescription,
-                        priority: 10
-                    )
-                    try analyzerTask.insert(dbConn)
+                    // No auto-analyzer — user will discuss in chat first
                 }
             }
 

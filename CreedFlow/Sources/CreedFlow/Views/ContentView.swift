@@ -7,6 +7,8 @@ public struct ContentView: View {
     @State private var selectedProjectId: UUID?
     @State private var selectedTaskId: UUID?
     @State private var selectedDeploymentId: UUID?
+    @State private var showChatPanel = false
+    @State private var chatProjectId: UUID?
     @State private var orchestrator: Orchestrator?
     @State private var telegramService = TelegramBotService()
     @State private var keyboardMonitor: Any?
@@ -24,9 +26,24 @@ public struct ContentView: View {
             .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
 
             HStack(spacing: 0) {
+                // Left: Chat panel (slide-in from left)
+                if showChatPanel, let chatProjId = chatProjectId {
+                    ProjectChatView(
+                        projectId: chatProjId,
+                        appDatabase: appDatabase,
+                        orchestrator: orchestrator,
+                        onDismiss: { showChatPanel = false }
+                    )
+                    .frame(minWidth: 340, idealWidth: 400, maxWidth: 440)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                    Divider()
+                }
+
+                // Center: Content
                 contentPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+                // Right: Detail panel
                 if showDetailPanel {
                     Divider()
                     detailPanel
@@ -36,11 +53,19 @@ public struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
+            .animation(.easeInOut(duration: 0.2), value: showChatPanel)
         }
         .frame(minWidth: 960, minHeight: 640)
         .onChange(of: selectedSection) { _, newSection in
             if newSection != .deploys {
                 selectedDeploymentId = nil
+            }
+            // Close chat panel when navigating away from project tasks
+            switch newSection {
+            case .projectTasks:
+                break
+            default:
+                showChatPanel = false
             }
         }
         .task {
@@ -62,7 +87,7 @@ public struct ContentView: View {
         }
         .onAppear {
             keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                // Escape — dismiss detail panel
+                // Escape — dismiss panels
                 if event.keyCode == 53 {
                     if selectedTaskId != nil {
                         selectedTaskId = nil
@@ -70,6 +95,10 @@ public struct ContentView: View {
                     }
                     if selectedDeploymentId != nil {
                         selectedDeploymentId = nil
+                        return nil
+                    }
+                    if showChatPanel {
+                        showChatPanel = false
                         return nil
                     }
                     return event
@@ -165,7 +194,11 @@ public struct ContentView: View {
                 orchestrator: orchestrator,
                 onNavigateToSettings: { selectedSection = .settings }
             )
-            .onAppear { selectedProjectId = projectId }
+            .onAppear {
+                selectedProjectId = projectId
+                chatProjectId = projectId
+                showChatPanel = true
+            }
         case .settings:
             EmptyView()
         case .none:
