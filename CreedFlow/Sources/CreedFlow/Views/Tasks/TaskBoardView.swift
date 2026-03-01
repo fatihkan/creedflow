@@ -9,6 +9,7 @@ struct TaskBoardView: View {
     let appDatabase: AppDatabase?
     let orchestrator: Orchestrator?
     var onNavigateToSettings: (() -> Void)?
+    @Binding var showChatPanel: Bool
 
     @State private var filterProjectId: UUID?
     @State private var projects: [Project] = []
@@ -21,12 +22,13 @@ struct TaskBoardView: View {
     @State private var isArchiveSelectionMode = false
     @State private var searchText: String = ""
 
-    init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?, onNavigateToSettings: (() -> Void)? = nil) {
+    init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?, onNavigateToSettings: (() -> Void)? = nil, showChatPanel: Binding<Bool> = .constant(false)) {
         self.projectId = projectId
         self._selectedTaskId = selectedTaskId
         self.appDatabase = appDatabase
         self.orchestrator = orchestrator
         self.onNavigateToSettings = onNavigateToSettings
+        self._showChatPanel = showChatPanel
         self._filterProjectId = State(initialValue: projectId)
     }
 
@@ -71,6 +73,20 @@ struct TaskBoardView: View {
         VStack(spacing: 0) {
             ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
                 HStack(spacing: 8) {
+                    if projectId != nil {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showChatPanel.toggle()
+                            }
+                        } label: {
+                            Image(systemName: showChatPanel ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
+                                .font(.system(size: 14))
+                                .foregroundStyle(showChatPanel ? .forgeAmber : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(showChatPanel ? "Close AI Chat" : "Open AI Chat")
+                    }
+
                     HStack(spacing: 4) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 13))
