@@ -162,7 +162,8 @@ public struct ContentView: View {
                 appDatabase: appDatabase,
                 orchestrator: orchestrator,
                 onNavigateToSettings: { selectedSection = .settings },
-                showChatPanel: .constant(false)
+                showChatPanel: $showChatPanel,
+                onChatProjectChanged: { chatProjectId = $0 }
             )
         case .archive:
             ArchivedTasksView(appDatabase: appDatabase, selectedTaskId: $selectedTaskId)
@@ -194,7 +195,8 @@ public struct ContentView: View {
                 appDatabase: appDatabase,
                 orchestrator: orchestrator,
                 onNavigateToSettings: { selectedSection = .settings },
-                showChatPanel: $showChatPanel
+                showChatPanel: $showChatPanel,
+                onChatProjectChanged: { chatProjectId = $0 }
             )
             .onAppear {
                 selectedProjectId = projectId

@@ -10,6 +10,7 @@ struct TaskBoardView: View {
     let orchestrator: Orchestrator?
     var onNavigateToSettings: (() -> Void)?
     @Binding var showChatPanel: Bool
+    var onChatProjectChanged: ((UUID?) -> Void)?
 
     @State private var filterProjectId: UUID?
     @State private var projects: [Project] = []
@@ -22,13 +23,14 @@ struct TaskBoardView: View {
     @State private var isArchiveSelectionMode = false
     @State private var searchText: String = ""
 
-    init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?, onNavigateToSettings: (() -> Void)? = nil, showChatPanel: Binding<Bool> = .constant(false)) {
+    init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?, onNavigateToSettings: (() -> Void)? = nil, showChatPanel: Binding<Bool> = .constant(false), onChatProjectChanged: ((UUID?) -> Void)? = nil) {
         self.projectId = projectId
         self._selectedTaskId = selectedTaskId
         self.appDatabase = appDatabase
         self.orchestrator = orchestrator
         self.onNavigateToSettings = onNavigateToSettings
         self._showChatPanel = showChatPanel
+        self.onChatProjectChanged = onChatProjectChanged
         self._filterProjectId = State(initialValue: projectId)
     }
 
@@ -73,10 +75,13 @@ struct TaskBoardView: View {
         VStack(spacing: 0) {
             ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
                 HStack(spacing: 8) {
-                    if projectId != nil {
+                    if filterProjectId != nil {
                         Button {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 showChatPanel.toggle()
+                                if showChatPanel {
+                                    onChatProjectChanged?(filterProjectId)
+                                }
                             }
                         } label: {
                             Image(systemName: showChatPanel ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
@@ -243,6 +248,13 @@ struct TaskBoardView: View {
             filterProjectId = newValue
             isArchiveSelectionMode = false
             archiveSelection.removeAll()
+        }
+        .onChange(of: filterProjectId) { _, newValue in
+            if newValue == nil {
+                showChatPanel = false
+            } else if showChatPanel {
+                onChatProjectChanged?(newValue)
+            }
         }
         .task(id: filterProjectId) {
             await observeTasks()
