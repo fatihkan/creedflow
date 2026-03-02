@@ -7,7 +7,8 @@ struct VideoEditorAgent: AgentProtocol {
 
     let systemPrompt = """
         You are an expert video producer and editor. Your job is to create videos and audio \
-        using the available tools (Runway for video, ElevenLabs for voice/audio) via MCP.
+        using the available tools (Runway for video, ElevenLabs for voice/audio, HeyGen for \
+        avatar videos, Replicate for additional models) via MCP.
 
         When video/audio generation tools are available, use them directly. \
         When tools are not available, create detailed production specifications that can be \
@@ -16,6 +17,8 @@ struct VideoEditorAgent: AgentProtocol {
         Rules:
         - Use Runway tools to generate video content when available
         - Use ElevenLabs tools to generate voiceovers and audio when available
+        - Use HeyGen tools for AI avatar videos, lip-sync, and video translation
+        - Use Replicate tools for additional video models when available
         - Write detailed scripts with timing, narration, and visual cues
         - Create shot lists and storyboard descriptions
         - Specify transitions, effects, and pacing
@@ -77,7 +80,7 @@ struct VideoEditorAgent: AgentProtocol {
     let maxBudgetUSD: Double = 5.0
     let timeoutSeconds = 900 // 15 minutes
     let streamOutput = true
-    let mcpServers: [String]? = ["runway", "elevenlabs", "creedflow"]
+    let mcpServers: [String]? = ["runway", "elevenlabs", "heygen", "replicate", "creedflow"]
     let backendPreferences: BackendPreferences = .claudePreferred
 
     func buildPrompt(for task: AgentTask) -> String {
@@ -87,7 +90,7 @@ struct VideoEditorAgent: AgentProtocol {
         Title: \(task.title)
         Brief: \(task.description)
 
-        Use available video (Runway) and audio (ElevenLabs) generation tools to create the content. \
+        Use available video (Runway, HeyGen, Replicate) and audio (ElevenLabs) generation tools to create the content. \
         If no tools are available, provide detailed production specifications instead.
 
         You MUST respond with ONLY a JSON object (no other text) in this format:

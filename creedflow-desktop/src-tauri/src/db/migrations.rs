@@ -37,6 +37,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (16, V16_GIT_BRANCHING),
         (17, V17_SKILL_PERSONA),
         (18, V18_TASK_ARCHIVE),
+        (19, V19_PROJECT_MESSAGE),
     ];
 
     for (version, sql) in migrations {
@@ -394,4 +395,19 @@ ALTER TABLE agentTask ADD COLUMN skillPersona TEXT;
 const V18_TASK_ARCHIVE: &str = r#"
 ALTER TABLE agentTask ADD COLUMN archivedAt TEXT;
 CREATE INDEX IF NOT EXISTS idx_agentTask_archivedAt ON agentTask(archivedAt);
+"#;
+
+const V19_PROJECT_MESSAGE: &str = r#"
+CREATE TABLE IF NOT EXISTS project_message (
+    id TEXT PRIMARY KEY NOT NULL,
+    project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    backend TEXT,
+    cost_usd REAL,
+    duration_ms INTEGER,
+    metadata TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_project_message_project_created ON project_message(project_id, created_at);
 "#;

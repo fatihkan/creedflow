@@ -65,7 +65,7 @@ struct DesignerAgent: AgentProtocol {
     let maxBudgetUSD: Double = 3.0
     let timeoutSeconds = 600 // 10 minutes
     let streamOutput = true
-    let mcpServers: [String]? = ["figma", "creedflow"]
+    let mcpServers: [String]? = ["figma", "creedflow", "notebooklm"]
     let backendPreferences: BackendPreferences = .claudePreferred
 
     func buildPrompt(for task: AgentTask) -> String {

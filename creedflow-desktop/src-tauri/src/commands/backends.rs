@@ -201,6 +201,15 @@ pub async fn list_backends() -> Result<Vec<BackendInfo>, String> {
             color: "#a3e635".into(), // mint/lime
             is_local: true,
         },
+        BackendInfo {
+            backend_type: "opencode".into(),
+            display_name: "OpenCode".into(),
+            is_available: backends::detect::find_cli("opencode").is_some(),
+            is_enabled: false,
+            cli_path: backends::detect::find_cli("opencode"),
+            color: "#14b8a6".into(), // teal
+            is_local: false,
+        },
     ];
     Ok(backends)
 }
@@ -250,6 +259,7 @@ pub async fn detect_dependencies() -> Result<Vec<DependencyStatus>, String> {
         ("codex", "Codex", "ai"),
         ("gemini", "Gemini", "ai"),
         ("ollama", "Ollama", "ai"),
+        ("opencode", "OpenCode", "ai"),
         ("llama-cli", "llama.cpp", "ai"),
         // Editors
         ("code", "VS Code", "editor"),
@@ -316,6 +326,11 @@ pub async fn install_dependency(name: String) -> Result<String, String> {
         "gemini" => {
             return Err(
                 "Install Gemini CLI via npm: npm install -g @google/gemini-cli".to_string(),
+            )
+        }
+        "opencode" => {
+            return Err(
+                "Install OpenCode CLI: see https://github.com/nicholasgriffintn/opencode".to_string(),
             )
         }
         _ => {}
@@ -391,6 +406,7 @@ async fn get_version(name: &str) -> Result<String, String> {
         "codex" => ("codex", &["--version"]),
         "gemini" => ("gemini", &["--version"]),
         "ollama" => ("ollama", &["--version"]),
+        "opencode" => ("opencode", &["--version"]),
         "llama-cli" => ("llama-cli", &["--version"]),
         "code" => ("code", &["--version"]),
         "cursor" => ("cursor", &["--version"]),

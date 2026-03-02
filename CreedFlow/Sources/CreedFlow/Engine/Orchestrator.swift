@@ -32,7 +32,7 @@ final class Orchestrator {
     private let taskQueue: TaskQueue
     private let scheduler: AgentScheduler
     private let processManager: ClaudeProcessManager
-    private let backendRouter: BackendRouter
+    let backendRouter: BackendRouter
     private let gitService: GitService
     private let gitHubService: GitHubService
     private let projectDirService: ProjectDirectoryService
@@ -45,6 +45,11 @@ final class Orchestrator {
     private let contentExporter: ContentExporter
     private let branchManager: GitBranchManager
     private let preferencesStore = AgentBackendPreferencesStore()
+
+    /// Agent types that require at least one creative MCP service to be configured
+    private static let creativeAgentTypes: Set<AgentTask.AgentType> = [
+        .imageGenerator, .videoEditor, .designer
+    ]
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
@@ -176,6 +181,24 @@ final class Orchestrator {
 
             // Select backend and create a runner for this task
             let agent = resolveAgent(for: task.agentType)
+
+            // Validate creative agents have at least one MCP service configured
+            if let mcpServers = agent.mcpServers, Self.creativeAgentTypes.contains(task.agentType) {
+                let creativeMCPNames = mcpServers.filter { $0 != "creedflow" }
+                let hasCreativeMCP = (try? await dbQueue.read { db in
+                    try MCPServerConfig.fetchEnabled(names: creativeMCPNames, in: db).isEmpty == false
+                }) ?? false
+                if !hasCreativeMCP {
+                    await scheduler.release(task: task)
+                    let serviceList = creativeMCPNames.map { $0.capitalized }.joined(separator: ", ")
+                    try? await taskQueue.fail(
+                        task,
+                        error: "No creative AI service configured. Go to Settings \u{2192} MCP Servers to add an API key for \(serviceList)."
+                    )
+                    continue
+                }
+            }
+
             let effectivePrefs = preferencesStore.preferences(for: task.agentType)
             guard let backend = await backendRouter.selectBackend(preferences: effectivePrefs, task: task) else {
                 // No enabled/available backend — defer the task back to queue
@@ -597,11 +620,13 @@ final class Orchestrator {
     private func handleAnalyzerCompletion(task: AgentTask, result: AgentResult) async {
         guard let output = result.output else {
             try? await logError(taskId: task.id, agent: .analyzer, message: "Analyzer returned no output")
+            try? await taskQueue.fail(task, error: "Analyzer returned no output")
             return
         }
 
         guard let data = extractJSON(from: output) else {
             try? await logError(taskId: task.id, agent: .analyzer, message: "Could not extract JSON from analyzer output: \(output.prefix(200))")
+            try? await taskQueue.fail(task, error: "Could not extract JSON from analyzer output")
             return
         }
 
@@ -756,12 +781,13 @@ final class Orchestrator {
                         default: agentType = .coder
                         }
 
-                        // Build enriched description with acceptance criteria and file list
+                        // Build enriched description with skill persona, acceptance criteria and file list
                         let enrichedDescription = buildEnrichedTaskDescription(
                             base: taskOutput.description,
                             acceptanceCriteria: taskOutput.acceptanceCriteria,
                             filesToCreate: taskOutput.filesToCreate,
-                            estimatedComplexity: taskOutput.estimatedComplexity
+                            estimatedComplexity: taskOutput.estimatedComplexity,
+                            skillPersona: taskOutput.skillPersona
                         )
 
                         let newTask = AgentTask(
@@ -824,14 +850,20 @@ final class Orchestrator {
         }
     }
 
-    /// Build an enriched task description that includes acceptance criteria and files to create.
+    /// Build an enriched task description that includes skill persona, acceptance criteria and files to create.
     private func buildEnrichedTaskDescription(
         base: String,
         acceptanceCriteria: [String]?,
         filesToCreate: [String]?,
-        estimatedComplexity: String?
+        estimatedComplexity: String?,
+        skillPersona: String? = nil
     ) -> String {
         var parts: [String] = [base]
+
+        if let persona = skillPersona, !persona.isEmpty {
+            parts.append("\n--- Required Skill ---")
+            parts.append("  \(persona)")
+        }
 
         if let complexity = estimatedComplexity, !complexity.isEmpty {
             parts.append("\n[Complexity: \(complexity)]")
@@ -1038,11 +1070,13 @@ final class Orchestrator {
     private func handleReviewerCompletion(task: AgentTask, result: AgentResult) async {
         guard let output = result.output else {
             try? await logError(taskId: task.id, agent: .reviewer, message: "Reviewer returned no output")
+            try? await taskQueue.fail(task, error: "Reviewer returned no output")
             return
         }
 
         guard let data = extractJSON(from: output) else {
             try? await logError(taskId: task.id, agent: .reviewer, message: "Could not extract JSON from reviewer output: \(output.prefix(200))")
+            try? await taskQueue.fail(task, error: "Could not extract structured review from output")
             return
         }
 
@@ -1531,7 +1565,10 @@ final class Orchestrator {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
         }
-        guard let project else { return }
+        guard let project else {
+            try? await taskQueue.fail(task, error: "Project not found for creative task")
+            return
+        }
 
         do {
             try await extractAndSaveAssets(output: result.output, task: task, project: project, defaultAssetType: assetType)
@@ -1539,6 +1576,7 @@ final class Orchestrator {
         } catch {
             try? await logError(taskId: task.id, agent: task.agentType,
                                message: "Creative completion error: \(error.localizedDescription)")
+            try? await taskQueue.fail(task, error: error.localizedDescription)
         }
     }
 
@@ -1547,7 +1585,10 @@ final class Orchestrator {
         let project = try? await dbQueue.read { db in
             try Project.fetchOne(db, id: task.projectId)
         }
-        guard let project else { return }
+        guard let project else {
+            try? await taskQueue.fail(task, error: "Project not found for content writer task")
+            return
+        }
 
         do {
             let parsed = parseContentWriterOutput(rawOutput: result.output, task: task)
@@ -1979,11 +2020,13 @@ final class Orchestrator {
     private func handlePublisherCompletion(task: AgentTask, result: AgentResult) async {
         guard let output = result.output else {
             try? await logError(taskId: task.id, agent: .publisher, message: "Publisher returned no output")
+            try? await taskQueue.fail(task, error: "Publisher returned no output")
             return
         }
 
         guard let data = extractJSON(from: output) else {
             try? await logInfo(taskId: task.id, agent: .publisher, message: "No structured publication plan in output")
+            try? await taskQueue.fail(task, error: "Could not extract publication plan from output")
             return
         }
 

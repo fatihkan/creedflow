@@ -51,6 +51,7 @@ pub enum ProjectType {
     Content,
     Image,
     Video,
+    Automation,
     General,
 }
 
@@ -61,6 +62,7 @@ impl ProjectType {
             Self::Content => "content",
             Self::Image => "image",
             Self::Video => "video",
+            Self::Automation => "automation",
             Self::General => "general",
         }
     }
@@ -70,6 +72,7 @@ impl ProjectType {
             "content" => Self::Content,
             "image" => Self::Image,
             "video" => Self::Video,
+            "automation" => Self::Automation,
             "general" => Self::General,
             _ => Self::Software,
         }
@@ -322,6 +325,7 @@ pub enum BackendType {
     LmStudio,
     LlamaCpp,
     Mlx,
+    OpenCode,
 }
 
 impl BackendType {
@@ -334,6 +338,7 @@ impl BackendType {
             Self::LmStudio => "lmStudio",
             Self::LlamaCpp => "llamaCpp",
             Self::Mlx => "mlx",
+            Self::OpenCode => "opencode",
         }
     }
     pub fn from_str(s: &str) -> Self {
@@ -345,6 +350,7 @@ impl BackendType {
             "lmStudio" | "lm_studio" => Self::LmStudio,
             "llamaCpp" | "llama_cpp" => Self::LlamaCpp,
             "mlx" => Self::Mlx,
+            "opencode" | "open_code" => Self::OpenCode,
             _ => Self::Claude,
         }
     }
@@ -963,6 +969,7 @@ pub struct AppSettings {
     pub lm_studio_enabled: bool,
     pub llama_cpp_enabled: bool,
     pub mlx_enabled: bool,
+    pub opencode_enabled: bool,
     pub telegram_bot_token: Option<String>,
     pub telegram_chat_id: Option<String>,
     pub has_completed_setup: bool,
@@ -1004,10 +1011,78 @@ impl Default for AppSettings {
             lm_studio_enabled: false,
             llama_cpp_enabled: false,
             mlx_enabled: false,
+            opencode_enabled: false,
             telegram_bot_token: None,
             telegram_chat_id: None,
             has_completed_setup: false,
             agent_backend_overrides: None,
         }
+    }
+}
+
+// ─── Project Chat Messages ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectMessage {
+    pub id: String,
+    pub project_id: String,
+    pub role: String,
+    pub content: String,
+    pub backend: Option<String>,
+    pub cost_usd: Option<f64>,
+    pub duration_ms: Option<i64>,
+    pub metadata: Option<String>,
+    pub created_at: String,
+}
+
+impl ProjectMessage {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            project_id: row.get("project_id")?,
+            role: row.get("role")?,
+            content: row.get("content")?,
+            backend: row.get("backend")?,
+            cost_usd: row.get("cost_usd")?,
+            duration_ms: row.get("duration_ms")?,
+            metadata: row.get("metadata")?,
+            created_at: row.get("created_at")?,
+        })
+    }
+
+    pub fn insert(conn: &Connection, msg: &ProjectMessage) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO project_message (id, project_id, role, content, backend, cost_usd, duration_ms, metadata, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                msg.id,
+                msg.project_id,
+                msg.role,
+                msg.content,
+                msg.backend,
+                msg.cost_usd,
+                msg.duration_ms,
+                msg.metadata,
+                msg.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_by_project(conn: &Connection, project_id: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM project_message WHERE project_id = ?1 ORDER BY created_at ASC"
+        )?;
+        let rows = stmt.query_map(params![project_id], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn update_metadata(conn: &Connection, id: &str, metadata: &str) -> rusqlite::Result<()> {
+        conn.execute(
+            "UPDATE project_message SET metadata = ?1 WHERE id = ?2",
+            params![metadata, id],
+        )?;
+        Ok(())
     }
 }

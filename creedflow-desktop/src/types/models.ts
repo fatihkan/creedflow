@@ -166,6 +166,7 @@ export interface AppSettings {
   lmStudioEnabled: boolean;
   llamaCppEnabled: boolean;
   mlxEnabled: boolean;
+  opencodeEnabled: boolean;
   telegramBotToken: string | null;
   telegramChatId: string | null;
   hasCompletedSetup: boolean;
@@ -254,6 +255,51 @@ export interface DetectedEditor {
   path: string;
 }
 
+export interface Prompt {
+  id: string;
+  title: string;
+  content: string;
+  source: string;
+  category: string;
+  contributor: string | null;
+  isBuiltIn: boolean;
+  isFavorite: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromptVersion {
+  id: string;
+  promptId: string;
+  version: number;
+  content: string;
+  changeNote: string | null;
+  createdAt: string;
+}
+
+export interface PromptRecommendation {
+  promptId: string;
+  promptTitle: string;
+  category: string;
+  successRate: number;
+  totalUses: number;
+  avgReviewScore: number | null;
+}
+
+export interface PromptVersionDiff {
+  versionA: PromptVersion;
+  versionB: PromptVersion;
+  diffLines: DiffLine[];
+}
+
+export interface DiffLine {
+  lineType: "added" | "removed" | "unchanged";
+  content: string;
+  lineNumberA: number | null;
+  lineNumberB: number | null;
+}
+
 export interface PromptChain {
   id: string;
   name: string;
@@ -284,4 +330,39 @@ export interface PromptEffectivenessStats {
   failCount: number;
   avgReviewScore: number | null;
   successRate: number;
+}
+
+// ─── Chat ───────────────────────────────────────────────────────────────────
+
+export type MessageRole = "user" | "assistant" | "system";
+
+export interface ProjectMessage {
+  id: string;
+  projectId: string;
+  role: MessageRole;
+  content: string;
+  backend?: string;
+  costUsd?: number;
+  durationMs?: number;
+  metadata?: string;
+  createdAt: string;
+}
+
+export interface TaskProposal {
+  type: string;
+  status: string;
+  features: FeatureProposal[];
+}
+
+export interface FeatureProposal {
+  name: string;
+  description: string;
+  tasks: TaskProposalItem[];
+}
+
+export interface TaskProposalItem {
+  title: string;
+  description: string;
+  agentType: string;
+  priority: number;
 }

@@ -85,6 +85,22 @@ actor BackendRouter {
         return available[index]
     }
 
+    /// Select any usable backend using the given preferences (no task context).
+    func selectBackend(preferences prefs: BackendPreferences) async -> (any CLIBackend)? {
+        // Try preferred backends first
+        for type in prefs.preferred {
+            if let backend = backends[type], isEnabled(type), await backend.isAvailable {
+                return backend
+            }
+        }
+        // Fall back to any usable backend
+        let usable = await allUsableBackends()
+        guard !usable.isEmpty else { return nil }
+        let index = roundRobinIndex % usable.count
+        roundRobinIndex += 1
+        return usable[index]
+    }
+
     /// Get a specific backend by type (only if enabled and available).
     func backend(for type: CLIBackendType) async -> (any CLIBackend)? {
         guard let b = backends[type], isEnabled(type), await b.isAvailable else { return nil }

@@ -19,6 +19,9 @@ import type {
   PromptChain,
   PromptChainStep,
   PromptEffectivenessStats,
+  ProjectMessage,
+  Prompt,
+  PromptVersion,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -33,12 +36,14 @@ export const createProject = (
   description: string,
   techStack: string,
   projectType: string,
+  directoryPath?: string,
 ) =>
   invoke<Project>("create_project", {
     name,
     description,
     techStack,
     projectType,
+    directoryPath: directoryPath ?? null,
   });
 
 export const updateProject = (project: Project) =>
@@ -46,6 +51,9 @@ export const updateProject = (project: Project) =>
 
 export const deleteProject = (id: string) =>
   invoke<void>("delete_project", { id });
+
+export const exportProjectDocs = (id: string, outputPath: string) =>
+  invoke<string>("export_project_docs", { id, outputPath });
 
 // ─── Tasks ───────────────────────────────────────────────────────────────────
 
@@ -338,3 +346,60 @@ export const getGitConfig = () => invoke<GitConfig>("get_git_config");
 
 export const setGitConfig = (name: string, email: string) =>
   invoke<void>("set_git_config", { name, email });
+
+// ─── Chat ───────────────────────────────────────────────────────────────────
+
+export const sendChatMessage = (
+  projectId: string,
+  content: string,
+  role: string,
+) =>
+  invoke<ProjectMessage>("send_chat_message", { projectId, content, role });
+
+export const listChatMessages = (projectId: string) =>
+  invoke<ProjectMessage[]>("list_chat_messages", { projectId });
+
+export const approveChatProposal = (messageId: string, metadata: string) =>
+  invoke<void>("approve_chat_proposal", { messageId, metadata });
+
+export const rejectChatProposal = (messageId: string) =>
+  invoke<void>("reject_chat_proposal", { messageId });
+
+// ─── Prompt Import/Export ───────────────────────────────────────────────────
+
+export const exportPrompts = (promptIds: string[], filePath: string) =>
+  invoke<string>("export_prompts", { promptIds, filePath });
+
+export const importPrompts = (filePath: string) =>
+  invoke<Prompt[]>("import_prompts", { filePath });
+
+// ─── Prompt Versions & Diff ─────────────────────────────────────────────────
+
+import type { PromptVersionDiff, PromptRecommendation } from "./types/models";
+
+export const getPromptVersions = (promptId: string) =>
+  invoke<PromptVersion[]>("get_prompt_versions", { promptId });
+
+export const getPromptVersionDiff = (
+  promptId: string,
+  versionA: number,
+  versionB: number,
+) =>
+  invoke<PromptVersionDiff>("get_prompt_version_diff", {
+    promptId,
+    versionA,
+    versionB,
+  });
+
+// ─── Prompt Recommender ─────────────────────────────────────────────────────
+
+export const getPromptRecommendations = (
+  agentType?: string,
+  category?: string,
+  limit?: number,
+) =>
+  invoke<PromptRecommendation[]>("get_prompt_recommendations", {
+    agentType: agentType ?? null,
+    category: category ?? null,
+    limit: limit ?? null,
+  });

@@ -7,14 +7,16 @@ struct ImageGeneratorAgent: AgentProtocol {
 
     let systemPrompt = """
         You are an expert in AI image generation. Your job is to create images using the \
-        available image generation tools (DALL-E, Stability AI) via MCP.
+        available image generation tools (DALL-E, Stability AI, Replicate, Leonardo.AI) via MCP.
 
         When image generation tools are available, use them directly to produce images. \
         When tools are not available, create detailed prompt specifications that can be used \
         with any image generation service later.
 
         Rules:
-        - Use DALL-E or Stability AI tools to generate images when available
+        - Use DALL-E, Stability AI, Replicate, or Leonardo.AI tools to generate images when available
+        - Replicate supports FLUX, SDXL, and other state-of-the-art models
+        - Leonardo.AI provides style control and motion generation
         - Craft precise, descriptive prompts optimized for image generation
         - Include style references, lighting, composition, and mood
         - Specify aspect ratios, resolution, and technical parameters
@@ -63,7 +65,7 @@ struct ImageGeneratorAgent: AgentProtocol {
     let maxBudgetUSD: Double = 5.0
     let timeoutSeconds = 600 // 10 minutes
     let streamOutput = true
-    let mcpServers: [String]? = ["dalle", "stability", "creedflow"]
+    let mcpServers: [String]? = ["dalle", "stability", "replicate", "leonardo", "creedflow", "notebooklm"]
     let backendPreferences: BackendPreferences = .claudePreferred
 
     func buildPrompt(for task: AgentTask) -> String {
@@ -73,7 +75,7 @@ struct ImageGeneratorAgent: AgentProtocol {
         Title: \(task.title)
         Brief: \(task.description)
 
-        Use available image generation tools (DALL-E, Stability AI) to create the images. \
+        Use available image generation tools (DALL-E, Stability AI, Replicate, Leonardo.AI) to create the images. \
         If no tools are available, provide detailed prompt specifications instead.
 
         You MUST respond with ONLY a JSON object (no other text) in this format:

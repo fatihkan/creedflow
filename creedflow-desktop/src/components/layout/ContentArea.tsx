@@ -14,15 +14,28 @@ import { ProjectAssetsView } from "../assets/ProjectAssetsView";
 interface ContentAreaProps {
   section: SidebarSection;
   selectedProjectId: string | null;
+  onToggleChat?: (projectId: string) => void;
+  showChatPanel?: boolean;
+  chatProjectId?: string | null;
 }
 
-export function ContentArea({ section, selectedProjectId }: ContentAreaProps) {
+export function ContentArea({
+  section,
+  selectedProjectId,
+  onToggleChat,
+  showChatPanel,
+  chatProjectId,
+}: ContentAreaProps) {
   switch (section) {
     case "projects":
       return <ProjectList />;
     case "tasks":
       return selectedProjectId ? (
-        <TaskBoard projectId={selectedProjectId} />
+        <TaskBoard
+          projectId={selectedProjectId}
+          onToggleChat={onToggleChat}
+          showChatPanel={showChatPanel && chatProjectId === selectedProjectId}
+        />
       ) : (
         <EmptyState message="Select a project to view tasks" />
       );

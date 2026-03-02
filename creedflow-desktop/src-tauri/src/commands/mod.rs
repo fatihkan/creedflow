@@ -11,3 +11,4 @@ pub mod deploy;
 pub mod prompts;
 pub mod git;
 pub mod platform;
+pub mod chat;

@@ -405,6 +405,18 @@ struct WizardIntegrationsStep: View {
     @Binding var telegramBotToken: String
     @Binding var telegramChatId: String
 
+    @State private var isSendingTest = false
+    @State private var testResult: TestResult?
+
+    private enum TestResult {
+        case success
+        case error(String)
+    }
+
+    private var canTest: Bool {
+        !telegramBotToken.isEmpty && !telegramChatId.isEmpty
+    }
+
     var body: some View {
         Form {
             Section("Telegram Bot (Optional)") {
@@ -416,8 +428,68 @@ struct WizardIntegrationsStep: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            if canTest {
+                Section("Test Connection") {
+                    HStack(spacing: 10) {
+                        Button {
+                            Task { await sendTestMessage() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if isSendingTest {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
+                                        .frame(width: 14, height: 14)
+                                } else {
+                                    Image(systemName: "paperplane.fill")
+                                }
+                                Text("Send Test Message")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.forgeAmber)
+                        .disabled(isSendingTest)
+                        .controlSize(.small)
+
+                        if let testResult {
+                            switch testResult {
+                            case .success:
+                                Label("Sent!", systemImage: "checkmark.circle.fill")
+                                    .font(.footnote.weight(.medium))
+                                    .foregroundStyle(.forgeSuccess)
+                            case .error(let message):
+                                Label(message, systemImage: "xmark.circle.fill")
+                                    .font(.footnote)
+                                    .foregroundStyle(.forgeDanger)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
+        .onChange(of: telegramBotToken) { _, _ in testResult = nil }
+        .onChange(of: telegramChatId) { _, _ in testResult = nil }
+    }
+
+    private func sendTestMessage() async {
+        isSendingTest = true
+        defer { isSendingTest = false }
+
+        let service = TelegramBotService()
+        guard let chatId = Int64(telegramChatId) else {
+            testResult = .error("Invalid Chat ID — must be a number")
+            return
+        }
+
+        service.configure(token: telegramBotToken, chatId: chatId)
+        do {
+            try await service.sendMessage("CreedFlow test message — connection successful!")
+            testResult = .success
+        } catch {
+            testResult = .error(error.localizedDescription)
+        }
     }
 }
 
@@ -434,11 +506,17 @@ struct WizardMCPStep: View {
     }
 
     private var creativeTemplates: [MCPServerTemplate] {
-        [.dalle, .figma, .stability, .elevenlabs, .runway]
+        [.dalle, .figma, .stability, .elevenlabs, .runway, .heygen, .replicate, .leonardo]
     }
 
     private var otherTemplates: [MCPServerTemplate] {
         [.promptsChat]
+    }
+
+    /// Whether at least one creative MCP service is configured
+    private var hasConfiguredCreativeService: Bool {
+        let creativeIds = Set(creativeTemplates.map(\.id))
+        return store.configs.contains { creativeIds.contains($0.name) }
     }
 
     var body: some View {
@@ -462,7 +540,7 @@ struct WizardMCPStep: View {
                 .padding(.vertical, 4)
             }
 
-            Section("Creative Tools") {
+            Section("Creative AI Services") {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 10),
                     GridItem(.flexible(), spacing: 10),
@@ -473,6 +551,18 @@ struct WizardMCPStep: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                if !hasConfiguredCreativeService {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.forgeWarning)
+                            .font(.footnote)
+                        Text("Content and image projects require at least one creative AI service. Configure an API key above to enable image/video generation.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
             }
 
             Section("Other") {

@@ -108,6 +108,40 @@ impl Orchestrator {
                     Ok(Some(task)) => {
                         // Try to acquire a concurrency slot
                         if let Some(permit) = scheduler.try_acquire() {
+                            let agent_type = AgentType::from_str(&task.agent_type);
+
+                            // Validate creative agents have at least one MCP service configured
+                            if is_creative_agent(&agent_type) {
+                                let agent = crate::agents::resolve_agent(&agent_type);
+                                if let Some(mcp_servers) = agent.mcp_servers() {
+                                    let creative_names: Vec<&str> = mcp_servers.iter()
+                                        .map(|s| s.as_str())
+                                        .filter(|s| *s != "creedflow")
+                                        .collect();
+                                    let has_config = {
+                                        let db_lock = db.lock().await;
+                                        creative_names.iter().any(|name| {
+                                            db_lock.conn.query_row(
+                                                "SELECT COUNT(*) FROM mcpServerConfig WHERE name = ? AND isEnabled = 1",
+                                                rusqlite::params![name],
+                                                |row| row.get::<_, i64>(0),
+                                            ).unwrap_or(0) > 0
+                                        })
+                                    };
+                                    if !has_config {
+                                        let service_list = creative_names.join(", ");
+                                        let error_msg = format!(
+                                            "No creative AI service configured. Go to Settings → MCP Servers to add an API key for {}.",
+                                            service_list
+                                        );
+                                        log::warn!("Task {} failed: {}", task.id, error_msg);
+                                        let _ = task_queue.fail(&task.id, &error_msg).await;
+                                        drop(permit);
+                                        continue;
+                                    }
+                                }
+                            }
+
                             log::info!("Dispatching task {} ({})", task.id, task.agent_type);
 
                             // Emit event to frontend
@@ -397,11 +431,40 @@ async fn handle_analyzer_completion(
                 let desc = task_json.get("description").and_then(|d| d.as_str()).unwrap_or("");
                 let agent = task_json.get("agentType").and_then(|a| a.as_str()).unwrap_or("coder");
                 let prio = task_json.get("priority").and_then(|p| p.as_i64()).unwrap_or(5) as i32;
+                let skill_persona = task_json.get("skillPersona").and_then(|s| s.as_str());
+                let complexity = task_json.get("estimatedComplexity").and_then(|c| c.as_str());
+                let acceptance = task_json.get("acceptanceCriteria").and_then(|a| a.as_array());
+                let files = task_json.get("filesToCreate").and_then(|f| f.as_array());
+
+                // Build enriched description with skill, criteria, files
+                let mut enriched = desc.to_string();
+                if let Some(persona) = skill_persona {
+                    enriched.push_str(&format!("\n\n--- Required Skill ---\n  {}", persona));
+                }
+                if let Some(c) = complexity {
+                    enriched.push_str(&format!("\n[Complexity: {}]", c));
+                }
+                if let Some(criteria) = acceptance {
+                    enriched.push_str("\n\n--- Acceptance Criteria ---");
+                    for (i, c) in criteria.iter().enumerate() {
+                        if let Some(s) = c.as_str() {
+                            enriched.push_str(&format!("\n  {}. {}", i + 1, s));
+                        }
+                    }
+                }
+                if let Some(file_list) = files {
+                    enriched.push_str("\n\n--- Files to Create/Modify ---");
+                    for f in file_list {
+                        if let Some(s) = f.as_str() {
+                            enriched.push_str(&format!("\n  - {}", s));
+                        }
+                    }
+                }
 
                 let _ = db_lock.conn.execute(
-                    "INSERT INTO agentTask (id, projectId, featureId, agentType, title, description, priority, status, retryCount, maxRetries, createdAt, updatedAt)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', 0, 3, datetime('now'), datetime('now'))",
-                    params![task_id, task.project_id, feature_id, agent, title, desc, prio],
+                    "INSERT INTO agentTask (id, projectId, featureId, agentType, title, description, priority, status, retryCount, maxRetries, skillPersona, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', 0, 3, ?8, datetime('now'), datetime('now'))",
+                    params![task_id, task.project_id, feature_id, agent, title, enriched, prio, skill_persona],
                 );
 
                 task_ids.push((title.to_string(), task_id.clone()));
@@ -1136,4 +1199,12 @@ async fn handle_git_completion(
             "agentType": task.agent_type,
         }));
     }
+}
+
+/// Returns true if the agent type is a creative agent that requires MCP services
+fn is_creative_agent(agent_type: &AgentType) -> bool {
+    matches!(
+        agent_type,
+        AgentType::ImageGenerator | AgentType::VideoEditor | AgentType::Designer
+    )
 }

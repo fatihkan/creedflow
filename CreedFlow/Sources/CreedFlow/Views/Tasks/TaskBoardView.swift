@@ -8,6 +8,9 @@ struct TaskBoardView: View {
     @Binding var selectedTaskId: UUID?
     let appDatabase: AppDatabase?
     let orchestrator: Orchestrator?
+    var onNavigateToSettings: (() -> Void)?
+    @Binding var showChatPanel: Bool
+    var onChatProjectChanged: ((UUID?) -> Void)?
 
     @State private var filterProjectId: UUID?
     @State private var projects: [Project] = []
@@ -20,11 +23,14 @@ struct TaskBoardView: View {
     @State private var isArchiveSelectionMode = false
     @State private var searchText: String = ""
 
-    init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?) {
+    init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?, onNavigateToSettings: (() -> Void)? = nil, showChatPanel: Binding<Bool> = .constant(false), onChatProjectChanged: ((UUID?) -> Void)? = nil) {
         self.projectId = projectId
         self._selectedTaskId = selectedTaskId
         self.appDatabase = appDatabase
         self.orchestrator = orchestrator
+        self.onNavigateToSettings = onNavigateToSettings
+        self._showChatPanel = showChatPanel
+        self.onChatProjectChanged = onChatProjectChanged
         self._filterProjectId = State(initialValue: projectId)
     }
 
@@ -44,6 +50,15 @@ struct TaskBoardView: View {
 
     private var archivableCount: Int { archivableTasks.count }
 
+    /// Count of failed tasks whose error message mentions MCP
+    private var mcpFailedCount: Int {
+        tasks.filter { task in
+            task.status == .failed &&
+            (task.errorMessage?.localizedCaseInsensitiveContains("MCP") == true ||
+             task.errorMessage?.localizedCaseInsensitiveContains("creative AI service") == true)
+        }.count
+    }
+
     /// Tasks filtered by search text (matches title, description, agent type, backend)
     private var filteredTasks: [AgentTask] {
         guard !searchText.isEmpty else { return tasks }
@@ -60,6 +75,23 @@ struct TaskBoardView: View {
         VStack(spacing: 0) {
             ForgeToolbar(title: projectName.isEmpty ? "Task Board" : "Tasks — \(projectName)") {
                 HStack(spacing: 8) {
+                    if filterProjectId != nil {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showChatPanel.toggle()
+                                if showChatPanel {
+                                    onChatProjectChanged?(filterProjectId)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: showChatPanel ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
+                                .font(.system(size: 14))
+                                .foregroundStyle(showChatPanel ? .forgeAmber : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(showChatPanel ? "Close AI Chat" : "Open AI Chat")
+                    }
+
                     HStack(spacing: 4) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 13))
@@ -148,6 +180,35 @@ struct TaskBoardView: View {
                     .padding(.top, 8)
             }
 
+            // MCP warning banner for tasks that failed due to missing MCP configuration
+            if mcpFailedCount > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.forgeWarning)
+                    Text("\(mcpFailedCount) task(s) failed: Missing MCP server configuration.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let onNavigateToSettings {
+                        Button("Go to Settings") {
+                            onNavigateToSettings()
+                        }
+                        .font(.footnote.weight(.medium))
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(10)
+                .background(Color.forgeWarning.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.forgeWarning.opacity(0.2), lineWidth: 0.5)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            }
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(columns, id: \.title) { column in
@@ -187,6 +248,13 @@ struct TaskBoardView: View {
             filterProjectId = newValue
             isArchiveSelectionMode = false
             archiveSelection.removeAll()
+        }
+        .onChange(of: filterProjectId) { _, newValue in
+            if newValue == nil {
+                showChatPanel = false
+            } else if showChatPanel {
+                onChatProjectChanged?(newValue)
+            }
         }
         .task(id: filterProjectId) {
             await observeTasks()

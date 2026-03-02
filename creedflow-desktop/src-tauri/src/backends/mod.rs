@@ -6,6 +6,7 @@ pub mod ollama;
 pub mod lmstudio;
 pub mod llamacpp;
 pub mod mlx;
+pub mod opencode;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

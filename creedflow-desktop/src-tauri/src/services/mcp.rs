@@ -37,6 +37,18 @@ impl MCPConfigGenerator {
                     "command": "npx",
                     "args": ["-y", "@anthropic/mcp-runway"],
                 }),
+                "heygen" => json!({
+                    "command": "npx",
+                    "args": ["-y", "@anthropic/mcp-heygen"],
+                }),
+                "replicate" => json!({
+                    "command": "npx",
+                    "args": ["-y", "@anthropic/mcp-replicate"],
+                }),
+                "leonardo" => json!({
+                    "command": "npx",
+                    "args": ["-y", "@anthropic/mcp-leonardo"],
+                }),
                 _ => continue,
             };
             servers.insert(name.to_string(), config);

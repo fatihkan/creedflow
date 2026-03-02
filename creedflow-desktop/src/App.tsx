@@ -3,6 +3,7 @@ import { Sidebar, type SidebarSection } from "./components/layout/Sidebar";
 import { ContentArea } from "./components/layout/ContentArea";
 import { DetailPanel } from "./components/layout/DetailPanel";
 import { ProjectDetailPanel } from "./components/projects/ProjectDetailPanel";
+import { ProjectChatPanel } from "./components/chat/ProjectChatPanel";
 import { SetupWizard } from "./components/setup/SetupWizard";
 import { useProjectStore } from "./store/projectStore";
 import { useTaskStore } from "./store/taskStore";
@@ -14,7 +15,10 @@ type DetailMode = "none" | "task" | "project";
 function App() {
   const [section, setSection] = useState<SidebarSection>("projects");
   const [detailMode, setDetailMode] = useState<DetailMode>("none");
+  const [showChatPanel, setShowChatPanel] = useState(false);
+  const [chatProjectId, setChatProjectId] = useState<string | null>(null);
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
+  const projects = useProjectStore((s) => s.projects);
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId);
   const selectTask = useTaskStore((s) => s.selectTask);
   const updateTask = useTaskStore((s) => s.updateTask);
@@ -60,6 +64,10 @@ function App() {
         }
       }
       if (e.key === "Escape") {
+        if (showChatPanel) {
+          setShowChatPanel(false);
+          return;
+        }
         setDetailMode("none");
         selectTask(null);
       }
@@ -109,16 +117,46 @@ function App() {
     );
   }
 
+  const chatProject = chatProjectId
+    ? projects.find((p) => p.id === chatProjectId)
+    : null;
+
+  const handleToggleChat = (projectId: string) => {
+    if (showChatPanel && chatProjectId === projectId) {
+      setShowChatPanel(false);
+    } else {
+      setChatProjectId(projectId);
+      setShowChatPanel(true);
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <Sidebar selected={section} onSelect={setSection} />
       <div className="flex-1 flex flex-row min-w-0">
+        {/* Left: Chat panel */}
+        {showChatPanel && chatProjectId && chatProject && (
+          <div className="w-[380px] flex-shrink-0">
+            <ProjectChatPanel
+              projectId={chatProjectId}
+              projectName={chatProject.name}
+              onClose={() => setShowChatPanel(false)}
+            />
+          </div>
+        )}
+
+        {/* Center: Content */}
         <div className="flex-1 flex flex-col min-w-0">
           <ContentArea
             section={section}
             selectedProjectId={selectedProjectId}
+            onToggleChat={handleToggleChat}
+            showChatPanel={showChatPanel}
+            chatProjectId={chatProjectId}
           />
         </div>
+
+        {/* Right: Detail panels */}
         {detailMode === "task" && (
           <DetailPanel onClose={closeDetail} />
         )}
