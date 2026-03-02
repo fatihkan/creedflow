@@ -186,8 +186,8 @@ public struct ContentView: View {
             ProjectAssetsView(appDatabase: appDatabase, selectedProjectId: $selectedProjectId)
         case .gitGraph:
             GitGraphView(appDatabase: appDatabase)
-        case .automationFlows:
-            AutomationFlowsView(appDatabase: appDatabase)
+        // case .automationFlows:
+        //     AutomationFlowsView(appDatabase: appDatabase)
         case .projectTasks(let projectId):
             TaskBoardView(
                 projectId: projectId,
@@ -291,6 +291,6 @@ enum SidebarSection: Hashable {
     case prompts
     case assets
     case gitGraph
-    case automationFlows
+    // case automationFlows
     case projectTasks(UUID)
 }

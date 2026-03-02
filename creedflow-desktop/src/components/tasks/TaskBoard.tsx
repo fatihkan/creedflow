@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTaskStore } from "../../store/taskStore";
 import { TaskCard } from "./TaskCard";
-import { Archive, Search, X } from "lucide-react";
+import { Archive, Search, X, MessageCircle } from "lucide-react";
 import type { AgentTask, TaskStatus } from "../../types/models";
 
 interface Props {
   projectId: string;
+  onToggleChat?: (projectId: string) => void;
+  showChatPanel?: boolean;
 }
 
 const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
@@ -28,7 +30,7 @@ const VALID_TRANSITIONS: Record<string, TaskStatus[]> = {
   cancelled: ["queued"],
 };
 
-export function TaskBoard({ projectId }: Props) {
+export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
   const {
     tasks,
     fetchTasks,
@@ -119,6 +121,20 @@ export function TaskBoard({ projectId }: Props) {
             >
               <Archive className="w-3 h-3" />
               Archive ({selectedIds.size})
+            </button>
+          )}
+          {onToggleChat && (
+            <button
+              onClick={() => onToggleChat(projectId)}
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
+                showChatPanel
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Toggle project chat"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Chat
             </button>
           )}
           <button

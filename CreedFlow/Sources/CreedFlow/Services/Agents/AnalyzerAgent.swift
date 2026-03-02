@@ -257,12 +257,6 @@ struct AnalyzerAgent: AgentProtocol {
             5. Post-Production: editing, color grading, audio sync, subtitles
             6. Review & Export: final review, format exports, thumbnail, metadata
             """
-        case .automation:
-            return """
-            Analyze the project thoroughly and use the most appropriate decomposition.
-            Consider all aspects: planning, implementation, testing, review, and delivery.
-            Each task should be self-contained with clear inputs and outputs.
-            """
         case .general:
             return """
             Analyze the project thoroughly and use the most appropriate decomposition.
@@ -301,8 +295,6 @@ struct AnalyzerAgent: AgentProtocol {
             - Include generation parameters: prompts, seeds, model, style settings
             - Define review/approval workflow states
             """
-        case .automation:
-            return "Include data models if the project involves any data storage or structured content."
         case .general:
             return "Include data models if the project involves any data storage or structured content."
         }
@@ -332,12 +324,6 @@ struct AnalyzerAgent: AgentProtocol {
             DIAGRAM REQUIREMENTS (Mermaid syntax):
             - Production Pipeline: stages from concept to final delivery (use flowchart TD)
             - Asset Relationships: how assets connect and depend on each other (use erDiagram)
-            """
-        case .automation:
-            return """
-            DIAGRAM REQUIREMENTS (Mermaid syntax):
-            - Include at least one flowchart showing the main workflow
-            - Add ER diagram if data models are defined
             """
         case .general:
             return """
@@ -385,13 +371,6 @@ struct AnalyzerAgent: AgentProtocol {
             including scripts, storyboards, shot lists, audio planning, and post-production workflows.
             IMPORTANT: This is NOT a software project. Do NOT create coder, devops, or tester tasks. \
             Do NOT generate code files, config files, or infrastructure tasks.
-            """
-        case .automation:
-            return """
-            SYSTEM CONTEXT: You are a senior project strategist.
-            Analyze the project type from the description and use the most appropriate agent types. \
-            Choose agent types that match the actual work: contentWriter for writing, \
-            imageGenerator/designer for visuals, videoEditor for video, coder for code, etc.
             """
         case .general:
             return """
@@ -458,13 +437,6 @@ struct AnalyzerAgent: AgentProtocol {
             - configFiles array should be empty or contain only production guidelines
             - Data models should describe production assets and workflow stages, NOT database tables
             """
-        case .automation:
-            return """
-            \(commonRules)
-            - Every task MUST have filesToCreate listing specific deliverables
-            - Choose agent types that match the actual work described in the project
-            - configFiles should only be included if the project involves software or configuration
-            """
         case .general:
             return """
             \(commonRules)
@@ -485,8 +457,6 @@ struct AnalyzerAgent: AgentProtocol {
             return "imageGenerator|designer|reviewer"
         case .video:
             return "videoEditor|imageGenerator|contentWriter"
-        case .automation:
-            return "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer"
         case .general:
             return "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer"
         }

@@ -19,7 +19,7 @@ package struct Project: Codable, Identifiable, Equatable {
         case content      // Blog, copywriting, documentation
         case image        // Image generation, design
         case video        // Video generation, editing
-        case automation   // Manual agent flow — user defines steps directly
+        // case automation   // Commented out — not in Rust/Tauri
         case general      // Other/mixed
     }
 

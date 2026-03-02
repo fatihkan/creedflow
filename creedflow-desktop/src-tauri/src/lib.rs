@@ -39,6 +39,7 @@ pub fn run() {
             commands::projects::create_project,
             commands::projects::update_project,
             commands::projects::delete_project,
+            commands::projects::export_project_docs,
             // Tasks
             commands::tasks::list_tasks,
             commands::tasks::get_task,
@@ -107,6 +108,14 @@ pub fn run() {
             commands::prompts::reorder_chain_steps,
             // Prompt Effectiveness
             commands::prompts::get_prompt_effectiveness,
+            // Prompt Import/Export
+            commands::prompts::export_prompts,
+            commands::prompts::import_prompts,
+            // Prompt Versions & Diff
+            commands::prompts::get_prompt_versions,
+            commands::prompts::get_prompt_version_diff,
+            // Prompt Recommender
+            commands::prompts::get_prompt_recommendations,
             // Platform
             commands::platform::open_terminal,
             commands::platform::open_in_file_manager,
@@ -116,6 +125,11 @@ pub fn run() {
             commands::platform::get_preferred_editor,
             commands::platform::set_preferred_editor,
             commands::platform::get_platform,
+            // Chat
+            commands::chat::send_chat_message,
+            commands::chat::list_chat_messages,
+            commands::chat::approve_chat_proposal,
+            commands::chat::reject_chat_proposal,
             // Git
             commands::git::git_ensure_branch_structure,
             commands::git::git_setup_feature_branch,

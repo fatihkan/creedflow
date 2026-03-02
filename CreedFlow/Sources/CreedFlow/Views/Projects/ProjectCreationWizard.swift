@@ -12,7 +12,7 @@ struct ProjectCreationWizard: View {
     @State private var name = ""
     @State private var description = ""
     @State private var techStack = ""
-    @State private var automationSteps: [AutomationStep] = []
+    // @State private var automationSteps: [AutomationStep] = []
     @State private var mcpStore = MCPServerConfigStore()
     @State private var mcpSetupTemplate: MCPServerTemplate?
     @State private var isCreating = false
@@ -316,12 +316,12 @@ struct ProjectCreationWizard: View {
                 }
             }
 
-            if projectType == .automation {
-                Section("Automation Steps") {
-                    AutomationFlowEditor(steps: $automationSteps)
-                        .frame(minHeight: 120)
-                }
-            }
+            // if projectType == .automation {
+            //     Section("Automation Steps") {
+            //         AutomationFlowEditor(steps: $automationSteps)
+            //             .frame(minHeight: 120)
+            //     }
+            // }
 
             notebookLMSection
         }
@@ -614,7 +614,7 @@ struct ProjectCreationWizard: View {
         Form {
             summaryInfoSection
             summaryDescriptionSection
-            summaryAutomationSection
+            // summaryAutomationSection
             summaryMCPSection
         }
         .formStyle(.grouped)
@@ -660,25 +660,13 @@ struct ProjectCreationWizard: View {
         }
     }
 
-    @ViewBuilder
-    private var summaryAutomationSection: some View {
-        if projectType == .automation && !automationSteps.isEmpty {
-            Section("Automation Flow (\(automationSteps.count) steps)") {
-                ForEach(Array(automationSteps.enumerated()), id: \.element.id) { index, step in
-                    HStack(spacing: 8) {
-                        Text("\(index + 1).")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                        Image(systemName: step.agentType.icon)
-                            .foregroundStyle(step.agentType.themeColor)
-                        Text(step.title.isEmpty ? step.agentType.displayName : step.title)
-                            .font(.footnote)
-                            .lineLimit(1)
-                    }
-                }
-            }
-        }
-    }
+    // MARK: - Automation (disabled — not in Rust/Tauri)
+    // @ViewBuilder
+    // private var summaryAutomationSection: some View {
+    //     if projectType == .automation && !automationSteps.isEmpty {
+    //         Section("Automation Flow (\(automationSteps.count) steps)") { ... }
+    //     }
+    // }
 
     @ViewBuilder
     private var summaryMCPSection: some View {
@@ -744,7 +732,7 @@ struct ProjectCreationWizard: View {
             let capturedDescription = description
             let capturedTechStack = techStack
             let capturedProjectType = projectType
-            let capturedAutomationSteps = automationSteps
+            // let capturedAutomationSteps = automationSteps
             let capturedIsImporting = isImporting
 
             try await db.dbQueue.write { dbConn in
@@ -766,32 +754,6 @@ struct ProjectCreationWizard: View {
 
                 if capturedIsImporting {
                     // Import mode: no analyzer task — user triggers manually
-                } else if capturedProjectType == .automation && !capturedAutomationSteps.isEmpty {
-                    // Create tasks directly from automation steps (no Analyzer)
-                    var createdTasks: [String: UUID] = [:]
-
-                    for (index, step) in capturedAutomationSteps.enumerated() {
-                        let task = AgentTask(
-                            projectId: project.id,
-                            agentType: step.agentType,
-                            title: step.title.isEmpty ? "\(step.agentType.rawValue.capitalized) Step \(index + 1)" : step.title,
-                            description: step.prompt.isEmpty ? step.title : step.prompt,
-                            priority: max(1, 10 - index)
-                        )
-                        try task.insert(dbConn)
-                        createdTasks["\(index)"] = task.id
-
-                        // Create dependencies
-                        for depIndex in step.dependsOnStepIndices {
-                            if let depTaskId = createdTasks["\(depIndex)"] {
-                                let dep = TaskDependency(
-                                    taskId: task.id,
-                                    dependsOnTaskId: depTaskId
-                                )
-                                try dep.insert(dbConn)
-                            }
-                        }
-                    }
                 } else {
                     // No auto-analyzer — user will discuss in chat first
                 }
@@ -816,7 +778,7 @@ private struct ProjectTypeCard: View {
         case .content: return "doc.text"
         case .image: return "photo"
         case .video: return "film"
-        case .automation: return "gearshape.2"
+        // case .automation: return "gearshape.2"
         case .general: return "square.grid.2x2"
         }
     }
@@ -827,7 +789,7 @@ private struct ProjectTypeCard: View {
         case .content: return "Blog posts, articles, docs"
         case .image: return "AI art, design, graphics"
         case .video: return "Video production, editing"
-        case .automation: return "Custom agent workflows"
+        // case .automation: return "Custom agent workflows"
         case .general: return "Mixed or other projects"
         }
     }

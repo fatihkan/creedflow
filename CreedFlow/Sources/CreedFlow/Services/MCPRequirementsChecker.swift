@@ -168,7 +168,7 @@ struct MCPRequirementsChecker {
     /// Simple project-type-based server list (backward compat).
     static func requiredServers(for type: Project.ProjectType) -> [String] {
         switch type {
-        case .software, .content, .general, .automation:
+        case .software, .content, .general:
             return ["creedflow"]
         case .image:
             return ["dalle", "stability", "replicate", "leonardo"]

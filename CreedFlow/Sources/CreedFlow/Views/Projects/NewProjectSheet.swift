@@ -189,7 +189,7 @@ struct NewProjectSheet: View {
              "creative writing", "academic":
             return .content
         case "automation", "workflow", "pipeline":
-            return .automation
+            return .general
         default:
             return .general
         }
@@ -205,7 +205,7 @@ extension Project.ProjectType {
         case .content: return "Content"
         case .image: return "Image"
         case .video: return "Video"
-        case .automation: return "Automation"
+        // case .automation: return "Automation"
         case .general: return "General"
         }
     }
