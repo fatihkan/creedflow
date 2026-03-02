@@ -3,6 +3,8 @@ name: "Desktop Build (macOS + Linux)"
 on:
   push:
     branches: [main]
+    tags:
+      - "v*"
     paths:
       - "creedflow-desktop/**"
       - ".github/workflows/desktop.yml"
