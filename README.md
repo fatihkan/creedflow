@@ -15,12 +15,12 @@
 
 | Platform | Architecture | Version | Download |
 |----------|-------------|---------|----------|
-| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.1.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow-1.1.0-arm64.dmg) |
-| **macOS** | Intel | v1.1.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow-1.1.0-x86_64.dmg) |
-| **Linux** | x86_64 (AppImage) | v1.1.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow_1.1.0_amd64.AppImage) |
-| **Linux** | x86_64 (Debian/Ubuntu) | v1.1.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.1.0/CreedFlow_1.1.0_amd64.deb) |
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.2.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.2.0/CreedFlow-1.2.0-arm64.dmg) |
+| **macOS** | Intel | v1.2.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.2.0/CreedFlow-1.2.0-x86_64.dmg) |
+| **Linux** | x86_64 (AppImage) | v1.2.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.2.0/CreedFlow_1.2.0_amd64.AppImage) |
+| **Linux** | x86_64 (Debian/Ubuntu) | v1.2.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.2.0/CreedFlow_1.2.0_amd64.deb) |
 
-> **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, Ollama, LM Studio, llama.cpp, or MLX.
+> **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, OpenCode, Ollama, LM Studio, llama.cpp, or MLX.
 
 ### macOS Installation
 
@@ -47,14 +47,44 @@ This only needs to be done once.
 
 **AppImage:**
 ```bash
-chmod +x CreedFlow_1.1.0_amd64.AppImage
-./CreedFlow_1.1.0_amd64.AppImage
+chmod +x CreedFlow_1.2.0_amd64.AppImage
+./CreedFlow_1.2.0_amd64.AppImage
 ```
 
 **Debian/Ubuntu:**
 ```bash
-sudo dpkg -i CreedFlow_1.1.0_amd64.deb
+sudo dpkg -i CreedFlow_1.2.0_amd64.deb
 ```
+
+---
+
+## What's New in v1.2.0
+
+### AI Chat System
+- **Project Chat Panel** — Slide-in chat panel for AI-assisted task planning and brainstorming
+- **Task Proposals** — AI suggests features and tasks inline; approve or reject with one click
+- **Streaming Responses** — Real-time typing indicator with partial content display
+
+### New Backend: OpenCode
+- **8th AI Backend** — OpenCode CLI support with auto-detection and smart routing
+- Backend count: 7 → 8 (Claude, Codex, Gemini, Ollama, LM Studio, llama.cpp, MLX, OpenCode)
+
+### Project Management
+- **Import Existing Projects** — Point to an existing directory instead of creating a new one
+- **Project Creation Wizard** — Step-by-step guided project setup with tech stack detection
+- **Project Docs Export** — Bundle architecture docs, diagrams, and README into a single file (for NotebookLM or other tools)
+- **Project-Type-Aware Analysis** — Analyzer produces specialized output per project type (software, content, image, video)
+
+### Prompt System
+- **Prompt Import/Export** — Share prompts as JSON files across teams
+- **Version Diff** — Side-by-side comparison of prompt versions with line-level diff
+- **Prompt Recommender** — AI-powered prompt suggestions based on success rate and review scores
+
+### Platform
+- **CLI Usage Tracking** — Real-time API usage monitoring via Anthropic/OpenAI admin APIs with sidebar progress bars
+- **MCP Requirements Checker** — Auto-detect missing MCP servers based on project type and agent configuration
+- **Creative AI Services** — HeyGen, Replicate, Leonardo.AI MCP templates for video/image generation
+- **Skill Persona** — Assign personality/expertise profiles to tasks for specialized agent behavior
 
 ---
 
@@ -82,16 +112,19 @@ Telegram notification → You approve → Deploy
 
 - **11 AI Agents** — Analyzer, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor, Publisher
 - **Deep Analysis** — Architecture docs, data models with field-level detail, Mermaid diagrams (ER, flowchart, sequence, class), tasks with acceptance criteria and file lists
-- **7 AI Backends** — Claude, Codex, Gemini (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
+- **8 AI Backends** — Claude, Codex, Gemini, OpenCode (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
+- **AI Chat** — Project-scoped chat panel for AI-assisted planning with inline task proposals
 - **Kanban Board** — Drag-and-drop task management with live agent output
+- **Project Wizard** — Step-by-step project creation with import existing directory support
 - **Setup Wizard** — Environment detection, one-click dependency install via Homebrew (macOS) or apt/dnf/pacman (Linux)
 - **Asset Pipeline** — Creative agents produce images/videos/designs with versioning, checksums, and format variants (.md → .html, .txt, .pdf)
 - **Content Publishing** — Publish to Medium, WordPress, Twitter, LinkedIn with scheduled publishing
-- **Prompt Library** — Versioning, chaining, tagging, effectiveness-based selection
+- **Prompt Library** — Versioning, chaining, tagging, import/export, version diff, AI-powered recommendations
+- **CLI Usage Tracking** — Real-time API usage monitoring via Anthropic/OpenAI admin APIs
 - **Git Integration** — Feature branches, auto-commit, auto-merge on review pass, three-branch progression (dev → staging → main)
 - **Local Deploy** — Docker, Docker Compose, or direct process execution
 - **MCP Server** — 13 tools + 5 resources via `creedflow://` URIs
-- **Creative MCP** — DALL-E, Figma, Stability AI, ElevenLabs, Runway integrations
+- **Creative MCP** — DALL-E, Figma, Stability AI, ElevenLabs, Runway, HeyGen, Replicate, Leonardo.AI integrations
 - **Telegram Notifications** — Task completion, review results, deploy status
 
 ## Tech Stack
@@ -101,7 +134,7 @@ Telegram notification → You approve → Deploy
 | Language | Swift 6.0 | Rust + TypeScript |
 | UI | SwiftUI | React + Tailwind CSS (Tauri) |
 | Database | SQLite via GRDB.swift | SQLite via rusqlite |
-| AI Backends | Claude CLI, Codex CLI, Gemini CLI + Ollama, LM Studio, llama.cpp, MLX | Same |
+| AI Backends | Claude CLI, Codex CLI, Gemini CLI, OpenCode + Ollama, LM Studio, llama.cpp, MLX | Same |
 | MCP | modelcontextprotocol/swift-sdk | — |
 | Deployment | Docker / Docker Compose / Direct Process | Same |
 | Notifications | Telegram Bot API | Same |
@@ -149,7 +182,7 @@ pnpm tauri build      # Production (.deb + .AppImage)
 ┌──────────────────────────▼──────────────────────────────────┐
 │                    AI Backends                                │
 │                                                              │
-│  Cloud:  Claude CLI  ·  Codex CLI  ·  Gemini CLI            │
+│  Cloud:  Claude CLI · Codex CLI · Gemini CLI · OpenCode     │
 │  Local:  Ollama  ·  LM Studio  ·  llama.cpp  ·  MLX        │
 └──────────────────────────┬──────────────────────────────────┘
                            │
