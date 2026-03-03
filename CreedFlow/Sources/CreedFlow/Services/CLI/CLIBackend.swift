@@ -70,6 +70,21 @@ struct CLIResult: Sendable {
     let outputTokens: Int
 }
 
+// MARK: - Chat Attachment
+
+/// A file or image attached to a chat message.
+package struct ChatAttachment: Codable, Sendable, Equatable {
+    package let path: String      // absolute filesystem path
+    package let name: String      // display name (filename)
+    package let isImage: Bool     // true=image, false=text file
+
+    package init(path: String, name: String, isImage: Bool) {
+        self.path = path
+        self.name = name
+        self.isImage = isImage
+    }
+}
+
 // MARK: - Task Input
 
 /// Backend-neutral input for a CLI task.
@@ -82,6 +97,29 @@ struct CLITaskInput: Sendable {
     let timeoutSeconds: Int
     let mcpConfigPath: String?
     let jsonSchema: String?
+    let attachments: [ChatAttachment]
+
+    init(
+        prompt: String,
+        systemPrompt: String? = nil,
+        workingDirectory: String,
+        allowedTools: [String]? = nil,
+        maxBudgetUSD: Double? = nil,
+        timeoutSeconds: Int,
+        mcpConfigPath: String? = nil,
+        jsonSchema: String? = nil,
+        attachments: [ChatAttachment] = []
+    ) {
+        self.prompt = prompt
+        self.systemPrompt = systemPrompt
+        self.workingDirectory = workingDirectory
+        self.allowedTools = allowedTools
+        self.maxBudgetUSD = maxBudgetUSD
+        self.timeoutSeconds = timeoutSeconds
+        self.mcpConfigPath = mcpConfigPath
+        self.jsonSchema = jsonSchema
+        self.attachments = attachments
+    }
 }
 
 // MARK: - Backend Protocol

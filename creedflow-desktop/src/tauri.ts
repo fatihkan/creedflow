@@ -349,12 +349,31 @@ export const setGitConfig = (name: string, email: string) =>
 
 // ─── Chat ───────────────────────────────────────────────────────────────────
 
+import type { ChatAttachment } from "./types/models";
+
 export const sendChatMessage = (
   projectId: string,
   content: string,
   role: string,
+  attachments?: ChatAttachment[],
 ) =>
-  invoke<ProjectMessage>("send_chat_message", { projectId, content, role });
+  invoke<ProjectMessage>("send_chat_message", {
+    projectId,
+    content,
+    role,
+    attachments: attachments ?? null,
+  });
+
+export const streamChatResponse = (
+  projectId: string,
+  content: string,
+  attachments: ChatAttachment[],
+) =>
+  invoke<string>("stream_chat_response", {
+    projectId,
+    content,
+    attachments,
+  });
 
 export const listChatMessages = (projectId: string) =>
   invoke<ProjectMessage[]>("list_chat_messages", { projectId });

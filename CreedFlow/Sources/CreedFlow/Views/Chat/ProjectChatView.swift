@@ -11,6 +11,7 @@ struct ProjectChatView: View {
     @State private var chatService: ProjectChatService?
     @State private var inputText = ""
     @State private var project: Project?
+    @State private var showFileImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -165,41 +166,105 @@ struct ProjectChatView: View {
     // MARK: - Input
 
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextEditor(text: $inputText)
-                .font(.system(.body))
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 36, maxHeight: 120)
-                .padding(6)
-                .background(.quaternary.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .onSubmit {
-                    sendMessage()
+        VStack(spacing: 0) {
+            // Attachment preview strip
+            if let service = chatService, !service.pendingAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(service.pendingAttachments, id: \.path) { attachment in
+                            attachmentChip(attachment)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
                 }
-
-            if chatService?.isStreaming == true {
-                Button {
-                    chatService?.cancel()
-                } label: {
-                    Image(systemName: "stop.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.forgeDanger)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    sendMessage()
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.forgeNeutral : Color.forgeAmber)
-                }
-                .buttonStyle(.plain)
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+
+            HStack(alignment: .bottom, spacing: 8) {
+                // Paperclip button
+                Button {
+                    showFileImporter = true
+                } label: {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Attach files or images")
+
+                TextEditor(text: $inputText)
+                    .font(.system(.body))
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 36, maxHeight: 120)
+                    .padding(6)
+                    .background(.quaternary.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .onSubmit {
+                        sendMessage()
+                    }
+
+                if chatService?.isStreaming == true {
+                    Button {
+                        chatService?.cancel()
+                    } label: {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.forgeDanger)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        sendMessage()
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.forgeNeutral : Color.forgeAmber)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.image, .plainText, .sourceCode, .json, .yaml, .xml, .html, .data],
+            allowsMultipleSelection: true
+        ) { result in
+            handleFileImport(result)
+        }
+    }
+
+    private func attachmentChip(_ attachment: ChatAttachment) -> some View {
+        HStack(spacing: 4) {
+            if attachment.isImage {
+                Image(systemName: "photo")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.forgeInfo)
+            } else {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.forgeAmber)
+            }
+
+            Text(attachment.name)
+                .font(.system(size: 11))
+                .lineLimit(1)
+                .foregroundStyle(.primary)
+
+            Button {
+                chatService?.pendingAttachments.removeAll { $0.path == attachment.path }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.quaternary.opacity(0.5), in: Capsule())
     }
 
     // MARK: - Actions
@@ -221,10 +286,39 @@ struct ProjectChatView: View {
 
     private func sendMessage() {
         let text = inputText
+        let attachments = chatService?.pendingAttachments ?? []
         inputText = ""
+        chatService?.pendingAttachments = []
         guard let service = chatService else { return }
         Task {
-            await service.send(text)
+            await service.send(text, attachments: attachments)
+        }
+    }
+
+    private func handleFileImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            for url in urls {
+                guard url.startAccessingSecurityScopedResource() else { continue }
+                defer { url.stopAccessingSecurityScopedResource() }
+
+                let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp"]
+                let ext = url.pathExtension.lowercased()
+                let isImage = imageExtensions.contains(ext)
+
+                let attachment = ChatAttachment(
+                    path: url.path,
+                    name: url.lastPathComponent,
+                    isImage: isImage
+                )
+
+                // Avoid duplicates
+                if chatService?.pendingAttachments.contains(where: { $0.path == attachment.path }) == false {
+                    chatService?.pendingAttachments.append(attachment)
+                }
+            }
+        case .failure(let error):
+            chatService?.error = "File import failed: \(error.localizedDescription)"
         }
     }
 

@@ -1,5 +1,6 @@
-import { Bot, User } from "lucide-react";
-import type { ProjectMessage } from "../../types/models";
+import { Bot, User, FileText } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import type { ChatAttachment, ProjectMessage } from "../../types/models";
 
 interface Props {
   message: ProjectMessage;
@@ -15,9 +16,19 @@ const BACKEND_COLORS: Record<string, string> = {
   mlx: "bg-teal-500/20 text-teal-300",
 };
 
+function parseAttachments(attachmentsJson?: string): ChatAttachment[] {
+  if (!attachmentsJson) return [];
+  try {
+    return JSON.parse(attachmentsJson) as ChatAttachment[];
+  } catch {
+    return [];
+  }
+}
+
 export function ChatMessage({ message }: Props) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
+  const attachments = parseAttachments(message.attachments);
 
   if (isSystem) {
     return (
@@ -75,6 +86,30 @@ export function ChatMessage({ message }: Props) {
         >
           {message.content}
         </div>
+
+        {/* Attachments */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {attachments.map((att) =>
+              att.isImage ? (
+                <img
+                  key={att.path}
+                  src={convertFileSrc(att.path)}
+                  alt={att.name}
+                  className="w-16 h-16 object-cover rounded-md border border-zinc-700"
+                />
+              ) : (
+                <div
+                  key={att.path}
+                  className="flex items-center gap-1 px-2 py-1 rounded bg-zinc-800 text-[10px] text-zinc-400"
+                >
+                  <FileText className="w-3 h-3 text-amber-400" />
+                  <span className="max-w-[80px] truncate">{att.name}</span>
+                </div>
+              ),
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ final class ProjectChatService {
     private(set) var streamingContent = ""
     private(set) var activeBackend: CLIBackendType?
     var error: String?
+    var pendingAttachments: [ChatAttachment] = []
 
     private let history: ChatHistory
     private let backendRouter: BackendRouter
@@ -74,7 +75,7 @@ final class ProjectChatService {
 
     /// Send a user message and get an AI response.
     @MainActor
-    func send(_ text: String) async {
+    func send(_ text: String, attachments: [ChatAttachment] = []) async {
         guard let projectId else {
             error = "No project bound"
             return
@@ -85,11 +86,18 @@ final class ProjectChatService {
 
         error = nil
 
+        // Encode attachments as metadata JSON
+        let attachmentMetadata: String? = attachments.isEmpty ? nil : {
+            let data = try? JSONEncoder().encode(["attachments": attachments])
+            return data.flatMap { String(data: $0, encoding: .utf8) }
+        }()
+
         // Save user message
         let userMessage = ProjectMessage(
             projectId: projectId,
             role: .user,
-            content: trimmed
+            content: trimmed,
+            metadata: attachmentMetadata
         )
         do {
             try await history.saveMessage(userMessage)
@@ -112,7 +120,13 @@ final class ProjectChatService {
 
         do {
             // Build context prompt
-            let prompt = try await history.buildContext(for: projectId, newMessage: trimmed)
+            var prompt = try await history.buildContext(for: projectId, newMessage: trimmed)
+
+            // Prepend attachment context to prompt
+            if !attachments.isEmpty {
+                let attachmentContext = Self.buildAttachmentContext(attachments)
+                prompt = attachmentContext + "\n\n" + prompt
+            }
 
             let input = CLITaskInput(
                 prompt: prompt,
@@ -122,7 +136,8 @@ final class ProjectChatService {
                 maxBudgetUSD: nil,
                 timeoutSeconds: 300,
                 mcpConfigPath: nil,
-                jsonSchema: nil
+                jsonSchema: nil,
+                attachments: attachments
             )
 
             let (processId, stream) = await backend.execute(input)
@@ -318,6 +333,33 @@ final class ProjectChatService {
         } catch {
             self.error = "Failed to reject proposal: \(error.localizedDescription)"
         }
+    }
+
+    // MARK: - Attachment Context
+
+    /// Builds a text context block from attachments to prepend to the AI prompt.
+    static func buildAttachmentContext(_ attachments: [ChatAttachment]) -> String {
+        var parts: [String] = []
+        for attachment in attachments {
+            if attachment.isImage {
+                parts.append("[Attached image: \(attachment.path)]")
+            } else {
+                // Read text file content (max 50KB)
+                let maxSize = 50 * 1024
+                if let data = FileManager.default.contents(atPath: attachment.path),
+                   data.count <= maxSize,
+                   let content = String(data: data, encoding: .utf8) {
+                    parts.append("<attached_file name=\"\(attachment.name)\">\n\(content)\n</attached_file>")
+                } else if let data = FileManager.default.contents(atPath: attachment.path),
+                          data.count > maxSize {
+                    let truncated = String(data: data.prefix(maxSize), encoding: .utf8) ?? ""
+                    parts.append("<attached_file name=\"\(attachment.name)\" truncated=\"true\">\n\(truncated)\n</attached_file>")
+                } else {
+                    parts.append("[Attached file: \(attachment.path) (could not read)]")
+                }
+            }
+        }
+        return parts.joined(separator: "\n\n")
     }
 
     // MARK: - Helpers

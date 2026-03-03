@@ -99,6 +99,7 @@ impl TaskRunner {
             timeout_seconds: agent.timeout_seconds(),
             mcp_config_path: mcp_config_path.map(|p| p.to_string_lossy().to_string()),
             json_schema: None,
+            attachments: vec![],
         };
 
         // 6. Execute with timeout

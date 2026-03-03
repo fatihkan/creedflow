@@ -93,6 +93,7 @@ pub enum AgentType {
     ImageGenerator,
     VideoEditor,
     Publisher,
+    Planner,
 }
 
 impl AgentType {
@@ -109,6 +110,7 @@ impl AgentType {
             Self::ImageGenerator => "imageGenerator",
             Self::VideoEditor => "videoEditor",
             Self::Publisher => "publisher",
+            Self::Planner => "planner",
         }
     }
     pub fn from_str(s: &str) -> Self {
@@ -124,6 +126,7 @@ impl AgentType {
             "imageGenerator" => Self::ImageGenerator,
             "videoEditor" => Self::VideoEditor,
             "publisher" => Self::Publisher,
+            "planner" => Self::Planner,
             _ => Self::Analyzer,
         }
     }
@@ -133,6 +136,7 @@ impl AgentType {
             Self::Analyzer, Self::Coder, Self::Reviewer, Self::Tester,
             Self::Devops, Self::Monitor, Self::ContentWriter, Self::Designer,
             Self::ImageGenerator, Self::VideoEditor, Self::Publisher,
+            Self::Planner,
         ]
     }
 }
@@ -990,6 +994,7 @@ pub struct AgentBackendOverrides {
     pub image_generator: Option<String>,
     pub video_editor: Option<String>,
     pub publisher: Option<String>,
+    pub planner: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -1020,6 +1025,16 @@ impl Default for AppSettings {
     }
 }
 
+// ─── Chat Attachment ────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatAttachment {
+    pub name: String,
+    pub path: String,
+    pub is_image: bool,
+}
+
 // ─── Project Chat Messages ──────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1033,6 +1048,7 @@ pub struct ProjectMessage {
     pub cost_usd: Option<f64>,
     pub duration_ms: Option<i64>,
     pub metadata: Option<String>,
+    pub attachments: Option<String>,
     pub created_at: String,
 }
 
@@ -1047,14 +1063,15 @@ impl ProjectMessage {
             cost_usd: row.get("cost_usd")?,
             duration_ms: row.get("duration_ms")?,
             metadata: row.get("metadata")?,
+            attachments: row.get("attachments")?,
             created_at: row.get("created_at")?,
         })
     }
 
     pub fn insert(conn: &Connection, msg: &ProjectMessage) -> rusqlite::Result<()> {
         conn.execute(
-            "INSERT INTO project_message (id, project_id, role, content, backend, cost_usd, duration_ms, metadata, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO project_message (id, project_id, role, content, backend, cost_usd, duration_ms, metadata, attachments, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 msg.id,
                 msg.project_id,
@@ -1064,6 +1081,7 @@ impl ProjectMessage {
                 msg.cost_usd,
                 msg.duration_ms,
                 msg.metadata,
+                msg.attachments,
                 msg.created_at,
             ],
         )?;
