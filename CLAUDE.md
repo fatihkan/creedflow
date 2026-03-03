@@ -15,7 +15,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 | Language | Swift 6.0 (language mode v5 per target) |
 | UI | SwiftUI (macOS 14+) |
 | Database | SQLite via GRDB.swift |
-| AI Backends | Claude CLI, Codex CLI, Gemini CLI + Ollama, LM Studio, llama.cpp, MLX |
+| AI Backends | Claude CLI, Codex CLI, Gemini CLI, OpenCode, OpenClaw + Ollama, LM Studio, llama.cpp, MLX |
 | MCP | modelcontextprotocol/swift-sdk 0.11.0 |
 | Deployment | Docker / Docker Compose / Direct Process |
 | Notifications | Telegram Bot API |
@@ -46,12 +46,14 @@ Platform: macOS 14+ (arm64). Database at `~/Library/Application Support/CreedFlo
 
 ### Multi-CLI Backend System
 
-`CLIBackend` protocol with 7 implementations:
+`CLIBackend` protocol with 9 implementations:
 
 **Cloud backends (preferred):**
 - **ClaudeBackend** — Wraps `ClaudeProcessManager`, supports MCP/tools/JSON schema
 - **CodexBackend** — Spawns `codex exec "<prompt>" --full-auto --skip-git-repo-check`
 - **GeminiBackend** — Spawns `gemini -p "<prompt>" -y -o text`
+- **OpenCodeBackend** — Spawns `opencode run "<prompt>" --format json -q`
+- **OpenClawBackend** — Spawns `openclaw agent --message "<prompt>" --format text`
 
 **Local LLM backends (fallback):**
 - **OllamaBackend** — Spawns `ollama run <model> "<prompt>"` (default model: `llama3.2`)
@@ -70,7 +72,7 @@ Local backends are **not** in any agent's `preferred` list. They are picked up v
 
 **Hard rules:** A disabled backend (UserDefaults `<type>Enabled`) or one whose CLI binary is missing is NEVER selected. Tasks are deferred (not skipped) when no backend is available. LlamaCppBackend also requires a valid GGUF model path. LMStudioBackend requires `localhost:1234` to be reachable.
 
-### 11 AI Agents
+### 12 AI Agents
 
 All conform to `AgentProtocol` with `backendPreferences`:
 
@@ -87,6 +89,7 @@ All conform to `AgentProtocol` with `backendPreferences`:
 | ImageGenerator | claudePreferred | 10min | dalle, stability, creedflow | AI image generation |
 | VideoEditor | claudePreferred | 15min | runway, elevenlabs, creedflow | Video/audio generation |
 | Publisher | claudePreferred | 10min | creedflow | Content distribution to channels |
+| Planner | anyBackend | 5min | - | Project planning and task breakdown |
 
 ### Engine
 
@@ -98,7 +101,7 @@ All conform to `AgentProtocol` with `backendPreferences`:
 
 ### Database (SQLite via GRDB)
 
-13 migrations (v1–v13). 18 models: `Project`, `Feature`, `AgentTask`, `TaskDependency`, `Review`, `AgentLog`, `Deployment`, `CostTracking`, `MCPServerConfig`, `Prompt`, `PromptVersion`, `PromptChain`, `PromptChainStep`, `PromptTag`, `PromptUsage`, `GeneratedAsset`, `Publication`, `PublishingChannel`.
+19 migrations (v1–v19). 20 models: `Project`, `Feature`, `AgentTask`, `TaskDependency`, `Review`, `AgentLog`, `Deployment`, `CostTracking`, `MCPServerConfig`, `Prompt`, `PromptVersion`, `PromptChain`, `PromptChainStep`, `PromptTag`, `PromptUsage`, `GeneratedAsset`, `Publication`, `PublishingChannel`, `ArchivedTask`, `ProjectChatMessage`.
 
 ### MCP Integration
 
@@ -147,6 +150,8 @@ Sources/CreedFlow/Services/CLI/OllamaBackend.swift  — Ollama local LLM adapter
 Sources/CreedFlow/Services/CLI/LMStudioBackend.swift — LM Studio HTTP API adapter
 Sources/CreedFlow/Services/CLI/LlamaCppBackend.swift — llama.cpp CLI adapter
 Sources/CreedFlow/Services/CLI/MLXBackend.swift      — MLX-LM CLI adapter (Apple Silicon)
+Sources/CreedFlow/Services/CLI/OpenCodeBackend.swift  — OpenCode CLI adapter
+Sources/CreedFlow/Services/CLI/OpenClawBackend.swift  — OpenClaw CLI adapter
 Sources/CreedFlow/Services/Claude/ClaudeProcessManager.swift — Process spawning
 Sources/CreedFlow/Services/ProcessTracker.swift     — Global child process cleanup
 Sources/CreedFlow/Services/Agents/AgentProtocol.swift — Agent interface
@@ -160,7 +165,7 @@ Sources/CreedFlow/Services/ThumbnailGeneratorService.swift — QuickLook thumbna
 Sources/CreedFlow/Services/Publishing/ContentPublishingService.swift — Central publishing coordinator
 Sources/CreedFlow/Services/Publishing/ContentExporter.swift — Markdown→HTML/plaintext/PDF export
 Sources/CreedFlow/Services/Storage/LocalAssetStorageBackend.swift — Local filesystem storage backend
-Sources/CreedFlow/Database/AppDatabase.swift        — Migrations v1–v13
+Sources/CreedFlow/Database/AppDatabase.swift        — Migrations v1–v19
 Sources/CreedFlow/Services/DependencyInstaller.swift — System dependency detection + Homebrew install
 Sources/CreedFlow/Views/ContentView.swift           — Main window layout (sidebar + content + right detail panel)
 Sources/CreedFlow/Views/Tasks/TaskBoardView.swift   — Kanban board
