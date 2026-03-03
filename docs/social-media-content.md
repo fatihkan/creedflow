@@ -6,7 +6,7 @@
 
 I built an AI orchestration platform that turns a single project description into a fully working codebase.
 
-11 AI agents. 7 backends. One app.
+11 AI agents. 9 backends. One app.
 
 CreedFlow is now open source.
 
@@ -44,9 +44,9 @@ Every asset is versioned with SHA256 checksums.
 
 ### Tweet 4
 
-7 AI backends, zero lock-in:
+9 AI backends, zero lock-in:
 
-Cloud: Claude CLI · Codex · Gemini
+Cloud: Claude CLI · Codex · Gemini · OpenCode · OpenClaw
 Local: Ollama · LM Studio · llama.cpp · MLX
 
 Smart routing with automatic fallback. If cloud is down, local LLMs take over. No API keys required for local.
@@ -55,10 +55,10 @@ Smart routing with automatic fallback. If cloud is down, local LLMs take over. N
 
 ### Tweet 5
 
-CreedFlow v1.0.0 is live.
+CreedFlow v1.2.0 is live.
 
 macOS native (Swift + SwiftUI)
-Linux version in development
+Linux desktop (Tauri + React) available
 
 GitHub: github.com/fatihkan/creedflow
 
@@ -89,7 +89,7 @@ You describe a project in plain English. CreedFlow takes it from there:
 The tech behind it:
 
 - 11 specialized AI agents, each with their own role and capabilities
-- 7 AI backends: Claude, Codex, Gemini (cloud) + Ollama, LM Studio, llama.cpp, MLX (local)
+- 9 AI backends: Claude, Codex, Gemini, OpenCode, OpenClaw (cloud) + Ollama, LM Studio, llama.cpp, MLX (local)
 - Smart routing — if a cloud backend is unavailable, local LLMs take over automatically
 - Built with Swift 6.0 + SwiftUI, runs entirely on your machine
 - MCP server with 13 tools for extensibility
@@ -102,10 +102,10 @@ Building this taught me that the future isn't a single AI doing everything. It's
 
 What's next:
 
-- Linux desktop app (Tauri + React) — already in development
+- More AI backends and agent improvements
 - Community contributions and feedback
 
-CreedFlow v1.0.0 is live on GitHub: github.com/fatihkan/creedflow
+CreedFlow v1.2.0 is live on GitHub: github.com/fatihkan/creedflow
 
 If you're a developer who works with AI tools daily, I'd love your feedback.
 
@@ -140,7 +140,7 @@ If you're a developer who works with AI tools daily, I'd love your feedback.
 | 25-35s | Coder + Reviewer | Code being written, review score showing |
 | 35-45s | Creative pipeline | Assets generated, format variants visible |
 | 45-55s | Deploy | Docker deploy, success message |
-| 55-65s | Backend settings | 7 backends visible, fallback explanation |
+| 55-65s | Backend settings | 9 backends visible, fallback explanation |
 | 65-75s | Closing | GitHub URL + "Buy me a coffee" + #opensource |
 
 **Recording:** macOS built-in (Cmd+Shift+5) or OBS

@@ -23,3 +23,13 @@ DerivedData/
 # IDE
 .idea/
 .vscode/
+
+# Secrets & credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+credentials.*

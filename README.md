@@ -240,6 +240,19 @@ CreedFlow also runs as an MCP server (`CreedFlowMCPServer` binary):
 
 **Resources (5):** `creedflow://projects`, `creedflow://tasks/queue`, `creedflow://costs/summary`, `creedflow://projects/{id}/assets`, `creedflow://publications`
 
+## Security
+
+CreedFlow orchestrates AI agents that generate and modify code autonomously. When using AI-powered code generation, follow these security practices:
+
+- **Review all AI-generated code** before committing or deploying. AI agents can produce code with unintended vulnerabilities.
+- **Never commit secrets** — API keys, tokens, passwords, and private keys should never be stored in your repository. Use environment variables or a secrets manager.
+- **Use `.gitignore`** — Ensure `.env`, `*.pem`, `*.key`, and other sensitive file patterns are excluded from version control.
+- **Sandbox your deployments** — CreedFlow supports Docker-based deployment. Use containers to isolate AI-generated code from your host system.
+- **Monitor agent output** — Review agent logs and generated files before approving tasks, especially for DevOps and deployment operations.
+- **Keep backends updated** — Regularly update your AI CLI tools (Claude, Codex, Gemini, etc.) to get the latest security patches.
+
+> CreedFlow stores API keys and tokens locally on your machine (UserDefaults on macOS, settings.json on Linux). These are never transmitted to third parties beyond the configured AI backends.
+
 ## Support
 
 If you find CreedFlow useful, consider supporting the project:
