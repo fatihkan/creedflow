@@ -31,6 +31,7 @@ const AGENT_OVERRIDE_KEYS: AgentType[] = [
   "imageGenerator",
   "videoEditor",
   "publisher",
+  "planner",
 ];
 
 export function AgentPreferences() {
@@ -59,6 +60,7 @@ export function AgentPreferences() {
         imageGenerator: null,
         videoEditor: null,
         publisher: null,
+        planner: null,
       } satisfies AgentBackendOverrides),
       ...overrides,
       [agentType]: value === "default" ? null : value,

@@ -68,6 +68,7 @@ actor GitBranchManager {
         case .videoEditor: return "asset(video)"
         case .monitor: return "chore(monitor)"
         case .publisher: return "chore(publish)"
+        case .planner: return "docs(plan)"
         }
     }
 

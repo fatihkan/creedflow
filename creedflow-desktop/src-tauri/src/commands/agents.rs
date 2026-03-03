@@ -32,6 +32,7 @@ pub async fn list_agent_types() -> Result<Vec<AgentTypeInfo>, String> {
         AgentTypeInfo { agent_type: "imageGenerator".into(), display_name: "Image Generator".into(), timeout_seconds: 600, backend_preference: "claudePreferred".into(), has_mcp: true },
         AgentTypeInfo { agent_type: "videoEditor".into(), display_name: "Video Editor".into(), timeout_seconds: 900, backend_preference: "claudePreferred".into(), has_mcp: true },
         AgentTypeInfo { agent_type: "publisher".into(), display_name: "Publisher".into(), timeout_seconds: 600, backend_preference: "claudePreferred".into(), has_mcp: true },
+        AgentTypeInfo { agent_type: "planner".into(), display_name: "Planner".into(), timeout_seconds: 300, backend_preference: "anyBackend".into(), has_mcp: false },
     ])
 }
 
@@ -53,5 +54,6 @@ pub async fn get_agent_backend_info() -> Result<Vec<AgentBackendInfo>, String> {
         AgentBackendInfo { agent_type: "imageGenerator".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
         AgentBackendInfo { agent_type: "videoEditor".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
         AgentBackendInfo { agent_type: "publisher".into(), default_preference: "claudePreferred".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
+        AgentBackendInfo { agent_type: "planner".into(), default_preference: "anyBackend".into(), allowed_backends: all_backends.iter().map(|s| s.to_string()).collect() },
     ])
 }

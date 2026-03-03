@@ -378,6 +378,7 @@ final class Orchestrator {
         case .imageGenerator: return ImageGeneratorAgent()
         case .videoEditor: return VideoEditorAgent()
         case .publisher: return PublisherAgent()
+        case .planner: return PlannerAgent()
         }
     }
 

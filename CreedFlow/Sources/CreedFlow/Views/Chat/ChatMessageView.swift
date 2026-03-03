@@ -128,9 +128,7 @@ struct ChatMessageView: View {
         var content = message.content
         if let jsonStart = content.range(of: "```json"),
            let jsonEnd = content.range(of: "```", range: jsonStart.upperBound..<content.endIndex) {
-            let endOfBlock = content.index(after: jsonEnd.upperBound)
-            let blockEnd = min(endOfBlock, content.endIndex)
-            content.removeSubrange(jsonStart.lowerBound..<blockEnd)
+            content.removeSubrange(jsonStart.lowerBound..<jsonEnd.upperBound)
         }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }

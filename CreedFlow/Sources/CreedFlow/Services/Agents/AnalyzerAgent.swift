@@ -450,15 +450,15 @@ struct AnalyzerAgent: AgentProtocol {
     private func allowedAgentTypes(for type: Project.ProjectType) -> String {
         switch type {
         case .software:
-            return "coder|devops|tester"
+            return "coder|devops|tester|planner"
         case .content:
-            return "contentWriter|reviewer"
+            return "contentWriter|reviewer|planner"
         case .image:
-            return "imageGenerator|designer|reviewer"
+            return "imageGenerator|designer|reviewer|planner"
         case .video:
-            return "videoEditor|imageGenerator|contentWriter"
+            return "videoEditor|imageGenerator|contentWriter|planner"
         case .general:
-            return "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer"
+            return "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer|planner"
         }
     }
 }

@@ -12,6 +12,7 @@ const AGENT_LABELS: Record<AgentType, string> = {
   imageGenerator: "Image Gen",
   videoEditor: "Video Editor",
   publisher: "Publisher",
+  planner: "Planner",
 };
 
 export function AgentTypeBadge({ agentType }: { agentType: AgentType }) {
