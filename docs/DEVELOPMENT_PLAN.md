@@ -8,54 +8,45 @@ This document outlines the phased development roadmap for CreedFlow v1.4.0 and b
 
 ---
 
-## Phase 1: Core Engine Hardening (Week 1-2)
+## Phase 1: Core Engine Hardening (Week 1-2) — COMPLETED
 
 Foundation work — makes everything else more reliable.
 
-| Order | Issue | Effort | Dependency |
-|-------|-------|--------|------------|
-| 1.1 | #142 Backend Health Monitoring | 3 days | None |
-| 1.2 | #143 Rate Limit Detection and Handling | 3 days | #142 (uses health status) |
-| 1.3 | #171 MCP Server Health Check and Connection Monitor | 3 days | #142 (same pattern) |
-| 1.4 | #144 In-App Notification Center | 2 days | None (but #142, #143, #171 emit notifications) |
+| Order | Issue | Effort | Status |
+|-------|-------|--------|--------|
+| 1.1 | #142 Backend Health Monitoring | 3 days | Done |
+| 1.2 | #143 Rate Limit Detection and Handling | 3 days | Done |
+| 1.3 | #171 MCP Server Health Check and Connection Monitor | 3 days | Done |
+| 1.4 | #144 In-App Notification Center | 2 days | Done |
 
-**Why this order:**
-- #142 creates the health monitoring pattern that #143 and #171 reuse
-- #144 (notification center) should come after health monitors so they can emit notifications immediately
-- All four together make the engine production-grade
-
-**Deliverables:**
-- `BackendHealthMonitor` actor with periodic checks
-- Rate limit parser + exponential backoff in `RetryPolicy`
-- `MCPHealthMonitor` actor with API key validation + connection tests
-- `NotificationService` + `AppNotification` model + toast UI
-- New DB migration (v20): `appNotification` table
+**Delivered:**
+- `BackendHealthMonitor` actor with periodic checks (60s interval, 5s timeout)
+- `RateLimitDetector` with regex patterns + exponential backoff in `RetryPolicy`
+- `MCPHealthMonitor` actor with connection tests (120s interval)
+- `NotificationService` + `AppNotification` model + toast overlay + notification panel
+- DB migration v20: `appNotification` + `healthEvent` tables with indexes
+- Health dots in Settings (backend + MCP sections)
 
 ---
 
-## Phase 2: UI Foundation (Week 2-3)
+## Phase 2: UI Foundation (Week 2-3) — COMPLETED
 
 Core UI improvements that affect all views.
 
-| Order | Issue | Effort | Dependency |
-|-------|-------|--------|------------|
-| 2.1 | #145 Search and Filter on All List Views | 2 days | None |
-| 2.2 | #150 Loading Skeleton States and Progress Indicators | 2 days | None |
-| 2.3 | #147 Dark/Light Mode Toggle | 1 day | None |
-| 2.4 | #148 Keyboard Shortcuts Help Overlay | 1 day | None |
-| 2.5 | #158 Task Duplication | 0.5 day | None (good first issue) |
+| Order | Issue | Effort | Status |
+|-------|-------|--------|--------|
+| 2.1 | #145 Search and Filter on All List Views | 2 days | Done |
+| 2.2 | #150 Loading Skeleton States and Progress Indicators | 2 days | Done |
+| 2.3 | #147 Dark/Light Mode Toggle | 1 day | Done |
+| 2.4 | #148 Keyboard Shortcuts Help Overlay | 1 day | Done |
+| 2.5 | #158 Task Duplication | 0.5 day | Done |
 
-**Why this order:**
-- #145 (search) and #150 (loading states) are used everywhere — do first
-- #147 (dark mode) and #148 (shortcuts) are independent quick wins
-- #158 (task duplication) is a small standalone feature
-
-**Deliverables:**
-- `ForgeSearchBar` reusable component
-- Skeleton loading on all list views
-- `@AppStorage("appearanceMode")` with system/light/dark
-- `KeyboardShortcutsView` modal (Cmd+?)
-- "Duplicate" action in task context menu
+**Delivered:**
+- `SearchBar` component (React) + inline search bars (Swift) on Projects, Tasks, Reviews, Deploys, Agents, Archive
+- `Skeleton`, `SkeletonCard`, `SkeletonRow` loading components (React); ProgressView retained (Swift)
+- `themeStore` (Zustand + localStorage, React) + `@AppStorage("appearanceMode")` with NSApp.appearance (Swift)
+- `KeyboardShortcutsOverlay` (React) + `KeyboardShortcutsView` (Swift) triggered by Cmd+?
+- "Duplicate" in task context menu (both Rust command + Swift DB write)
 
 ---
 
@@ -159,8 +150,8 @@ Future improvements after v1.4.0 release.
 
 | Phase | Focus | Issues | Target |
 |-------|-------|--------|--------|
-| **Phase 1** | Engine Hardening | #142, #143, #171, #144 | Week 1-2 |
-| **Phase 2** | UI Foundation | #145, #150, #147, #148, #158 | Week 2-3 |
+| **Phase 1** | Engine Hardening | #142, #143, #171, #144 | **DONE** |
+| **Phase 2** | UI Foundation | #145, #150, #147, #148, #158 | **DONE** |
 | **Phase 3** | Project Features | #168, #170, #156, #157, #159 | Week 3-4 |
 | **Phase 4** | Advanced UI | #167, #151, #149, #169 | Week 4-5 |
 | **Phase 5** | Linux Parity | #146, #152, #153, #154, #155 | Week 5-7 |
@@ -210,7 +201,9 @@ Phase 5 (Tauri Parity)
 ## Release Checklist
 
 ### Before v1.4.0 Release
-- [ ] All Phase 1-5 issues closed
+- [x] Phase 1 issues closed (#142, #143, #171, #144)
+- [x] Phase 2 issues closed (#145, #150, #147, #148, #158)
+- [ ] Phase 3-5 issues closed
 - [ ] `swift build` — 0 errors
 - [ ] `pnpm tauri build` — 0 errors
 - [ ] Bump version to v1.4.0 (Info.plist, tauri.conf.json, package.json)
