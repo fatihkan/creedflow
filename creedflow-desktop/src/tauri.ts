@@ -22,6 +22,10 @@ import type {
   ProjectMessage,
   Prompt,
   PromptVersion,
+  ProjectTimeStats,
+  ProjectTemplate,
+  TaskComment,
+  PromptUsageRecord,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -54,6 +58,22 @@ export const deleteProject = (id: string) =>
 
 export const exportProjectDocs = (id: string, outputPath: string) =>
   invoke<string>("export_project_docs", { id, outputPath });
+
+export const getProjectTimeStats = (projectId: string) =>
+  invoke<ProjectTimeStats>("get_project_time_stats", { projectId });
+
+export const exportProjectZip = (projectId: string, outputPath: string) =>
+  invoke<string>("export_project_zip", { projectId, outputPath });
+
+export const listProjectTemplates = () =>
+  invoke<ProjectTemplate[]>("list_project_templates");
+
+export const createProjectFromTemplate = (templateId: string, name: string, directoryPath?: string) =>
+  invoke<Project>("create_project_from_template", {
+    templateId,
+    name,
+    directoryPath: directoryPath ?? null,
+  });
 
 // ─── Tasks ───────────────────────────────────────────────────────────────────
 
@@ -100,6 +120,15 @@ export const retryTaskWithRevision = (id: string, revisionPrompt?: string) =>
 
 export const duplicateTask = (id: string) =>
   invoke<AgentTask>("duplicate_task", { id });
+
+export const addTaskComment = (taskId: string, content: string, author?: string) =>
+  invoke<TaskComment>("add_task_comment", { taskId, content, author: author ?? null });
+
+export const listTaskComments = (taskId: string) =>
+  invoke<TaskComment[]>("list_task_comments", { taskId });
+
+export const getTaskPromptHistory = (taskId: string) =>
+  invoke<PromptUsageRecord[]>("get_task_prompt_history", { taskId });
 
 // ─── Backends ────────────────────────────────────────────────────────────────
 

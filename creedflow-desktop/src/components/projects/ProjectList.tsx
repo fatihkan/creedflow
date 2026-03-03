@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Terminal, FolderOpen, Code2 } from "lucide-react";
+import { Plus, Trash2, Terminal, FolderOpen, Code2, FileText } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { NewProjectDialog } from "./NewProjectDialog";
+import { ProjectTemplateSelector } from "./ProjectTemplateSelector";
 import { SearchBar } from "../shared/SearchBar";
 import {
   openTerminal,
@@ -16,6 +17,7 @@ export function ProjectList() {
   const { projects, fetchProjects, selectProject, selectedProjectId, deleteProject } =
     useProjectStore();
   const [showNew, setShowNew] = useState(false);
+  const [showTemplate, setShowTemplate] = useState(false);
   const [search, setSearch] = useState("");
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
@@ -79,6 +81,13 @@ export function ProjectList() {
             onChange={setSearch}
             placeholder="Search projects..."
           />
+          <button
+            onClick={() => setShowTemplate(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-md transition-colors"
+            title="New from Template"
+          >
+            <FileText className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => setShowNew(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs rounded-md transition-colors"
@@ -179,6 +188,20 @@ export function ProjectList() {
       </div>
 
       {showNew && <NewProjectDialog onClose={() => setShowNew(false)} />}
+      {showTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-[480px] max-h-[500px] overflow-y-auto">
+            <ProjectTemplateSelector
+              onCreated={(id) => {
+                setShowTemplate(false);
+                selectProject(id);
+                fetchProjects();
+              }}
+              onCancel={() => setShowTemplate(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

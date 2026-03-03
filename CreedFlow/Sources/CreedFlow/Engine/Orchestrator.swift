@@ -1590,16 +1590,32 @@ final class Orchestrator {
         }
     }
 
-    /// Check if all tasks for a project are done and update project + prompt usage accordingly.
+    /// Check if all tasks for a project are done and update project status + prompt usage accordingly.
     private func checkProjectCompletion(projectId: UUID) async {
         do {
             let (allDone, anyFailed) = try await dbQueue.read { db -> (Bool, Bool) in
-                let tasks = try AgentTask.filter(Column("projectId") == projectId).fetchAll(db)
+                let tasks = try AgentTask
+                    .filter(Column("projectId") == projectId)
+                    .filter(Column("archivedAt") == nil)
+                    .fetchAll(db)
                 let pending = tasks.contains { $0.status == .queued || $0.status == .inProgress }
                 let failed = tasks.contains { $0.status == .failed }
                 return (!pending, failed)
             }
             guard allDone else { return }
+
+            // Set project completedAt if not already set
+            try await dbQueue.write { db in
+                guard var project = try Project.fetchOne(db, id: projectId) else { return }
+                if project.completedAt == nil {
+                    project.completedAt = Date()
+                    if !anyFailed {
+                        project.status = .completed
+                    }
+                    project.updatedAt = Date()
+                    try project.update(db)
+                }
+            }
 
             let outcome: PromptUsage.Outcome = anyFailed ? .failed : .completed
             await backfillPromptUsageOutcome(projectId: projectId, outcome: outcome)

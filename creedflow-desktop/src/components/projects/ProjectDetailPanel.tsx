@@ -10,10 +10,13 @@ import {
   Code2,
   Play,
   GitBranch,
+  Download,
 } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useProjectStore } from "../../store/projectStore";
 import * as api from "../../tauri";
 import type { AgentTask, DetectedEditor } from "../../types/models";
+import { ProjectTimeStats } from "./ProjectTimeStats";
 
 interface ProjectDetailPanelProps {
   projectId: string;
@@ -111,6 +114,9 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
           <StatCard label="Failed" value={failedTasks} icon={AlertTriangle} color="text-red-400" />
         </div>
 
+        {/* Time stats */}
+        {totalTasks > 0 && <ProjectTimeStats projectId={projectId} />}
+
         {/* Branch info */}
         {currentBranch && (
           <div className="flex items-center gap-2 px-3 py-2 bg-zinc-800/50 rounded-md">
@@ -124,13 +130,30 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
           <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
             Actions
           </label>
-          <button
-            onClick={onViewTasks}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-brand-600/15 text-brand-400 rounded-md hover:bg-brand-600/25 transition-colors"
-          >
-            <Play className="w-3.5 h-3.5" />
-            View Task Board
-          </button>
+          <div className="flex gap-1.5">
+            <button
+              onClick={onViewTasks}
+              className="flex-1 flex items-center gap-2 px-3 py-2 text-xs bg-brand-600/15 text-brand-400 rounded-md hover:bg-brand-600/25 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5" />
+              View Task Board
+            </button>
+            <button
+              onClick={async () => {
+                const path = await save({
+                  defaultPath: `${project.name}.zip`,
+                  filters: [{ name: "ZIP", extensions: ["zip"] }],
+                });
+                if (path) {
+                  api.exportProjectZip(projectId, path).catch(console.error);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              ZIP
+            </button>
+          </div>
           {project.directoryPath && (
             <div className="flex gap-1.5">
               <button

@@ -10,6 +10,7 @@ package struct Project: Codable, Identifiable, Equatable {
     package var directoryPath: String
     package var projectType: ProjectType
     package var stagingPrNumber: Int?
+    package var completedAt: Date?
     package var telegramChatId: Int64?
     package var createdAt: Date
     package var updatedAt: Date
@@ -43,6 +44,7 @@ package struct Project: Codable, Identifiable, Equatable {
         directoryPath: String = "",
         projectType: ProjectType = .software,
         stagingPrNumber: Int? = nil,
+        completedAt: Date? = nil,
         telegramChatId: Int64? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -55,6 +57,7 @@ package struct Project: Codable, Identifiable, Equatable {
         self.directoryPath = directoryPath
         self.projectType = projectType
         self.stagingPrNumber = stagingPrNumber
+        self.completedAt = completedAt
         self.telegramChatId = telegramChatId
         self.createdAt = createdAt
         self.updatedAt = updatedAt

@@ -40,6 +40,10 @@ pub fn run() {
             commands::projects::update_project,
             commands::projects::delete_project,
             commands::projects::export_project_docs,
+            commands::projects::get_project_time_stats,
+            commands::projects::export_project_zip,
+            commands::projects::list_project_templates,
+            commands::projects::create_project_from_template,
             // Tasks
             commands::tasks::list_tasks,
             commands::tasks::get_task,
@@ -52,6 +56,9 @@ pub fn run() {
             commands::tasks::list_archived_tasks,
             commands::tasks::retry_task_with_revision,
             commands::tasks::duplicate_task,
+            commands::tasks::add_task_comment,
+            commands::tasks::list_task_comments,
+            commands::tasks::get_task_prompt_history,
             // Backends
             commands::backends::list_backends,
             commands::backends::check_backend,

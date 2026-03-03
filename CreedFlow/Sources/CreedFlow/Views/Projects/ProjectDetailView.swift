@@ -12,6 +12,7 @@ struct ProjectDetailView: View {
     @State private var features: [Feature] = []
     @State private var showAnalyze = false
     @State private var showRevisionSheet = false
+    @State private var showExportZip = false
     @State private var errorMessage: String?
     @AppStorage("preferredEditor") private var preferredEditor = ""
 
@@ -70,6 +71,11 @@ struct ProjectDetailView: View {
                         )
                     }
 
+                    // Time stats
+                    if !tasks.isEmpty {
+                        ProjectTimeStatsView(project: project, tasks: tasks)
+                    }
+
                     if let errorMessage {
                         ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                     }
@@ -121,6 +127,13 @@ struct ProjectDetailView: View {
                             .buttonStyle(.bordered)
                             .disabled(!FileManager.default.fileExists(atPath: project.directoryPath))
                         }
+
+                        Button {
+                            showExportZip = true
+                        } label: {
+                            Label("Export ZIP", systemImage: "arrow.down.doc")
+                        }
+                        .buttonStyle(.bordered)
                     }
 
                     // Recent tasks
@@ -170,6 +183,20 @@ struct ProjectDetailView: View {
                     appDatabase: appDatabase,
                     orchestrator: orchestrator
                 )
+            }
+        }
+        .onChange(of: showExportZip) { _, show in
+            guard show, let project, let db = appDatabase else { return }
+            showExportZip = false
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = "\(project.name).zip"
+            panel.allowedContentTypes = [.zip]
+            panel.canCreateDirectories = true
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            do {
+                try ProjectExporter.exportAsZIP(project: project, dbQueue: db.dbQueue, to: url)
+            } catch {
+                errorMessage = "Export failed: \(error.localizedDescription)"
             }
         }
     }
@@ -264,4 +291,117 @@ struct ProjectDetailView: View {
         "windsurf": "com.codeium.windsurf",
     ]
 
+}
+
+// MARK: - Project Time Stats
+
+struct ProjectTimeStatsView: View {
+    let project: Project
+    let tasks: [AgentTask]
+
+    private var elapsedMs: Int64 {
+        let end = project.completedAt ?? Date()
+        return Int64(end.timeIntervalSince(project.createdAt) * 1000)
+    }
+
+    private var totalWorkMs: Int64 {
+        tasks.compactMap(\.durationMs).reduce(0, +)
+    }
+
+    private var idleMs: Int64 {
+        max(0, elapsedMs - totalWorkMs)
+    }
+
+    private var agentBreakdown: [(agentType: String, totalMs: Int64, count: Int)] {
+        var grouped: [String: (ms: Int64, count: Int)] = [:]
+        for task in tasks {
+            let key = task.agentType.rawValue
+            let existing = grouped[key] ?? (ms: 0, count: 0)
+            grouped[key] = (ms: existing.ms + (task.durationMs ?? 0), count: existing.count + 1)
+        }
+        return grouped.map { (agentType: $0.key, totalMs: $0.value.ms, count: $0.value.count) }
+            .sorted { $0.totalMs > $1.totalMs }
+    }
+
+    var body: some View {
+        DisclosureGroup("Time Tracking") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    timeStatItem(label: "Elapsed", value: formatDuration(ms: elapsedMs), icon: "clock", color: .forgeInfo)
+                    timeStatItem(label: "Work", value: formatDuration(ms: totalWorkMs), icon: "hammer", color: .forgeSuccess)
+                    timeStatItem(label: "Idle", value: formatDuration(ms: idleMs), icon: "pause.circle", color: .forgeNeutral)
+                }
+
+                if !agentBreakdown.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Per Agent")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.tertiary)
+
+                        let maxMs = agentBreakdown.map(\.totalMs).max() ?? 1
+                        ForEach(agentBreakdown, id: \.agentType) { item in
+                            HStack(spacing: 6) {
+                                Text(item.agentType.capitalized)
+                                    .font(.system(size: 11))
+                                    .frame(width: 80, alignment: .leading)
+
+                                GeometryReader { geo in
+                                    let fraction = maxMs > 0 ? CGFloat(item.totalMs) / CGFloat(maxMs) : 0
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(.forgeAmber.opacity(0.6))
+                                        .frame(width: geo.size.width * fraction)
+                                }
+                                .frame(height: 8)
+
+                                Text("\(ForgeDuration.format(ms: item.totalMs)) (\(item.count))")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 90, alignment: .trailing)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+        .font(.subheadline.bold())
+    }
+
+    private func timeStatItem(label: String, value: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                Text(label)
+                    .font(.system(size: 10))
+            }
+            .foregroundStyle(.tertiary)
+            Text(value)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(6)
+        .background(.quaternary.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func formatDuration(ms: Int64) -> String {
+        let totalSeconds = Double(ms) / 1000.0
+        if totalSeconds < 60 {
+            return String(format: "%.0fs", totalSeconds)
+        } else if totalSeconds < 3600 {
+            let minutes = Int(totalSeconds) / 60
+            let seconds = Int(totalSeconds) % 60
+            return "\(minutes)m \(seconds)s"
+        } else if totalSeconds < 86400 {
+            let hours = Int(totalSeconds) / 3600
+            let minutes = (Int(totalSeconds) % 3600) / 60
+            return "\(hours)h \(minutes)m"
+        } else {
+            let days = Int(totalSeconds) / 86400
+            let hours = (Int(totalSeconds) % 86400) / 3600
+            return "\(days)d \(hours)h"
+        }
+    }
 }

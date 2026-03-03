@@ -10,6 +10,7 @@ export interface Project {
   projectType: ProjectType;
   telegramChatId: number | null;
   stagingPrNumber: number | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -411,4 +412,69 @@ export interface HealthEvent {
   errorMessage: string | null;
   metadata: string | null;
   checkedAt: string;
+}
+
+// ─── Task Comments ──────────────────────────────────────────────────────────
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  content: string;
+  author: "user" | "system";
+  createdAt: string;
+}
+
+// ─── Project Time Stats ─────────────────────────────────────────────────────
+
+export interface ProjectTimeStats {
+  elapsedMs: number;
+  totalWorkMs: number;
+  idleMs: number;
+  agentBreakdown: AgentTimeStat[];
+}
+
+export interface AgentTimeStat {
+  agentType: string;
+  totalMs: number;
+  taskCount: number;
+}
+
+// ─── Project Templates ──────────────────────────────────────────────────────
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  techStack: string;
+  projectType: ProjectType;
+  features: TemplateFeature[];
+}
+
+export interface TemplateFeature {
+  name: string;
+  description: string;
+  tasks: TemplateTask[];
+}
+
+export interface TemplateTask {
+  agentType: AgentType;
+  title: string;
+  description: string;
+  priority: number;
+}
+
+// ─── Prompt Usage (for task prompt history) ─────────────────────────────────
+
+export interface PromptUsageRecord {
+  id: string;
+  promptId: string;
+  promptTitle: string | null;
+  projectId: string | null;
+  taskId: string | null;
+  chainId: string | null;
+  agentType: string | null;
+  outcome: string | null;
+  reviewScore: number | null;
+  usedAt: string;
 }

@@ -40,6 +40,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (19, V19_PROJECT_MESSAGE),
         (20, V20_MESSAGE_ATTACHMENTS),
         (21, V21_NOTIFICATIONS_AND_HEALTH),
+        (22, V22_PROJECT_COMPLETION_AND_COMMENTS),
     ];
 
     for (version, sql) in migrations {
@@ -448,4 +449,18 @@ CREATE TABLE IF NOT EXISTS healthEvent (
 
 CREATE INDEX IF NOT EXISTS idx_healthEvent_targetType_name ON healthEvent(targetType, targetName);
 CREATE INDEX IF NOT EXISTS idx_healthEvent_checkedAt ON healthEvent(checkedAt);
+"#;
+
+const V22_PROJECT_COMPLETION_AND_COMMENTS: &str = r#"
+ALTER TABLE project ADD COLUMN completedAt TEXT;
+
+CREATE TABLE IF NOT EXISTS taskComment (
+    id TEXT PRIMARY KEY NOT NULL,
+    taskId TEXT NOT NULL REFERENCES agentTask(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    author TEXT NOT NULL DEFAULT 'user',
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_taskComment_taskId ON taskComment(taskId);
 "#;
