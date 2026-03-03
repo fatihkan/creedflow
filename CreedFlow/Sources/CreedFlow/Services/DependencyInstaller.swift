@@ -357,12 +357,14 @@ final class DependencyInstaller {
         let script = "/bin/bash"
         let args = ["-c", "NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""]
 
-        do {
-            let (output, error) = await runProcessStreaming(script, arguments: args)
-            brewInstallOutput = output
-            if !error.isEmpty && !output.contains("Installation successful") {
-                brewInstallError = error
-            }
+        let (output, error, exitCode) = await runProcessStreaming(script, arguments: args)
+        brewInstallOutput = output
+        if exitCode != 0 && !output.contains("Installation successful") {
+            brewInstallError = error.isEmpty
+                ? "Homebrew install failed (exit \(exitCode))"
+                : String(error.prefix(300))
+        } else if !error.isEmpty && !output.contains("Installation successful") {
+            brewInstallError = error
         }
 
         // Re-detect after install
@@ -386,9 +388,13 @@ final class DependencyInstaller {
             guard let executable = components.first else { return }
             let args = Array(components.dropFirst())
 
-            let (output, error) = await runProcessStreaming(executable, arguments: args)
+            let (output, error, exitCode) = await runProcessStreaming(executable, arguments: args)
             dependencies[index].installOutput = output
-            if !error.isEmpty {
+            if exitCode != 0 {
+                dependencies[index].installError = error.isEmpty
+                    ? "Install failed (exit \(exitCode))"
+                    : String(error.prefix(200))
+            } else if !error.isEmpty {
                 dependencies[index].installError = error
             }
 
@@ -405,12 +411,29 @@ final class DependencyInstaller {
         if dep.isBrewCask { args.append("--cask") }
         args.append(dep.installCommand)
 
-        do {
-            let (output, error) = await runProcessStreaming(brewPath, arguments: args)
-            dependencies[index].installOutput = output
-            if !error.isEmpty && !output.contains("successfully installed") && !output.contains("Pouring") {
-                dependencies[index].installError = error
+        let (output, error, exitCode) = await runProcessStreaming(brewPath, arguments: args)
+        dependencies[index].installOutput = output
+        // Homebrew cask writes success messages to stderr, so check combined output
+        let combined = output + " " + error
+        let isSuccess = combined.contains("successfully installed")
+            || combined.contains("was successfully installed")
+            || combined.contains("Pouring")
+            || combined.contains("Moving App")
+            || combined.contains("is already installed")
+
+        if exitCode != 0 && !isSuccess {
+            // Detect sudo/privilege errors and give actionable guidance
+            let errLower = error.lowercased()
+            if errLower.contains("sudo") || errLower.contains("password") || errLower.contains("permission denied") {
+                let brewCmd = dep.isBrewCask ? "brew install --cask \(dep.installCommand)" : "brew install \(dep.installCommand)"
+                dependencies[index].installError = "Requires admin privileges. Run manually in Terminal:\n\(brewCmd)"
+            } else {
+                dependencies[index].installError = error.isEmpty
+                    ? "Install failed (exit \(exitCode))"
+                    : String(error.prefix(300))
             }
+        } else if !error.isEmpty && !isSuccess {
+            dependencies[index].installError = error
         }
 
         // Re-detect this dep
@@ -431,8 +454,8 @@ final class DependencyInstaller {
 
     // MARK: - Process Helper
 
-    /// Run a process and return (stdout, stderr) after completion.
-    private func runProcessStreaming(_ executablePath: String, arguments: [String]) async -> (String, String) {
+    /// Run a process and return (stdout, stderr, exitCode) after completion.
+    private func runProcessStreaming(_ executablePath: String, arguments: [String]) async -> (String, String, Int32) {
         await withCheckedContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: executablePath)
@@ -448,6 +471,8 @@ final class DependencyInstaller {
                     env["PATH"] = "\(brewBin):\(currentPath)"
                 }
             }
+            // Skip slow auto-update during installs
+            env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
             process.environment = env
 
             let stdoutPipe = Pipe()
@@ -455,18 +480,18 @@ final class DependencyInstaller {
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
 
-            process.terminationHandler = { _ in
+            process.terminationHandler = { proc in
                 let outData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
                 let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
                 let out = String(data: outData, encoding: .utf8) ?? ""
                 let err = String(data: errData, encoding: .utf8) ?? ""
-                continuation.resume(returning: (out, err))
+                continuation.resume(returning: (out, err, proc.terminationStatus))
             }
 
             do {
                 try process.run()
             } catch {
-                continuation.resume(returning: ("", error.localizedDescription))
+                continuation.resume(returning: ("", error.localizedDescription, -1))
             }
         }
     }

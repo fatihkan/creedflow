@@ -7,7 +7,7 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use super::{detect, AgentResult, CliBackend, OutputEvent, TaskInput};
+use super::{build_attachment_prompt, detect, AgentResult, CliBackend, OutputEvent, TaskInput};
 use crate::db::models::BackendType;
 use crate::services::process_tracker::PROCESS_TRACKER;
 
@@ -43,9 +43,17 @@ impl CliBackend for LlamaCppBackend {
         let id = Uuid::new_v4();
         let (tx, rx) = mpsc::channel(256);
 
+        // Prepend attachment context to prompt
+        let attachment_ctx = build_attachment_prompt(&input.attachments);
+        let full_prompt = if attachment_ctx.is_empty() {
+            input.prompt
+        } else {
+            format!("{}\n\n{}", attachment_ctx, input.prompt)
+        };
+
         let mut args = vec![
             "-m".to_string(), model,
-            "-p".to_string(), input.prompt,
+            "-p".to_string(), full_prompt,
             "-n".to_string(), "4096".to_string(),
         ];
         if !input.system_prompt.is_empty() {

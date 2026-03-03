@@ -16,6 +16,10 @@ public struct SettingsView: View {
     @AppStorage("geminiEnabled") private var geminiEnabled = true
     @AppStorage("opencodePath") private var opencodePath = ""
     @AppStorage("opencodeEnabled") private var opencodeEnabled = true
+    @AppStorage("openclawPath") private var openclawPath = ""
+    @AppStorage("openclawEnabled") private var openclawEnabled = true
+    @AppStorage("qwenPath") private var qwenPath = ""
+    @AppStorage("qwenEnabled") private var qwenEnabled = true
     @AppStorage("ollamaPath") private var ollamaPath = ""
     @AppStorage("ollamaEnabled") private var ollamaEnabled = false
     @AppStorage("ollamaModel") private var ollamaModel = ""
@@ -46,6 +50,8 @@ public struct SettingsView: View {
     @State private var codexVersion = "Checking..."
     @State private var geminiVersion = "Checking..."
     @State private var opencodeVersion = "Checking..."
+    @State private var openclawVersion = "Checking..."
+    @State private var qwenVersion = "Checking..."
     @State private var ollamaVersion = "Checking..."
     @State private var lmstudioVersion = "Checking..."
     @State private var llamacppVersion = "Checking..."
@@ -200,7 +206,7 @@ public struct SettingsView: View {
                 if geminiEnabled {
                     UsageLimitFields(limit4h: $gemini4hLimit, limitWeek: $geminiWeeklyLimit)
                 }
-                Text("Install: npm install -g @anthropic-ai/gemini-cli")
+                Text("Install: npm install -g @google/gemini-cli")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
@@ -224,6 +230,40 @@ public struct SettingsView: View {
                 HStack {
                     Text("OpenCode")
                     if opencodeEnabled {
+                        Text("Active").font(.caption).foregroundStyle(.green)
+                    } else {
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
+                Toggle("Enabled", isOn: $openclawEnabled)
+                CLISettingsRow(label: "OpenClaw Path", path: $openclawPath, version: openclawVersion, enabled: openclawEnabled)
+                Text("Install: npm install -g openclaw@latest")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                HStack {
+                    Text("OpenClaw")
+                    if openclawEnabled {
+                        Text("Active").font(.caption).foregroundStyle(.green)
+                    } else {
+                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
+                Toggle("Enabled", isOn: $qwenEnabled)
+                CLISettingsRow(label: "Qwen Code Path", path: $qwenPath, version: qwenVersion, enabled: qwenEnabled)
+                Text("Install: npm install -g @qwen-code/qwen-code@latest")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } header: {
+                HStack {
+                    Text("Qwen Code")
+                    if qwenEnabled {
                         Text("Active").font(.caption).foregroundStyle(.green)
                     } else {
                         Text("Disabled").font(.caption).foregroundStyle(.secondary)
@@ -534,6 +574,14 @@ public struct SettingsView: View {
         // Check OpenCode
         let resolvedOpencodePath = opencodePath.isEmpty ? "/usr/local/bin/opencode" : opencodePath
         opencodeVersion = await Self.checkCLIVersion(at: resolvedOpencodePath)
+
+        // Check OpenClaw
+        let resolvedOpenclawPath = openclawPath.isEmpty ? "/usr/local/bin/openclaw" : openclawPath
+        openclawVersion = await Self.checkCLIVersion(at: resolvedOpenclawPath)
+
+        // Check Qwen Code
+        let resolvedQwenPath = qwenPath.isEmpty ? "/usr/local/bin/qwen" : qwenPath
+        qwenVersion = await Self.checkCLIVersion(at: resolvedQwenPath)
 
         // Check Ollama
         let resolvedOllamaPath = ollamaPath.isEmpty ? "/usr/local/bin/ollama" : ollamaPath

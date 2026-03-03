@@ -6,11 +6,14 @@ struct ProjectChatView: View {
     let projectId: UUID
     let appDatabase: AppDatabase?
     let orchestrator: Orchestrator?
+    let chatService: ProjectChatService
     var onDismiss: (() -> Void)?
 
-    @State private var chatService: ProjectChatService?
     @State private var inputText = ""
     @State private var project: Project?
+    @State private var showFileImporter = false
+    @State private var inputHeight: CGFloat = 36
+    @GestureState private var dragOffset: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +25,7 @@ struct ProjectChatView: View {
         }
         .background(Color.forgeSurface)
         .task {
-            await setup()
+            await loadProject()
         }
     }
 
@@ -38,7 +41,7 @@ struct ProjectChatView: View {
                 .font(.system(.subheadline, weight: .semibold))
                 .lineLimit(1)
 
-            if let backend = chatService?.activeBackend {
+            if let backend = chatService.activeBackend {
                 Text(backend.displayName)
                     .font(.system(size: 9, weight: .bold, design: .rounded))
                     .foregroundStyle(backend.backendColor)
@@ -66,48 +69,42 @@ struct ProjectChatView: View {
 
     @ViewBuilder
     private var messageList: some View {
-        if let service = chatService {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        if service.messages.isEmpty && !service.isStreaming {
-                            welcomeCard
-                                .padding(.top, 40)
-                        }
-
-                        ForEach(service.messages) { message in
-                            ChatMessageView(
-                                message: message,
-                                chatService: service
-                            )
-                            .id(message.id)
-                        }
-
-                        if service.isStreaming {
-                            StreamingMessageView(
-                                content: service.streamingContent,
-                                backend: service.activeBackend
-                            )
-                            .id("streaming")
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if chatService.messages.isEmpty && !chatService.isStreaming {
+                        welcomeCard
+                            .padding(.top, 40)
                     }
-                    .padding(.vertical, 8)
+
+                    ForEach(chatService.messages) { message in
+                        ChatMessageView(
+                            message: message,
+                            chatService: chatService
+                        )
+                        .id(message.id)
+                    }
+
+                    if chatService.isStreaming {
+                        StreamingMessageView(
+                            content: chatService.streamingContent,
+                            backend: chatService.activeBackend
+                        )
+                        .id("streaming")
+                    }
                 }
-                .onChange(of: service.messages.count) { _, _ in
-                    scrollToBottom(proxy: proxy)
-                }
-                .onChange(of: service.streamingContent) { _, _ in
-                    scrollToBottom(proxy: proxy)
-                }
+                .padding(.vertical, 8)
             }
-        } else {
-            Spacer()
-            ProgressView()
-            Spacer()
+            .onChange(of: chatService.messages.count) { _, _ in
+                scrollToBottom(proxy: proxy)
+            }
+            .onChange(of: chatService.streamingContent) { _, _ in
+                scrollToBottom(proxy: proxy)
+            }
         }
 
-        if let error = chatService?.error {
-            ForgeErrorBanner(message: error, onDismiss: { chatService?.error = nil })
+        if let error = chatService.error {
+            ForgeErrorBanner(message: error, onDismiss: { chatService.error = nil })
                 .padding(.horizontal, 14)
                 .padding(.bottom, 4)
         }
@@ -165,75 +162,190 @@ struct ProjectChatView: View {
     // MARK: - Input
 
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextEditor(text: $inputText)
-                .font(.system(.body))
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 36, maxHeight: 120)
-                .padding(6)
-                .background(.quaternary.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .onSubmit {
-                    sendMessage()
+        VStack(spacing: 0) {
+            // Attachment preview strip
+            if !chatService.pendingAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(chatService.pendingAttachments, id: \.path) { attachment in
+                            attachmentChip(attachment)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
                 }
-
-            if chatService?.isStreaming == true {
-                Button {
-                    chatService?.cancel()
-                } label: {
-                    Image(systemName: "stop.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.forgeDanger)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    sendMessage()
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.forgeNeutral : Color.forgeAmber)
-                }
-                .buttonStyle(.plain)
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+
+            // Resize handle
+            resizeHandle
+
+            HStack(alignment: .bottom, spacing: 8) {
+                // Paperclip button
+                Button {
+                    showFileImporter = true
+                } label: {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Attach files or images")
+
+                TextEditor(text: $inputText)
+                    .font(.system(.body))
+                    .scrollContentBackground(.hidden)
+                    .frame(height: max(36, inputHeight - dragOffset))
+                    .padding(6)
+                    .background(.quaternary.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .onSubmit {
+                        sendMessage()
+                    }
+
+                if chatService.isStreaming == true {
+                    Button {
+                        chatService.cancel()
+                    } label: {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.forgeDanger)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        sendMessage()
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.forgeNeutral : Color.forgeAmber)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.image, .plainText, .sourceCode, .json, .yaml, .xml, .html, .data],
+            allowsMultipleSelection: true
+        ) { result in
+            handleFileImport(result)
+        }
+    }
+
+    private func attachmentChip(_ attachment: ChatAttachment) -> some View {
+        HStack(spacing: 4) {
+            if attachment.isImage {
+                Image(systemName: "photo")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.forgeInfo)
+            } else {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.forgeAmber)
+            }
+
+            Text(attachment.name)
+                .font(.system(size: 11))
+                .lineLimit(1)
+                .foregroundStyle(.primary)
+
+            Button {
+                chatService.pendingAttachments.removeAll { $0.path == attachment.path }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.quaternary.opacity(0.5), in: Capsule())
+    }
+
+    private var resizeHandle: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(height: 8)
+            .contentShape(Rectangle())
+            .overlay {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(Color.secondary.opacity(0.3))
+                    .frame(width: 36, height: 3)
+            }
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.resizeUpDown.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .updating($dragOffset) { value, state, _ in
+                        state = value.translation.height
+                    }
+                    .onEnded { value in
+                        inputHeight = min(max(inputHeight - value.translation.height, 36), 300)
+                    }
+            )
     }
 
     // MARK: - Actions
 
-    private func setup() async {
-        guard let db = appDatabase, let orchestrator else { return }
-
+    private func loadProject() async {
+        guard let db = appDatabase else { return }
         project = try? await db.dbQueue.read { dbConn in
             try Project.fetchOne(dbConn, id: projectId)
         }
-
-        let service = ProjectChatService(
-            dbQueue: db.dbQueue,
-            backendRouter: orchestrator.backendRouter
-        )
-        service.bind(to: projectId)
-        chatService = service
     }
 
     private func sendMessage() {
         let text = inputText
+        let attachments = chatService.pendingAttachments
         inputText = ""
-        guard let service = chatService else { return }
+        chatService.pendingAttachments = []
         Task {
-            await service.send(text)
+            await chatService.send(text, attachments: attachments)
+        }
+    }
+
+    private func handleFileImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            for url in urls {
+                guard url.startAccessingSecurityScopedResource() else { continue }
+                defer { url.stopAccessingSecurityScopedResource() }
+
+                let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp"]
+                let ext = url.pathExtension.lowercased()
+                let isImage = imageExtensions.contains(ext)
+
+                let attachment = ChatAttachment(
+                    path: url.path,
+                    name: url.lastPathComponent,
+                    isImage: isImage
+                )
+
+                // Avoid duplicates
+                if chatService.pendingAttachments.contains(where: { $0.path == attachment.path }) == false {
+                    chatService.pendingAttachments.append(attachment)
+                }
+            }
+        case .failure(let error):
+            chatService.error = "File import failed: \(error.localizedDescription)"
         }
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
-        if chatService?.isStreaming == true {
+        if chatService.isStreaming == true {
             withAnimation(.easeOut(duration: 0.15)) {
                 proxy.scrollTo("streaming", anchor: .bottom)
             }
-        } else if let lastId = chatService?.messages.last?.id {
+        } else if let lastId = chatService.messages.last?.id {
             withAnimation(.easeOut(duration: 0.15)) {
                 proxy.scrollTo(lastId, anchor: .bottom)
             }

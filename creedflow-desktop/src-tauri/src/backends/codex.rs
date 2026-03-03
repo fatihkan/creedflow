@@ -7,7 +7,7 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use super::{detect, AgentResult, CliBackend, OutputEvent, TaskInput};
+use super::{build_attachment_prompt, detect, AgentResult, CliBackend, OutputEvent, TaskInput};
 use crate::db::models::BackendType;
 use crate::services::process_tracker::PROCESS_TRACKER;
 
@@ -44,9 +44,17 @@ impl CliBackend for CodexBackend {
         let output_file = std::env::temp_dir().join(format!("codex-output-{}.txt", id));
         let output_file_path = output_file.to_string_lossy().to_string();
 
+        // Prepend attachment context to prompt
+        let attachment_ctx = build_attachment_prompt(&input.attachments);
+        let full_prompt = if attachment_ctx.is_empty() {
+            input.prompt
+        } else {
+            format!("{}\n\n{}", attachment_ctx, input.prompt)
+        };
+
         let args = vec![
             "exec".to_string(),
-            input.prompt,
+            full_prompt,
             "--full-auto".to_string(),
             "--skip-git-repo-check".to_string(),
             "--output-last-message".to_string(),

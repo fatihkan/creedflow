@@ -127,6 +127,7 @@ pub fn run() {
             commands::platform::get_platform,
             // Chat
             commands::chat::send_chat_message,
+            commands::chat::stream_chat_response,
             commands::chat::list_chat_messages,
             commands::chat::approve_chat_proposal,
             commands::chat::reject_chat_proposal,

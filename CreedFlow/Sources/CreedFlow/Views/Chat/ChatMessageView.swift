@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Displays a single chat message with avatar, content, and optional task proposal.
 struct ChatMessageView: View {
@@ -50,6 +51,20 @@ struct ChatMessageView: View {
                             Task { await chatService.rejectProposal(messageId: message.id) }
                         }
                     )
+                    .padding(.top, 4)
+                }
+
+                // Attachments
+                if let attachments = parsedAttachments, !attachments.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(attachments, id: \.path) { attachment in
+                            if attachment.isImage {
+                                imageAttachmentView(attachment)
+                            } else {
+                                fileAttachmentBadge(attachment)
+                            }
+                        }
+                    }
                     .padding(.top, 4)
                 }
 
@@ -113,9 +128,7 @@ struct ChatMessageView: View {
         var content = message.content
         if let jsonStart = content.range(of: "```json"),
            let jsonEnd = content.range(of: "```", range: jsonStart.upperBound..<content.endIndex) {
-            let endOfBlock = content.index(after: jsonEnd.upperBound)
-            let blockEnd = min(endOfBlock, content.endIndex)
-            content.removeSubrange(jsonStart.lowerBound..<blockEnd)
+            content.removeSubrange(jsonStart.lowerBound..<jsonEnd.upperBound)
         }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -124,5 +137,48 @@ struct ChatMessageView: View {
         guard let metadata = message.metadata,
               let data = metadata.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(TaskProposal.self, from: data)
+    }
+
+    private var parsedAttachments: [ChatAttachment]? {
+        guard let metadata = message.metadata,
+              let data = metadata.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let attachmentsArray = json["attachments"] else { return nil }
+        let attachmentsData = try? JSONSerialization.data(withJSONObject: attachmentsArray)
+        guard let attachmentsData else { return nil }
+        return try? JSONDecoder().decode([ChatAttachment].self, from: attachmentsData)
+    }
+
+    @ViewBuilder
+    private func imageAttachmentView(_ attachment: ChatAttachment) -> some View {
+        let url = URL(fileURLWithPath: attachment.path)
+        if let nsImage = NSImage(contentsOf: url) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(.quaternary, lineWidth: 0.5)
+                }
+        } else {
+            fileAttachmentBadge(attachment)
+        }
+    }
+
+    private func fileAttachmentBadge(_ attachment: ChatAttachment) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: attachment.isImage ? "photo" : "doc.text")
+                .font(.system(size: 10))
+                .foregroundStyle(attachment.isImage ? Color.forgeInfo : Color.forgeAmber)
+            Text(attachment.name)
+                .font(.system(size: 10))
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(.quaternary.opacity(0.5), in: Capsule())
     }
 }

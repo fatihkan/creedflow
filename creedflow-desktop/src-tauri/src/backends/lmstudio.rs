@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use super::{AgentResult, CliBackend, OutputEvent, TaskInput};
+use super::{build_attachment_prompt, AgentResult, CliBackend, OutputEvent, TaskInput};
 use crate::db::models::BackendType;
 
 pub struct LMStudioBackend {
@@ -39,10 +39,18 @@ impl CliBackend for LMStudioBackend {
         let active = self.active.clone();
 
         tokio::spawn(async move {
+            // Prepend attachment context to prompt
+            let attachment_ctx = build_attachment_prompt(&input.attachments);
+            let full_prompt = if attachment_ctx.is_empty() {
+                input.prompt.clone()
+            } else {
+                format!("{}\n\n{}", attachment_ctx, input.prompt)
+            };
+
             let body = serde_json::json!({
                 "messages": [
                     { "role": "system", "content": input.system_prompt },
-                    { "role": "user", "content": input.prompt },
+                    { "role": "user", "content": full_prompt },
                 ],
                 "temperature": 0.7,
                 "max_tokens": 4096,

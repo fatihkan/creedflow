@@ -104,6 +104,7 @@ final class Orchestrator {
             await router.register(CodexBackend())
             await router.register(GeminiBackend())
             await router.register(OpenCodeBackend())
+            await router.register(OpenClawBackend())
             await router.register(OllamaBackend())
             await router.register(LMStudioBackend())
             await router.register(LlamaCppBackend())
@@ -378,6 +379,7 @@ final class Orchestrator {
         case .imageGenerator: return ImageGeneratorAgent()
         case .videoEditor: return VideoEditorAgent()
         case .publisher: return PublisherAgent()
+        case .planner: return PlannerAgent()
         }
     }
 

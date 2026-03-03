@@ -78,7 +78,8 @@ export type AgentType =
   | "designer"
   | "imageGenerator"
   | "videoEditor"
-  | "publisher";
+  | "publisher"
+  | "planner";
 
 export type TaskStatus =
   | "queued"
@@ -153,6 +154,7 @@ export interface AgentBackendOverrides {
   imageGenerator: string | null;
   videoEditor: string | null;
   publisher: string | null;
+  planner: string | null;
 }
 
 export interface AppSettings {
@@ -336,6 +338,12 @@ export interface PromptEffectivenessStats {
 
 export type MessageRole = "user" | "assistant" | "system";
 
+export interface ChatAttachment {
+  name: string;
+  path: string;
+  isImage: boolean;
+}
+
 export interface ProjectMessage {
   id: string;
   projectId: string;
@@ -345,6 +353,7 @@ export interface ProjectMessage {
   costUsd?: number;
   durationMs?: number;
   metadata?: string;
+  attachments?: string; // JSON-serialized ChatAttachment[]
   createdAt: string;
 }
 

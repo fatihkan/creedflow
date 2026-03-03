@@ -38,6 +38,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (17, V17_SKILL_PERSONA),
         (18, V18_TASK_ARCHIVE),
         (19, V19_PROJECT_MESSAGE),
+        (20, V20_MESSAGE_ATTACHMENTS),
     ];
 
     for (version, sql) in migrations {
@@ -410,4 +411,8 @@ CREATE TABLE IF NOT EXISTS project_message (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_project_message_project_created ON project_message(project_id, created_at);
+"#;
+
+const V20_MESSAGE_ATTACHMENTS: &str = r#"
+ALTER TABLE project_message ADD COLUMN attachments TEXT;
 "#;

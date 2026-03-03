@@ -382,7 +382,7 @@ async fn handle_agent_completion(
         }
         AgentType::Publisher => handle_publisher_completion(task, result, db).await,
         AgentType::ContentWriter => handle_content_writer_completion(task, result, db).await,
-        _ => {} // Tester, DevOps, Monitor — no special handling
+        _ => {} // Tester, DevOps, Monitor, Planner — no special handling
     }
 }
 

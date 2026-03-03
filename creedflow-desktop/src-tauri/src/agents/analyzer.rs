@@ -147,12 +147,12 @@ fn build_system_context(project_type: &ProjectType) -> &'static str {
 
 fn allowed_agent_types(project_type: &ProjectType) -> &'static str {
     match project_type {
-        ProjectType::Software => "coder|devops|tester",
-        ProjectType::Content => "contentWriter|reviewer",
-        ProjectType::Image => "imageGenerator|designer|reviewer",
-        ProjectType::Video => "videoEditor|imageGenerator|contentWriter",
-        ProjectType::Automation => "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer",
-        ProjectType::General => "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer",
+        ProjectType::Software => "coder|devops|tester|planner",
+        ProjectType::Content => "contentWriter|reviewer|planner",
+        ProjectType::Image => "imageGenerator|designer|reviewer|planner",
+        ProjectType::Video => "videoEditor|imageGenerator|contentWriter|planner",
+        ProjectType::Automation => "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer|planner",
+        ProjectType::General => "coder|contentWriter|designer|imageGenerator|videoEditor|devops|tester|reviewer|planner",
     }
 }
 

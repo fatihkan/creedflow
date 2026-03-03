@@ -9,6 +9,7 @@ pub mod designer;
 pub mod image_generator;
 pub mod video_editor;
 pub mod publisher;
+pub mod planner;
 
 use crate::backends::BackendPreferences;
 use crate::db::models::{AgentTask, AgentType};
@@ -39,5 +40,6 @@ pub fn resolve_agent(agent_type: &AgentType) -> Box<dyn Agent> {
         AgentType::ImageGenerator => Box::new(image_generator::ImageGeneratorAgent),
         AgentType::VideoEditor => Box::new(video_editor::VideoEditorAgent),
         AgentType::Publisher => Box::new(publisher::PublisherAgent),
+        AgentType::Planner => Box::new(planner::PlannerAgent),
     }
 }

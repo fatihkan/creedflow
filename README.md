@@ -6,8 +6,23 @@
 [![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](https://github.com/fatihkan/creedflow/releases)
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)](https://swift.org)
 [![Rust](https://img.shields.io/badge/Rust-Tauri-DEA584?logo=rust&logoColor=black)](https://tauri.app)
-[![License](https://img.shields.io/badge/License-Proprietary-blue)](#license)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/fatihkan)
+
+---
+
+## Screenshots
+
+| | |
+|:---:|:---:|
+| ![Project Dashboard](screen/start_project.png) | ![Task Board](screen/project_tasks.png) |
+| **Project Dashboard** — Overview with task stats and quick actions | **Kanban Board** — Tasks grouped by status with live agent output |
+| ![Agents at Work](screen/agents_wokr.png) | ![AI Chat & CLI](screen/start_project_cli.png) |
+| **Agents Working** — Real-time orchestration with backend routing | **Task Details** — Full task list with code review panel |
+| ![Setup Wizard - CLIs](screen/setup_cli.png) | ![Setup Wizard - Dependencies](screen/setup_dep.png) |
+| **Setup Wizard** — Auto-detect AI CLIs with version info | **Dependencies** — One-click install via Homebrew |
+| ![Settings - Agents](screen/setting_agents.png) | ![Settings - MCP](screen/setting_mcp.png) |
+| **Agent Preferences** — Per-agent backend routing config | **MCP Servers** — 13 integrations (DALL-E, Figma, Runway...) |
 
 ---
 
@@ -20,7 +35,7 @@
 | **Linux** | x86_64 (AppImage) | v1.2.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.2.0/CreedFlow_1.2.0_amd64.AppImage) |
 | **Linux** | x86_64 (Debian/Ubuntu) | v1.2.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.2.0/CreedFlow_1.2.0_amd64.deb) |
 
-> **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, OpenCode, Ollama, LM Studio, llama.cpp, or MLX.
+> **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, OpenCode, OpenClaw, Ollama, LM Studio, llama.cpp, or MLX.
 
 ### macOS Installation
 
@@ -65,9 +80,9 @@ sudo dpkg -i CreedFlow_1.2.0_amd64.deb
 - **Task Proposals** — AI suggests features and tasks inline; approve or reject with one click
 - **Streaming Responses** — Real-time typing indicator with partial content display
 
-### New Backend: OpenCode
-- **8th AI Backend** — OpenCode CLI support with auto-detection and smart routing
-- Backend count: 7 → 8 (Claude, Codex, Gemini, Ollama, LM Studio, llama.cpp, MLX, OpenCode)
+### New Backends: OpenCode & OpenClaw
+- **9 AI Backends** — OpenCode and OpenClaw CLI support with auto-detection and smart routing
+- Backend count: 7 → 9 (Claude, Codex, Gemini, OpenCode, OpenClaw, Ollama, LM Studio, llama.cpp, MLX)
 
 ### Project Management
 - **Import Existing Projects** — Point to an existing directory instead of creating a new one
@@ -112,7 +127,7 @@ Telegram notification → You approve → Deploy
 
 - **11 AI Agents** — Analyzer, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor, Publisher
 - **Deep Analysis** — Architecture docs, data models with field-level detail, Mermaid diagrams (ER, flowchart, sequence, class), tasks with acceptance criteria and file lists
-- **8 AI Backends** — Claude, Codex, Gemini, OpenCode (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
+- **9 AI Backends** — Claude, Codex, Gemini, OpenCode, OpenClaw (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
 - **AI Chat** — Project-scoped chat panel for AI-assisted planning with inline task proposals
 - **Kanban Board** — Drag-and-drop task management with live agent output
 - **Project Wizard** — Step-by-step project creation with import existing directory support
@@ -134,7 +149,7 @@ Telegram notification → You approve → Deploy
 | Language | Swift 6.0 | Rust + TypeScript |
 | UI | SwiftUI | React + Tailwind CSS (Tauri) |
 | Database | SQLite via GRDB.swift | SQLite via rusqlite |
-| AI Backends | Claude CLI, Codex CLI, Gemini CLI, OpenCode + Ollama, LM Studio, llama.cpp, MLX | Same |
+| AI Backends | Claude CLI, Codex CLI, Gemini CLI, OpenCode, OpenClaw + Ollama, LM Studio, llama.cpp, MLX | Same |
 | MCP | modelcontextprotocol/swift-sdk | — |
 | Deployment | Docker / Docker Compose / Direct Process | Same |
 | Notifications | Telegram Bot API | Same |
@@ -182,8 +197,8 @@ pnpm tauri build      # Production (.deb + .AppImage)
 ┌──────────────────────────▼──────────────────────────────────┐
 │                    AI Backends                                │
 │                                                              │
-│  Cloud:  Claude CLI · Codex CLI · Gemini CLI · OpenCode     │
-│  Local:  Ollama  ·  LM Studio  ·  llama.cpp  ·  MLX        │
+│  Cloud:  Claude CLI · Codex CLI · Gemini CLI · OpenCode · OpenClaw │
+│  Local:  Ollama  ·  LM Studio  ·  llama.cpp  ·  MLX               │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
@@ -233,4 +248,4 @@ If you find CreedFlow useful, consider supporting the project:
 
 ## License
 
-Proprietary. All rights reserved.
+[MIT](LICENSE) — Copyright (c) 2025 Fatih Kan

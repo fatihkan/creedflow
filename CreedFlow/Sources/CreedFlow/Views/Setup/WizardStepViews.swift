@@ -5,10 +5,13 @@ import GRDB
 
 struct WizardEnvironmentStep: View {
     let detector: EnvironmentDetector
+    let installer: DependencyInstaller
     @Binding var claudePathOverride: String
     @Binding var codexPathOverride: String
     @Binding var geminiPathOverride: String
     @Binding var opencodePathOverride: String
+    @Binding var openclawPathOverride: String
+    @Binding var qwenPathOverride: String
     @Binding var ollamaPathOverride: String
     @Binding var lmstudioPathOverride: String
     @Binding var llamacppPathOverride: String
@@ -17,93 +20,185 @@ struct WizardEnvironmentStep: View {
     @Binding var gitUserNameInput: String
     @Binding var gitUserEmailInput: String
 
+    /// Check if Node.js (npm) is available for npm-based CLI installs
+    private var hasNode: Bool {
+        detector.findExecutable("npm") != nil
+    }
+
+    /// Check if Go is available for go install
+    private var hasGo: Bool {
+        detector.findExecutable("go") != nil
+    }
+
+    /// Check if Homebrew is available
+    private var hasBrew: Bool {
+        detector.findBrewPath() != nil
+    }
+
+    /// Check if Python 3 (pip3) is available
+    private var hasPip3: Bool {
+        detector.findExecutable("pip3") != nil
+    }
+
     var body: some View {
         Form {
             Section("AI CLIs") {
-                DetectionRow(
+                CLIDetectionRow(
                     label: "Claude CLI",
                     found: detector.claudeFound,
-                    detail: detector.claudeFound
-                        ? "\(detector.claudePath) (v\(detector.claudeVersion))"
-                        : "Not found in common locations"
-                )
+                    path: detector.claudePath,
+                    version: detector.claudeVersion,
+                    installing: detector.claudeInstalling,
+                    installError: detector.claudeInstallError,
+                    hasPrerequisite: hasNode,
+                    prerequisiteName: "Node.js"
+                ) {
+                    Task { await detector.installCLI("claude") }
+                }
                 CLIPathOverrideRow(path: $claudePathOverride, placeholder: "Claude CLI custom path")
 
                 Divider()
 
-                DetectionRow(
+                CLIDetectionRow(
                     label: "Codex CLI",
                     found: detector.codexFound,
-                    detail: detector.codexFound
-                        ? "\(detector.codexPath) (v\(detector.codexVersion))"
-                        : "Not found — optional (npm i -g @openai/codex)"
-                )
+                    path: detector.codexPath,
+                    version: detector.codexVersion,
+                    installing: detector.codexInstalling,
+                    installError: detector.codexInstallError,
+                    hasPrerequisite: hasNode,
+                    prerequisiteName: "Node.js"
+                ) {
+                    Task { await detector.installCLI("codex") }
+                }
                 CLIPathOverrideRow(path: $codexPathOverride, placeholder: "Codex CLI custom path")
 
                 Divider()
 
-                DetectionRow(
+                CLIDetectionRow(
                     label: "Gemini CLI",
                     found: detector.geminiFound,
-                    detail: detector.geminiFound
-                        ? "\(detector.geminiPath) (v\(detector.geminiVersion))"
-                        : "Not found — optional (npm i -g @anthropic-ai/gemini-cli)"
-                )
+                    path: detector.geminiPath,
+                    version: detector.geminiVersion,
+                    installing: detector.geminiInstalling,
+                    installError: detector.geminiInstallError,
+                    hasPrerequisite: hasNode,
+                    prerequisiteName: "Node.js"
+                ) {
+                    Task { await detector.installCLI("gemini") }
+                }
                 CLIPathOverrideRow(path: $geminiPathOverride, placeholder: "Gemini CLI custom path")
 
                 Divider()
 
-                DetectionRow(
+                CLIDetectionRow(
                     label: "OpenCode",
                     found: detector.opencodeFound,
-                    detail: detector.opencodeFound
-                        ? "\(detector.opencodePath) (v\(detector.opencodeVersion))"
-                        : "Not found — optional (go install github.com/opencode-ai/opencode@latest)"
-                )
+                    path: detector.opencodePath,
+                    version: detector.opencodeVersion,
+                    installing: detector.opencodeInstalling,
+                    installError: detector.opencodeInstallError,
+                    hasPrerequisite: hasGo,
+                    prerequisiteName: "Go"
+                ) {
+                    Task { await detector.installCLI("opencode") }
+                }
                 CLIPathOverrideRow(path: $opencodePathOverride, placeholder: "OpenCode custom path")
+
+                Divider()
+
+                CLIDetectionRow(
+                    label: "OpenClaw",
+                    found: detector.openclawFound,
+                    path: detector.openclawPath,
+                    version: detector.openclawVersion,
+                    installing: detector.openclawInstalling,
+                    installError: detector.openclawInstallError,
+                    hasPrerequisite: hasNode,
+                    prerequisiteName: "Node.js"
+                ) {
+                    Task { await detector.installCLI("openclaw") }
+                }
+                CLIPathOverrideRow(path: $openclawPathOverride, placeholder: "OpenClaw custom path")
+
+                Divider()
+
+                CLIDetectionRow(
+                    label: "Qwen Code",
+                    found: detector.qwenFound,
+                    path: detector.qwenPath,
+                    version: detector.qwenVersion,
+                    installing: detector.qwenInstalling,
+                    installError: detector.qwenInstallError,
+                    hasPrerequisite: hasNode,
+                    prerequisiteName: "Node.js"
+                ) {
+                    Task { await detector.installCLI("qwen") }
+                }
+                CLIPathOverrideRow(path: $qwenPathOverride, placeholder: "Qwen Code custom path")
             }
 
             Section("Local LLMs (Optional)") {
-                DetectionRow(
+                CLIDetectionRow(
                     label: "Ollama",
                     found: detector.ollamaFound,
-                    detail: detector.ollamaFound
-                        ? "\(detector.ollamaPath) (v\(detector.ollamaVersion))"
-                        : "Not found — optional (brew install ollama)"
-                )
+                    path: detector.ollamaPath,
+                    version: detector.ollamaVersion,
+                    installing: detector.ollamaInstalling,
+                    installError: detector.ollamaInstallError,
+                    hasPrerequisite: hasBrew,
+                    prerequisiteName: "Homebrew"
+                ) {
+                    Task { await detector.installCLI("ollama") }
+                }
                 CLIPathOverrideRow(path: $ollamaPathOverride, placeholder: "Ollama custom path")
 
                 Divider()
 
-                DetectionRow(
+                CLIDetectionRow(
                     label: "LM Studio",
                     found: detector.lmstudioFound,
-                    detail: detector.lmstudioFound
-                        ? "\(detector.lmstudioPath) (v\(detector.lmstudioVersion))"
-                        : "Not found — optional (lmstudio.ai)"
-                )
+                    path: detector.lmstudioPath,
+                    version: detector.lmstudioVersion,
+                    installing: detector.lmstudioInstalling,
+                    installError: detector.lmstudioInstallError,
+                    hasPrerequisite: hasBrew,
+                    prerequisiteName: "Homebrew"
+                ) {
+                    Task { await detector.installCLI("lmstudio") }
+                }
                 CLIPathOverrideRow(path: $lmstudioPathOverride, placeholder: "LM Studio (lms) custom path")
 
                 Divider()
 
-                DetectionRow(
+                CLIDetectionRow(
                     label: "llama.cpp",
                     found: detector.llamacppFound,
-                    detail: detector.llamacppFound
-                        ? "\(detector.llamacppPath) (v\(detector.llamacppVersion))"
-                        : "Not found — optional (brew install llama.cpp)"
-                )
+                    path: detector.llamacppPath,
+                    version: detector.llamacppVersion,
+                    installing: detector.llamacppInstalling,
+                    installError: detector.llamacppInstallError,
+                    hasPrerequisite: hasBrew,
+                    prerequisiteName: "Homebrew"
+                ) {
+                    Task { await detector.installCLI("llamacpp") }
+                }
                 CLIPathOverrideRow(path: $llamacppPathOverride, placeholder: "llama-cli custom path")
 
                 Divider()
 
-                DetectionRow(
+                CLIDetectionRow(
                     label: "MLX-LM",
                     found: detector.mlxFound,
-                    detail: detector.mlxFound
-                        ? "\(detector.mlxPath)"
-                        : "Not found — optional (pip install mlx-lm)"
-                )
+                    path: detector.mlxPath,
+                    version: "",
+                    installing: detector.mlxInstalling,
+                    installError: detector.mlxInstallError,
+                    hasPrerequisite: hasPip3,
+                    prerequisiteName: "Python 3"
+                ) {
+                    Task { await detector.installCLI("mlx") }
+                }
                 CLIPathOverrideRow(path: $mlxPathOverride, placeholder: "mlx_lm.generate custom path")
             }
 
@@ -115,6 +210,8 @@ struct WizardEnvironmentStep: View {
                             codexOverride: codexPathOverride,
                             geminiOverride: geminiPathOverride,
                             opencodeOverride: opencodePathOverride,
+                            openclawOverride: openclawPathOverride,
+                            qwenOverride: qwenPathOverride,
                             ollamaOverride: ollamaPathOverride,
                             lmstudioOverride: lmstudioPathOverride,
                             llamacppOverride: llamacppPathOverride,
@@ -175,7 +272,7 @@ struct WizardEnvironmentStep: View {
             }
 
             Section("Code Editors") {
-                if detector.detectedEditors.isEmpty && !detector.isDetecting {
+                if detector.detectedEditors.isEmpty && detector.uninstalledEditors.isEmpty && !detector.isDetecting {
                     Text("No code editors found")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -186,6 +283,43 @@ struct WizardEnvironmentStep: View {
                             found: true,
                             detail: editor.path
                         )
+                    }
+
+                    ForEach(detector.uninstalledEditors, id: \.command) { editor in
+                        HStack(spacing: 8) {
+                            Image(systemName: "circle.dashed")
+                                .foregroundStyle(.forgeNeutral)
+                                .font(.body)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(editor.name)
+                                    .font(.subheadline.weight(.medium))
+                                Text("Not installed")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if detector.editorInstalling == editor.command {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                    .frame(width: 16, height: 16)
+                            } else if hasBrew {
+                                Button("Install") {
+                                    Task { await detector.installEditor(editor.command) }
+                                }
+                                .controlSize(.small)
+                            } else {
+                                Text("Needs Homebrew")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if let error = detector.editorInstallError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .lineLimit(2)
                     }
                 }
 
@@ -764,6 +898,8 @@ struct WizardSummaryStep: View {
     let codexPathOverride: String
     let geminiPathOverride: String
     let opencodePathOverride: String
+    let openclawPathOverride: String
+    let qwenPathOverride: String
     let ollamaPathOverride: String
     let lmstudioPathOverride: String
     let llamacppPathOverride: String
@@ -803,6 +939,18 @@ struct WizardSummaryStep: View {
         return "Not found"
     }
 
+    private var effectiveOpenclawPath: String {
+        if !openclawPathOverride.isEmpty { return openclawPathOverride }
+        if detector.openclawFound { return detector.openclawPath }
+        return "Not found"
+    }
+
+    private var effectiveQwenPath: String {
+        if !qwenPathOverride.isEmpty { return qwenPathOverride }
+        if detector.qwenFound { return detector.qwenPath }
+        return "Not found"
+    }
+
     private var effectiveOllamaPath: String {
         if !ollamaPathOverride.isEmpty { return ollamaPathOverride }
         if detector.ollamaFound { return detector.ollamaPath }
@@ -834,6 +982,8 @@ struct WizardSummaryStep: View {
                 SummaryRow(label: "Codex CLI", value: effectiveCodexPath, ok: detector.codexFound || !codexPathOverride.isEmpty)
                 SummaryRow(label: "Gemini CLI", value: effectiveGeminiPath, ok: detector.geminiFound || !geminiPathOverride.isEmpty)
                 SummaryRow(label: "OpenCode", value: effectiveOpencodePath, ok: detector.opencodeFound || !opencodePathOverride.isEmpty)
+                SummaryRow(label: "OpenClaw", value: effectiveOpenclawPath, ok: detector.openclawFound || !openclawPathOverride.isEmpty)
+                SummaryRow(label: "Qwen Code", value: effectiveQwenPath, ok: detector.qwenFound || !qwenPathOverride.isEmpty)
             }
 
             Section("Local LLMs") {
@@ -896,6 +1046,63 @@ private struct CLIPathOverrideRow: View {
                 }
             }
             .controlSize(.small)
+        }
+    }
+}
+
+private struct CLIDetectionRow: View {
+    let label: String
+    let found: Bool
+    let path: String
+    let version: String
+    let installing: Bool
+    let installError: String?
+    let hasPrerequisite: Bool
+    let prerequisiteName: String
+    let onInstall: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: found ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(found ? .forgeSuccess : .forgeWarning)
+                    .font(.body)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label)
+                        .font(.subheadline.weight(.medium))
+                    if found {
+                        Text(version.isEmpty ? path : "\(path) (v\(version))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not found")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                if !found {
+                    if installing {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .frame(width: 16, height: 16)
+                    } else if hasPrerequisite {
+                        Button("Install") { onInstall() }
+                            .controlSize(.small)
+                    } else {
+                        Text("Needs \(prerequisiteName)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if let error = installError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+                    .padding(.leading, 28)
+            }
         }
     }
 }

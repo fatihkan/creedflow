@@ -10,6 +10,7 @@ public struct ContentView: View {
     @State private var showChatPanel = false
     @State private var chatProjectId: UUID?
     @State private var orchestrator: Orchestrator?
+    @State private var chatServices: [UUID: ProjectChatService] = [:]
     @State private var telegramService = TelegramBotService()
     @State private var keyboardMonitor: Any?
 
@@ -32,6 +33,7 @@ public struct ContentView: View {
                         projectId: chatProjId,
                         appDatabase: appDatabase,
                         orchestrator: orchestrator,
+                        chatService: chatServiceFor(chatProjId),
                         onDismiss: { showChatPanel = false }
                     )
                     .frame(minWidth: 340, idealWidth: 400, maxWidth: 440)
@@ -131,6 +133,29 @@ public struct ContentView: View {
                 await orchestrator?.stop()
             }
         }
+    }
+
+    // MARK: - Chat Service Cache
+
+    private func chatServiceFor(_ projectId: UUID) -> ProjectChatService {
+        if let existing = chatServices[projectId] {
+            return existing
+        }
+        guard let db = appDatabase, let orchestrator else {
+            // Fallback — should not happen in practice since orchestrator is set in .task
+            let fallback = ProjectChatService(
+                dbQueue: try! DatabaseQueue(),
+                backendRouter: BackendRouter()
+            )
+            return fallback
+        }
+        let service = ProjectChatService(
+            dbQueue: db.dbQueue,
+            backendRouter: orchestrator.backendRouter
+        )
+        service.bind(to: projectId)
+        chatServices[projectId] = service
+        return service
     }
 
     // MARK: - Detail Panel Visibility

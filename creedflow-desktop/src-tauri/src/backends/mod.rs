@@ -14,7 +14,7 @@ use std::sync::atomic::AtomicUsize;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::db::models::BackendType;
+use crate::db::models::{BackendType, ChatAttachment};
 
 // ─── CLI Backend Trait ───────────────────────────────────────────────────────
 
@@ -28,6 +28,46 @@ pub struct TaskInput {
     pub timeout_seconds: i32,
     pub mcp_config_path: Option<String>,
     pub json_schema: Option<String>,
+    #[serde(default)]
+    pub attachments: Vec<ChatAttachment>,
+}
+
+/// Builds a text context block from attachments to prepend to the AI prompt.
+pub fn build_attachment_prompt(attachments: &[ChatAttachment]) -> String {
+    if attachments.is_empty() {
+        return String::new();
+    }
+
+    let max_size: usize = 50 * 1024;
+    let mut parts = Vec::new();
+
+    for att in attachments {
+        if att.is_image {
+            parts.push(format!("[Attached image: {}]", att.path));
+        } else {
+            match std::fs::read_to_string(&att.path) {
+                Ok(content) => {
+                    if content.len() <= max_size {
+                        parts.push(format!(
+                            "<attached_file name=\"{}\">\n{}\n</attached_file>",
+                            att.name, content
+                        ));
+                    } else {
+                        let truncated: String = content.chars().take(max_size).collect();
+                        parts.push(format!(
+                            "<attached_file name=\"{}\" truncated=\"true\">\n{}\n</attached_file>",
+                            att.name, truncated
+                        ));
+                    }
+                }
+                Err(_) => {
+                    parts.push(format!("[Attached file: {} (could not read)]", att.path));
+                }
+            }
+        }
+    }
+
+    parts.join("\n\n")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

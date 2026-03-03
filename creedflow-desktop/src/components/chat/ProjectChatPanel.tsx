@@ -1,9 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Send, MessageCircle } from "lucide-react";
+import { X, Send, MessageCircle, Paperclip, FileText, Image } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useChatStore } from "../../store/chatStore";
 import { ChatMessage } from "./ChatMessage";
 import { StreamingMessage } from "./StreamingMessage";
 import { TaskProposalCard } from "./TaskProposalCard";
+
+const IMAGE_EXTENSIONS = new Set([
+  "png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp", "svg",
+]);
+
+function isImageFile(path: string): boolean {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return IMAGE_EXTENSIONS.has(ext);
+}
+
+function getFileName(path: string): string {
+  return path.split("/").pop() ?? path;
+}
 
 interface Props {
   projectId: string;
@@ -17,8 +31,11 @@ export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
     isStreaming,
     streamingContent,
     error,
+    pendingAttachments,
     loadMessages,
     sendMessage,
+    addAttachment,
+    removeAttachment,
     clearError,
   } = useChatStore();
 
@@ -49,6 +66,34 @@ export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleAttach = async () => {
+    const selected = await open({
+      multiple: true,
+      filters: [
+        {
+          name: "All Supported",
+          extensions: [
+            "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "svg",
+            "swift", "rs", "ts", "tsx", "js", "jsx", "json", "md", "txt",
+            "yaml", "yml", "toml", "xml", "html", "css", "sql", "sh",
+            "py", "rb", "go", "java", "kt", "c", "cpp", "h",
+          ],
+        },
+      ],
+    });
+
+    if (!selected) return;
+
+    const paths = Array.isArray(selected) ? selected : [selected];
+    for (const path of paths) {
+      addAttachment({
+        name: getFileName(path),
+        path,
+        isImage: isImageFile(path),
+      });
     }
   };
 
@@ -125,9 +170,41 @@ export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
         </div>
       )}
 
+      {/* Attachment Preview Strip */}
+      {pendingAttachments.length > 0 && (
+        <div className="px-3 pt-2 flex gap-1.5 flex-wrap border-t border-zinc-800/50">
+          {pendingAttachments.map((att) => (
+            <div
+              key={att.path}
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-zinc-800 text-xs text-zinc-300"
+            >
+              {att.isImage ? (
+                <Image className="w-3 h-3 text-blue-400" />
+              ) : (
+                <FileText className="w-3 h-3 text-amber-400" />
+              )}
+              <span className="max-w-[100px] truncate">{att.name}</span>
+              <button
+                onClick={() => removeAttachment(att.path)}
+                className="ml-0.5 text-zinc-500 hover:text-zinc-300"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <div className="border-t border-zinc-800 p-3">
         <div className="flex items-end gap-2">
+          <button
+            onClick={handleAttach}
+            className="flex-shrink-0 p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-zinc-300"
+            title="Attach files or images"
+          >
+            <Paperclip className="w-4 h-4" />
+          </button>
           <textarea
             ref={inputRef}
             value={input}
