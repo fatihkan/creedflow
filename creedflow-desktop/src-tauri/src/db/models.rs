@@ -958,6 +958,259 @@ impl PublishingChannel {
     }
 }
 
+// ─── Notification & Health Enums ─────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationCategory {
+    BackendHealth,
+    McpHealth,
+    RateLimit,
+    Task,
+    Deploy,
+    System,
+}
+
+impl NotificationCategory {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::BackendHealth => "backendHealth",
+            Self::McpHealth => "mcpHealth",
+            Self::RateLimit => "rateLimit",
+            Self::Task => "task",
+            Self::Deploy => "deploy",
+            Self::System => "system",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "backendHealth" | "backend_health" => Self::BackendHealth,
+            "mcpHealth" | "mcp_health" => Self::McpHealth,
+            "rateLimit" | "rate_limit" => Self::RateLimit,
+            "task" => Self::Task,
+            "deploy" => Self::Deploy,
+            _ => Self::System,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationSeverity {
+    Info,
+    Warning,
+    Error,
+    Success,
+}
+
+impl NotificationSeverity {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Info => "info",
+            Self::Warning => "warning",
+            Self::Error => "error",
+            Self::Success => "success",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "warning" => Self::Warning,
+            "error" => Self::Error,
+            "success" => Self::Success,
+            _ => Self::Info,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum HealthTargetType {
+    Backend,
+    Mcp,
+}
+
+impl HealthTargetType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Backend => "backend",
+            Self::Mcp => "mcp",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "mcp" => Self::Mcp,
+            _ => Self::Backend,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum HealthStatus {
+    Healthy,
+    Degraded,
+    Unhealthy,
+    Unknown,
+}
+
+impl HealthStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::Degraded => "degraded",
+            Self::Unhealthy => "unhealthy",
+            Self::Unknown => "unknown",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "healthy" => Self::Healthy,
+            "degraded" => Self::Degraded,
+            "unhealthy" => Self::Unhealthy,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+// ─── AppNotification Model ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppNotification {
+    pub id: String,
+    pub category: String,
+    pub severity: String,
+    pub title: String,
+    pub message: String,
+    pub metadata: Option<String>,
+    pub is_read: bool,
+    pub is_dismissed: bool,
+    pub created_at: String,
+}
+
+impl AppNotification {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            category: row.get("category")?,
+            severity: row.get("severity")?,
+            title: row.get("title")?,
+            message: row.get("message")?,
+            metadata: row.get("metadata")?,
+            is_read: row.get::<_, i32>("isRead")? != 0,
+            is_dismissed: row.get::<_, i32>("isDismissed")? != 0,
+            created_at: row.get("createdAt")?,
+        })
+    }
+
+    pub fn recent(conn: &Connection, limit: i32) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM appNotification WHERE isDismissed = 0 ORDER BY createdAt DESC LIMIT ?1"
+        )?;
+        let rows = stmt.query_map([limit], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn unread_count(conn: &Connection) -> rusqlite::Result<i32> {
+        conn.query_row(
+            "SELECT COUNT(*) FROM appNotification WHERE isRead = 0 AND isDismissed = 0",
+            [],
+            |row| row.get(0),
+        )
+    }
+
+    pub fn insert(conn: &Connection, notif: &Self) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO appNotification (id, category, severity, title, message, metadata, isRead, isDismissed, createdAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                notif.id, notif.category, notif.severity, notif.title, notif.message,
+                notif.metadata, notif.is_read as i32, notif.is_dismissed as i32, notif.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn mark_read(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute("UPDATE appNotification SET isRead = 1 WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn mark_all_read(conn: &Connection) -> rusqlite::Result<()> {
+        conn.execute_batch("UPDATE appNotification SET isRead = 1 WHERE isRead = 0")?;
+        Ok(())
+    }
+
+    pub fn dismiss(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute("UPDATE appNotification SET isDismissed = 1 WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn prune_old(conn: &Connection, days: i32) -> rusqlite::Result<()> {
+        conn.execute(
+            "DELETE FROM appNotification WHERE createdAt < datetime('now', ?1)",
+            [format!("-{} days", days)],
+        )?;
+        Ok(())
+    }
+}
+
+// ─── HealthEvent Model ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthEvent {
+    pub id: String,
+    pub target_type: String,
+    pub target_name: String,
+    pub status: String,
+    pub response_time_ms: Option<i32>,
+    pub error_message: Option<String>,
+    pub metadata: Option<String>,
+    pub checked_at: String,
+}
+
+impl HealthEvent {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            target_type: row.get("targetType")?,
+            target_name: row.get("targetName")?,
+            status: row.get("status")?,
+            response_time_ms: row.get("responseTimeMs")?,
+            error_message: row.get("errorMessage")?,
+            metadata: row.get("metadata")?,
+            checked_at: row.get("checkedAt")?,
+        })
+    }
+
+    pub fn insert(conn: &Connection, event: &Self) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO healthEvent (id, targetType, targetName, status, responseTimeMs, errorMessage, metadata, checkedAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                event.id, event.target_type, event.target_name, event.status,
+                event.response_time_ms, event.error_message, event.metadata, event.checked_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn latest_by_target_type(conn: &Connection, target_type: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT h.* FROM healthEvent h
+             INNER JOIN (
+                 SELECT targetName, MAX(checkedAt) as maxCheckedAt
+                 FROM healthEvent WHERE targetType = ?1
+                 GROUP BY targetName
+             ) latest ON h.targetName = latest.targetName AND h.checkedAt = latest.maxCheckedAt
+             WHERE h.targetType = ?1"
+        )?;
+        let rows = stmt.query_map([target_type], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+}
+
 // ─── Settings (stored in a simple key-value table or app config) ─────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

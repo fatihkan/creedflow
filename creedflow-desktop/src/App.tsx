@@ -5,9 +5,11 @@ import { DetailPanel } from "./components/layout/DetailPanel";
 import { ProjectDetailPanel } from "./components/projects/ProjectDetailPanel";
 import { ProjectChatPanel } from "./components/chat/ProjectChatPanel";
 import { SetupWizard } from "./components/setup/SetupWizard";
+import { ToastOverlay } from "./components/notifications/ToastOverlay";
 import { useProjectStore } from "./store/projectStore";
 import { useTaskStore } from "./store/taskStore";
 import { useSettingsStore } from "./store/settingsStore";
+import { useNotificationStore } from "./store/notificationStore";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 
 type DetailMode = "none" | "task" | "project";
@@ -24,10 +26,19 @@ function App() {
   const updateTask = useTaskStore((s) => s.updateTask);
   const settings = useSettingsStore((s) => s.settings);
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+  const fetchUnreadCount = useNotificationStore((s) => s.fetchUnreadCount);
+  const addToast = useNotificationStore((s) => s.addToast);
 
   useEffect(() => {
     fetchSettings();
-  }, [fetchSettings]);
+    fetchUnreadCount();
+
+    // Poll for unread count every 10s
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchSettings, fetchUnreadCount]);
 
   // Show project detail when a project is selected from the projects list
   useEffect(() => {
@@ -93,6 +104,27 @@ function App() {
 
   useTauriEvent("task-status-changed", handleTaskStatusChanged);
 
+  // Listen for notification events
+  const handleNotificationEvent = useCallback(
+    (payload: { id: string; category: string; severity: string; title: string; message: string; createdAt: string }) => {
+      addToast({
+        id: payload.id,
+        category: payload.category as import("./types/models").NotificationCategory,
+        severity: payload.severity as import("./types/models").NotificationSeverity,
+        title: payload.title,
+        message: payload.message,
+        metadata: null,
+        isRead: false,
+        isDismissed: false,
+        createdAt: payload.createdAt,
+      });
+      fetchUnreadCount();
+    },
+    [addToast, fetchUnreadCount],
+  );
+
+  useTauriEvent("app-notification", handleNotificationEvent);
+
   const closeDetail = () => {
     setDetailMode("none");
     selectTask(null);
@@ -131,7 +163,8 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden relative">
+      <ToastOverlay />
       <Sidebar selected={section} onSelect={setSection} />
       <div className="flex-1 flex flex-row min-w-0">
         {/* Left: Chat panel */}

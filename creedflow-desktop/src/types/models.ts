@@ -375,3 +375,40 @@ export interface TaskProposalItem {
   agentType: string;
   priority: number;
 }
+
+// ─── Notifications & Health ────────────────────────────────────────────────
+
+export type NotificationCategory =
+  | "backendHealth"
+  | "mcpHealth"
+  | "rateLimit"
+  | "task"
+  | "deploy"
+  | "system";
+
+export type NotificationSeverity = "info" | "warning" | "error" | "success";
+
+export type HealthStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
+
+export interface AppNotification {
+  id: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  metadata: string | null;
+  isRead: boolean;
+  isDismissed: boolean;
+  createdAt: string;
+}
+
+export interface HealthEvent {
+  id: string;
+  targetType: "backend" | "mcp";
+  targetName: string;
+  status: HealthStatus;
+  responseTimeMs: number | null;
+  errorMessage: string | null;
+  metadata: string | null;
+  checkedAt: string;
+}

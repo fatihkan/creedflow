@@ -215,6 +215,10 @@ impl TaskRunner {
                     final_result = Some(result);
                 }
                 OutputEvent::Error(err) => {
+                    // Check for rate-limit signals before returning error
+                    if let Some(signal) = crate::services::health::RateLimitDetector::detect(&err) {
+                        return Err(format!("RATE_LIMITED:{}:{}", signal, err));
+                    }
                     return Err(err);
                 }
             }

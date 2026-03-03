@@ -16,6 +16,8 @@ use crate::engine::task_queue::TaskQueue;
 use crate::engine::retry::RetryPolicy;
 use crate::services::git_branch_manager::GitBranchManager;
 use crate::services::telegram::TelegramService;
+use crate::services::notifications::NotificationService;
+use crate::services::health::{BackendHealthMonitor, MCPHealthMonitor};
 use crate::util::ndjson::extract_json;
 use rusqlite::params;
 use std::sync::Arc;
@@ -36,6 +38,9 @@ pub struct Orchestrator {
     polling_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
     app_handle: Option<tauri::AppHandle>,
     telegram: Option<Arc<TelegramService>>,
+    pub notification_service: Arc<NotificationService>,
+    backend_health_monitor: Arc<BackendHealthMonitor>,
+    mcp_health_monitor: Arc<MCPHealthMonitor>,
 }
 
 impl Orchestrator {
@@ -59,6 +64,10 @@ impl Orchestrator {
         ];
         let router = Arc::new(BackendRouter::new(backends));
 
+        let notification_service = Arc::new(NotificationService::new(db.clone()));
+        let backend_health_monitor = Arc::new(BackendHealthMonitor::new(db.clone(), notification_service.clone()));
+        let mcp_health_monitor = Arc::new(MCPHealthMonitor::new(db.clone(), notification_service.clone()));
+
         Self {
             db: db.clone(),
             task_queue,
@@ -69,6 +78,9 @@ impl Orchestrator {
             polling_handle: Mutex::new(None),
             app_handle,
             telegram: None,
+            notification_service,
+            backend_health_monitor,
+            mcp_health_monitor,
         }
     }
 
@@ -88,6 +100,13 @@ impl Orchestrator {
 
         self.is_running.store(true, Ordering::SeqCst);
 
+        // Start health monitors
+        self.backend_health_monitor.start().await;
+        self.mcp_health_monitor.start().await;
+
+        // Prune old notifications (older than 7 days)
+        self.notification_service.prune_old(7).await;
+
         let is_running = self.is_running.clone();
         let task_queue = self.task_queue.clone();
         let scheduler = self.scheduler.clone();
@@ -96,6 +115,7 @@ impl Orchestrator {
         let router = self.router.clone();
         let retry_policy = RetryPolicy::default();
         let telegram = self.telegram.clone();
+        let notification_service = self.notification_service.clone();
 
         let handle = tokio::spawn(async move {
             let mut tick = interval(Duration::from_secs(2));
@@ -159,6 +179,7 @@ impl Orchestrator {
                             let router_c = router.clone();
                             let app_handle_c = app_handle.clone();
                             let telegram_c = telegram.clone();
+                            let notif_c = notification_service.clone();
 
                             tokio::spawn(async move {
                                 // Build revision memory if this is a retry
@@ -191,7 +212,13 @@ impl Orchestrator {
                                     // Git completion pipeline
                                     handle_git_completion(&task, &db_c, app_handle_c.as_ref()).await;
 
-                                    // Telegram notification
+                                    // In-app + Telegram notification
+                                    notif_c.emit(
+                                        crate::db::models::NotificationCategory::Task,
+                                        crate::db::models::NotificationSeverity::Success,
+                                        &format!("Task Completed: {}", task.title),
+                                        &format!("Agent: {} | Backend: {}", task.agent_type, result.backend_type),
+                                    ).await;
                                     if let Some(ref tg) = telegram_c {
                                         let msg = format!(
                                             "✅ Task completed: {} ({})\nBackend: {}",
@@ -203,14 +230,35 @@ impl Orchestrator {
                                     let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
                                     log::error!("Task {} failed: {}", task.id, error_msg);
 
-                                    // Check retry policy
-                                    if retry_policy.should_retry(task.retry_count) {
+                                    // Check for rate limit
+                                    if error_msg.starts_with("RATE_LIMITED:") {
+                                        let backoff_secs = RetryPolicy::rate_limit_backoff(task.retry_count);
+                                        log::warn!("Rate limited on task {}. Backoff {}s", task.id, backoff_secs);
+
+                                        notif_c.emit(
+                                            crate::db::models::NotificationCategory::RateLimit,
+                                            crate::db::models::NotificationSeverity::Warning,
+                                            &format!("Rate Limited: {}", task.title),
+                                            &format!("Backing off for {}s before retry", backoff_secs),
+                                        ).await;
+
+                                        // Sleep for backoff then requeue
+                                        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                                        let _ = task_queue_c.requeue(&task.id).await;
+                                    } else if retry_policy.should_retry(task.retry_count) {
+                                        // Normal retry
                                         log::info!("Requeueing task {} (retry {})", task.id, task.retry_count + 1);
                                         let _ = task_queue_c.requeue(&task.id).await;
                                     } else {
                                         let _ = task_queue_c.fail(&task.id, &error_msg).await;
 
-                                        // Telegram notification for failure
+                                        // In-app + Telegram notification for failure
+                                        notif_c.emit(
+                                            crate::db::models::NotificationCategory::Task,
+                                            crate::db::models::NotificationSeverity::Error,
+                                            &format!("Task Failed: {}", task.title),
+                                            &format!("Error: {}", error_msg),
+                                        ).await;
                                         if let Some(ref tg) = telegram_c {
                                             let msg = format!(
                                                 "❌ Task failed: {} ({})\nError: {}",
@@ -260,6 +308,8 @@ impl Orchestrator {
         if let Some(handle) = self.polling_handle.lock().await.take() {
             handle.abort();
         }
+        self.backend_health_monitor.stop().await;
+        self.mcp_health_monitor.stop().await;
     }
 
     pub fn is_running(&self) -> bool {
