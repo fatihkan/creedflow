@@ -4,6 +4,16 @@
 
 @layer base {
   :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --border: 240 5.9% 90%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+  }
+
+  .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
@@ -14,18 +24,34 @@
   }
 
   * {
-    @apply border-zinc-800;
+    @apply border-zinc-200 dark:border-zinc-800;
   }
 
   body {
-    @apply bg-zinc-950 text-zinc-100;
+    @apply bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
     user-select: none;
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — dark */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgb(63 63 70);
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgb(82 82 91);
+}
+
+/* Custom scrollbar — light */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -34,16 +60,16 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgb(63 63 70);
+  background: rgb(212 212 216);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(82 82 91);
+  background: rgb(161 161 170);
 }
 
 /* Resizable panel handle */
 .resize-handle {
-  @apply bg-zinc-800 hover:bg-brand-600 transition-colors;
+  @apply bg-zinc-200 dark:bg-zinc-800 hover:bg-brand-600 transition-colors;
 }
 
 /* Slide-in animation for detail panel */

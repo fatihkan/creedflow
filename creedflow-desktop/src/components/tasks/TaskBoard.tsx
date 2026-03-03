@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTaskStore } from "../../store/taskStore";
 import { TaskCard } from "./TaskCard";
-import { Archive, Search, X, MessageCircle } from "lucide-react";
+import { Archive, MessageCircle } from "lucide-react";
+import { SearchBar } from "../shared/SearchBar";
+import { SkeletonCard } from "../shared/Skeleton";
 import type { AgentTask, TaskStatus } from "../../types/models";
 
 interface Props {
@@ -33,6 +35,7 @@ const VALID_TRANSITIONS: Record<string, TaskStatus[]> = {
 export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
   const {
     tasks,
+    loading,
     fetchTasks,
     selectTask,
     selectionMode,
@@ -94,25 +97,11 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tasks..."
-              className="pl-7 pr-7 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-md text-zinc-300 placeholder-zinc-600 w-[180px] focus:outline-none focus:border-brand-500"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-zinc-500 hover:text-zinc-300"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search tasks..."
+          />
 
           {selectionMode && selectedIds.size > 0 && (
             <button
@@ -173,7 +162,12 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
-                  {columnTasks.map((task) => (
+                  {loading ? (
+                    <>
+                      <SkeletonCard />
+                      <SkeletonCard />
+                    </>
+                  ) : columnTasks.map((task) => (
                     <div key={task.id} className="relative">
                       {selectionMode && isArchivableColumn && (
                         <div
@@ -211,6 +205,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                     </div>
                   ))}
                 </div>
+
               </div>
             );
           })}

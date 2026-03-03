@@ -33,6 +33,7 @@ public struct SettingsView: View {
     @AppStorage("mlxEnabled") private var mlxEnabled = false
     @AppStorage("mlxModel") private var mlxModel = ""
     @AppStorage("preferredEditor") private var preferredEditor = ""
+    @AppStorage("appearanceMode") private var appearanceMode = "system"
 
     // Admin API keys for real usage tracking
     @AppStorage("anthropicAdminAPIKey") private var anthropicAdminKey = ""
@@ -96,10 +97,35 @@ public struct SettingsView: View {
             gitEmailField = gitDetector.gitUserEmail
             await loadBackendHealthStatus()
         }
+        .onAppear {
+            applyAppearance(appearanceMode)
+        }
+    }
+
+    private func applyAppearance(_ mode: String) {
+        let appearance: NSAppearance?
+        switch mode {
+        case "light": appearance = NSAppearance(named: .aqua)
+        case "dark": appearance = NSAppearance(named: .darkAqua)
+        default: appearance = nil // system default
+        }
+        NSApp.appearance = appearance
     }
 
     private var generalTab: some View {
         Form {
+            Section("Appearance") {
+                Picker("Theme", selection: $appearanceMode) {
+                    Label("System", systemImage: "laptopcomputer").tag("system")
+                    Label("Light", systemImage: "sun.max").tag("light")
+                    Label("Dark", systemImage: "moon").tag("dark")
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: appearanceMode) { _, newValue in
+                    applyAppearance(newValue)
+                }
+            }
+
             Section("Concurrency") {
                 Stepper("Max Parallel Agents: \(maxConcurrency)", value: $maxConcurrency, in: 1...8)
             }

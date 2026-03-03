@@ -7,16 +7,58 @@ struct ReviewApprovalView: View {
     @State private var errorMessage: String?
     @State private var taskToReject: AgentTask?
     @State private var isLoading = true
+    @State private var searchText = ""
+
+    private var filteredReviews: [(review: Review, task: AgentTask, project: Project)] {
+        guard !searchText.isEmpty else { return pendingReviews }
+        let query = searchText.lowercased()
+        return pendingReviews.filter { item in
+            item.review.summary.lowercased().contains(query)
+            || item.review.verdict.rawValue.lowercased().contains(query)
+            || item.task.title.lowercased().contains(query)
+            || item.project.name.lowercased().contains(query)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            ForgeToolbar(title: "Reviews")
+            ForgeToolbar(title: "Reviews") {
+                HStack(spacing: 4) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    TextField("Search reviews...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                    if !searchText.isEmpty {
+                        Button {
+                            searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                .frame(width: 180)
+            }
             Divider()
 
             if isLoading && pendingReviews.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if pendingReviews.isEmpty && errorMessage == nil {
+            } else if filteredReviews.isEmpty && !searchText.isEmpty {
+                ForgeEmptyState(
+                    icon: "magnifyingglass",
+                    title: "No Results",
+                    subtitle: "No reviews match \"\(searchText)\""
+                )
+            } else if filteredReviews.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "checkmark.shield",
                     title: "All Clear",
@@ -29,7 +71,7 @@ struct ReviewApprovalView: View {
                             ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                         }
 
-                        ForEach(pendingReviews, id: \.review.id) { item in
+                        ForEach(filteredReviews, id: \.review.id) { item in
                             reviewCard(item: item)
                         }
                     }

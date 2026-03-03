@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTaskStore } from "../../store/taskStore";
 import { AgentTypeBadge } from "../shared/AgentTypeBadge";
 import { StatusBadge } from "../shared/StatusBadge";
+import { SearchBar } from "../shared/SearchBar";
 import { Archive, RotateCcw, Trash2 } from "lucide-react";
 
 export function ArchivedTasksView() {
@@ -17,9 +18,21 @@ export function ArchivedTasksView() {
     clearSelection,
   } = useTaskStore();
 
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
     fetchArchivedTasks();
   }, [fetchArchivedTasks]);
+
+  const filteredTasks = search.trim()
+    ? archivedTasks.filter((t) => {
+        const q = search.toLowerCase();
+        return (
+          t.title.toLowerCase().includes(q) ||
+          t.agentType.toLowerCase().includes(q)
+        );
+      })
+    : archivedTasks;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -27,10 +40,16 @@ export function ArchivedTasksView() {
         <div>
           <h2 className="text-sm font-semibold text-zinc-200">Archived Tasks</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {archivedTasks.length} archived task{archivedTasks.length !== 1 ? "s" : ""}
+            {filteredTasks.length} archived task{filteredTasks.length !== 1 ? "s" : ""}
+            {search && ` matching "${search}"`}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search archived..."
+          />
           {selectionMode && selectedIds.size > 0 && (
             <>
               <button
@@ -65,14 +84,14 @@ export function ArchivedTasksView() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {archivedTasks.length === 0 ? (
+        {filteredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-zinc-500">
             <Archive className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-sm">No archived tasks</p>
+            <p className="text-sm">{search ? "No matches found" : "No archived tasks"}</p>
           </div>
         ) : (
           <div className="p-4 space-y-1">
-            {archivedTasks.map((task) => (
+            {filteredTasks.map((task) => (
               <div
                 key={task.id}
                 onClick={() => selectionMode && toggleSelection(task.id)}

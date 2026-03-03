@@ -1,13 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAgentStore } from "../../store/agentStore";
 import { useProjectStore } from "../../store/projectStore";
 import { useTaskStore } from "../../store/taskStore";
 import { Cpu, Clock, Shield, Activity } from "lucide-react";
+import { SearchBar } from "../shared/SearchBar";
+import { Skeleton } from "../shared/Skeleton";
 
 export function AgentStatus() {
   const { agentTypes, fetchAgentTypes } = useAgentStore();
   const tasks = useTaskStore((s) => s.tasks);
   const projects = useProjectStore((s) => s.projects);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchAgentTypes();
@@ -24,6 +27,17 @@ export function AgentStatus() {
     taskCountByAgent[t.agentType] = (taskCountByAgent[t.agentType] || 0) + 1;
   });
 
+  const filteredAgents = search.trim()
+    ? agentTypes.filter((a) => {
+        const q = search.toLowerCase();
+        return (
+          a.displayName.toLowerCase().includes(q) ||
+          a.agentType.toLowerCase().includes(q) ||
+          a.backendPreference.toLowerCase().includes(q)
+        );
+      })
+    : agentTypes;
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="px-4 py-3 border-b border-zinc-800">
@@ -33,6 +47,11 @@ export function AgentStatus() {
             <p className="text-xs text-zinc-500 mt-0.5">{agentTypes.length} agent types configured</p>
           </div>
           <div className="flex items-center gap-2">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search agents..."
+            />
             {activeTasks.length > 0 && (
               <span className="flex items-center gap-1.5 text-xs bg-blue-500/15 text-blue-400 px-2.5 py-1 rounded-full">
                 <Activity className="w-3 h-3" />
@@ -79,7 +98,19 @@ export function AgentStatus() {
             Agent Types
           </h3>
           <div className="grid grid-cols-2 gap-3">
-            {agentTypes.map((agent) => {
+            {filteredAgents.length === 0 && !search ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/50 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-3 w-12" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : filteredAgents.map((agent) => {
               const count = taskCountByAgent[agent.agentType] || 0;
               const isActive = activeTasks.some((t) => t.agentType === agent.agentType);
               return (

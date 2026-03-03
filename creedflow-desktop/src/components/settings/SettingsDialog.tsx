@@ -14,6 +14,7 @@ import { useSettingsStore } from "../../store/settingsStore";
 import { BackendSettings } from "./BackendSettings";
 import { AgentPreferences } from "./AgentPreferences";
 import { MCPSettings } from "./MCPSettings";
+import { ThemeToggle } from "../shared/ThemeToggle";
 import * as api from "../../tauri";
 import type { DependencyStatus, DetectedEditor } from "../../types/models";
 import type { GitConfig } from "../../tauri";
@@ -94,6 +95,11 @@ function GeneralTab() {
 
   return (
     <div className="space-y-5">
+      <div>
+        <label className="block text-xs text-zinc-400 mb-2">Appearance</label>
+        <ThemeToggle />
+      </div>
+
       <div>
         <label className="block text-xs text-zinc-400 mb-1">Projects Directory</label>
         <input

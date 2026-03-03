@@ -51,6 +51,7 @@ pub fn run() {
             commands::tasks::permanently_delete_tasks,
             commands::tasks::list_archived_tasks,
             commands::tasks::retry_task_with_revision,
+            commands::tasks::duplicate_task,
             // Backends
             commands::backends::list_backends,
             commands::backends::check_backend,

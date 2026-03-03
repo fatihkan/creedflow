@@ -14,6 +14,7 @@ public struct ContentView: View {
     @State private var telegramService = TelegramBotService()
     @State private var keyboardMonitor: Any?
     @State private var notificationViewModel: NotificationViewModel?
+    @State private var showShortcutsOverlay = false
 
     public init() {}
 
@@ -65,6 +66,13 @@ public struct ContentView: View {
             NotificationToastOverlay(viewModel: notificationViewModel)
                 .allowsHitTesting(true)
         }
+        // Keyboard shortcuts overlay
+        if showShortcutsOverlay {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { showShortcutsOverlay = false }
+            KeyboardShortcutsView(isPresented: $showShortcutsOverlay)
+        }
         } // end ZStack
         .frame(minWidth: 960, minHeight: 640)
         .onChange(of: selectedSection) { _, newSection in
@@ -106,6 +114,10 @@ public struct ContentView: View {
             keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 // Escape — dismiss panels
                 if event.keyCode == 53 {
+                    if showShortcutsOverlay {
+                        showShortcutsOverlay = false
+                        return nil
+                    }
                     if selectedTaskId != nil {
                         selectedTaskId = nil
                         return nil
@@ -119,6 +131,13 @@ public struct ContentView: View {
                         return nil
                     }
                     return event
+                }
+
+                // Cmd+? (Cmd+Shift+/) — keyboard shortcuts overlay
+                if event.modifierFlags.contains(.command) && event.modifierFlags.contains(.shift),
+                   event.charactersIgnoringModifiers == "/" {
+                    showShortcutsOverlay.toggle()
+                    return nil
                 }
 
                 guard event.modifierFlags.contains(.command),

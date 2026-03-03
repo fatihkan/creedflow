@@ -14,11 +14,23 @@ struct DeployView: View {
     @State private var isSelectionMode = false
     @State private var filterEnvironment: Deployment.Environment?
     @State private var filterStatus: Deployment.Status?
+    @State private var searchText = ""
 
     private var filteredDeployments: [Deployment] {
         deployments.filter { d in
             if let env = filterEnvironment, d.environment != env { return false }
             if let status = filterStatus, d.status != status { return false }
+            if !searchText.isEmpty {
+                let query = searchText.lowercased()
+                let matchesVersion = d.version.lowercased().contains(query)
+                let matchesEnv = d.environment.rawValue.lowercased().contains(query)
+                let matchesStatus = d.status.rawValue.lowercased().contains(query)
+                let matchesMethod = (d.deployMethod ?? "").lowercased().contains(query)
+                let matchesProject = (projectNames[d.projectId] ?? "").lowercased().contains(query)
+                if !(matchesVersion || matchesEnv || matchesStatus || matchesMethod || matchesProject) {
+                    return false
+                }
+            }
             return true
         }
     }
@@ -36,6 +48,30 @@ struct DeployView: View {
         VStack(spacing: 0) {
             ForgeToolbar(title: "Deployments") {
                 HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        TextField("Search deploys...", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12))
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                    .frame(width: 180)
+
                     Picker("Environment", selection: $filterEnvironment) {
                         Text("All Envs").tag(nil as Deployment.Environment?)
                         ForEach(Deployment.Environment.allCases, id: \.self) { env in
@@ -105,6 +141,12 @@ struct DeployView: View {
             if isLoading && deployments.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if filteredDeployments.isEmpty && !searchText.isEmpty {
+                ForgeEmptyState(
+                    icon: "magnifyingglass",
+                    title: "No Results",
+                    subtitle: "No deployments match \"\(searchText)\""
+                )
             } else if filteredDeployments.isEmpty && errorMessage == nil {
                 ForgeEmptyState(
                     icon: "arrow.up.circle",

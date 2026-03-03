@@ -98,6 +98,9 @@ export const retryTaskWithRevision = (id: string, revisionPrompt?: string) =>
     revisionPrompt: revisionPrompt ?? null,
   });
 
+export const duplicateTask = (id: string) =>
+  invoke<AgentTask>("duplicate_task", { id });
+
 // ─── Backends ────────────────────────────────────────────────────────────────
 
 export const listBackends = () => invoke<BackendInfo[]>("list_backends");
