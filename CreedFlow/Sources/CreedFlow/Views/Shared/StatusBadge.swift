@@ -63,6 +63,7 @@ struct BackendBadge: View {
         case .codex: return .forgeSuccess
         case .gemini: return .forgeAmber
         case .opencode: return .teal
+        case .openclaw: return .red
         case .ollama: return .orange
         case .lmstudio: return .cyan
         case .llamacpp: return .pink

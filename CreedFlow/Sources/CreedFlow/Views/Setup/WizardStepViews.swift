@@ -10,6 +10,7 @@ struct WizardEnvironmentStep: View {
     @Binding var codexPathOverride: String
     @Binding var geminiPathOverride: String
     @Binding var opencodePathOverride: String
+    @Binding var openclawPathOverride: String
     @Binding var qwenPathOverride: String
     @Binding var ollamaPathOverride: String
     @Binding var lmstudioPathOverride: String
@@ -107,6 +108,22 @@ struct WizardEnvironmentStep: View {
                 Divider()
 
                 CLIDetectionRow(
+                    label: "OpenClaw",
+                    found: detector.openclawFound,
+                    path: detector.openclawPath,
+                    version: detector.openclawVersion,
+                    installing: detector.openclawInstalling,
+                    installError: detector.openclawInstallError,
+                    hasPrerequisite: hasNode,
+                    prerequisiteName: "Node.js"
+                ) {
+                    Task { await detector.installCLI("openclaw") }
+                }
+                CLIPathOverrideRow(path: $openclawPathOverride, placeholder: "OpenClaw custom path")
+
+                Divider()
+
+                CLIDetectionRow(
                     label: "Qwen Code",
                     found: detector.qwenFound,
                     path: detector.qwenPath,
@@ -193,6 +210,7 @@ struct WizardEnvironmentStep: View {
                             codexOverride: codexPathOverride,
                             geminiOverride: geminiPathOverride,
                             opencodeOverride: opencodePathOverride,
+                            openclawOverride: openclawPathOverride,
                             qwenOverride: qwenPathOverride,
                             ollamaOverride: ollamaPathOverride,
                             lmstudioOverride: lmstudioPathOverride,
@@ -880,6 +898,7 @@ struct WizardSummaryStep: View {
     let codexPathOverride: String
     let geminiPathOverride: String
     let opencodePathOverride: String
+    let openclawPathOverride: String
     let qwenPathOverride: String
     let ollamaPathOverride: String
     let lmstudioPathOverride: String
@@ -920,6 +939,12 @@ struct WizardSummaryStep: View {
         return "Not found"
     }
 
+    private var effectiveOpenclawPath: String {
+        if !openclawPathOverride.isEmpty { return openclawPathOverride }
+        if detector.openclawFound { return detector.openclawPath }
+        return "Not found"
+    }
+
     private var effectiveQwenPath: String {
         if !qwenPathOverride.isEmpty { return qwenPathOverride }
         if detector.qwenFound { return detector.qwenPath }
@@ -957,6 +982,7 @@ struct WizardSummaryStep: View {
                 SummaryRow(label: "Codex CLI", value: effectiveCodexPath, ok: detector.codexFound || !codexPathOverride.isEmpty)
                 SummaryRow(label: "Gemini CLI", value: effectiveGeminiPath, ok: detector.geminiFound || !geminiPathOverride.isEmpty)
                 SummaryRow(label: "OpenCode", value: effectiveOpencodePath, ok: detector.opencodeFound || !opencodePathOverride.isEmpty)
+                SummaryRow(label: "OpenClaw", value: effectiveOpenclawPath, ok: detector.openclawFound || !openclawPathOverride.isEmpty)
                 SummaryRow(label: "Qwen Code", value: effectiveQwenPath, ok: detector.qwenFound || !qwenPathOverride.isEmpty)
             }
 

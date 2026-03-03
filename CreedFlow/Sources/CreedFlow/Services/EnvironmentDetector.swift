@@ -17,6 +17,10 @@ final class EnvironmentDetector {
     var opencodePath: String = ""
     var opencodeVersion: String = ""
 
+    // OpenClaw
+    var openclawPath: String = ""
+    var openclawVersion: String = ""
+
     // Qwen Code
     var qwenPath: String = ""
     var qwenVersion: String = ""
@@ -52,6 +56,8 @@ final class EnvironmentDetector {
     var geminiInstallError: String?
     var opencodeInstalling = false
     var opencodeInstallError: String?
+    var openclawInstalling = false
+    var openclawInstallError: String?
     var qwenInstalling = false
     var qwenInstallError: String?
     var ollamaInstalling = false
@@ -71,6 +77,7 @@ final class EnvironmentDetector {
     var codexFound: Bool { !codexPath.isEmpty && !codexVersion.isEmpty }
     var geminiFound: Bool { !geminiPath.isEmpty && !geminiVersion.isEmpty }
     var opencodeFound: Bool { !opencodePath.isEmpty && !opencodeVersion.isEmpty }
+    var openclawFound: Bool { !openclawPath.isEmpty && !openclawVersion.isEmpty }
     var qwenFound: Bool { !qwenPath.isEmpty && !qwenVersion.isEmpty }
     var ollamaFound: Bool { !ollamaPath.isEmpty && !ollamaVersion.isEmpty }
     var lmstudioFound: Bool { !lmstudioPath.isEmpty && !lmstudioVersion.isEmpty }
@@ -106,6 +113,13 @@ final class EnvironmentDetector {
         "/usr/local/bin/opencode",
         "/opt/homebrew/bin/opencode",
         "\(home)/go/bin/opencode",
+    ]
+
+    private static let openclawCandidates = [
+        "\(home)/.local/bin/openclaw",
+        "/usr/local/bin/openclaw",
+        "/opt/homebrew/bin/openclaw",
+        "\(home)/.npm-global/bin/openclaw",
     ]
 
     private static let qwenCandidates = [
@@ -188,7 +202,7 @@ final class EnvironmentDetector {
     func detectAll() async {
         await detectAll(
             claudeOverride: "", codexOverride: "", geminiOverride: "",
-            opencodeOverride: "", qwenOverride: "",
+            opencodeOverride: "", openclawOverride: "", qwenOverride: "",
             ollamaOverride: "", lmstudioOverride: "", llamacppOverride: "", mlxOverride: ""
         )
     }
@@ -196,7 +210,7 @@ final class EnvironmentDetector {
     /// Detect all tools, preferring user-provided override paths when non-empty
     func detectAll(
         claudeOverride: String, codexOverride: String, geminiOverride: String,
-        opencodeOverride: String = "", qwenOverride: String = "",
+        opencodeOverride: String = "", openclawOverride: String = "", qwenOverride: String = "",
         ollamaOverride: String = "", lmstudioOverride: String = "",
         llamacppOverride: String = "", mlxOverride: String = ""
     ) async {
@@ -215,6 +229,9 @@ final class EnvironmentDetector {
             }}
             group.addTask { await self.detectCLI(override: opencodeOverride, candidates: Self.opencodeCandidates) { path, version in
                 self.opencodePath = path; self.opencodeVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: openclawOverride, candidates: Self.openclawCandidates) { path, version in
+                self.openclawPath = path; self.openclawVersion = version
             }}
             group.addTask { await self.detectCLI(override: qwenOverride, candidates: Self.qwenCandidates) { path, version in
                 self.qwenPath = path; self.qwenVersion = version
@@ -388,6 +405,10 @@ final class EnvironmentDetector {
             await installGoCLI(
                 installing: \.opencodeInstalling, error: \.opencodeInstallError,
                 candidates: Self.opencodeCandidates) { p, v in self.opencodePath = p; self.opencodeVersion = v }
+        case "openclaw":
+            await installNpmCLI(id: "openclaw", package: "openclaw@latest",
+                                installing: \.openclawInstalling, error: \.openclawInstallError,
+                                candidates: Self.openclawCandidates) { p, v in self.openclawPath = p; self.openclawVersion = v }
         case "ollama":
             await installBrewCLI(formula: "ollama", isCask: false,
                                  installing: \.ollamaInstalling, error: \.ollamaInstallError,
