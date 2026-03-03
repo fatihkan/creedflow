@@ -13,11 +13,46 @@ struct AgentStatusView: View {
     @State private var selectedProjectForHealth: UUID?
     @State private var healthCheckTriggered = false
     @State private var errorMessage: String?
+    @State private var searchText = ""
+
+    private var filteredRecentTasks: [AgentTask] {
+        guard !searchText.isEmpty else { return recentTasks }
+        let query = searchText.lowercased()
+        return recentTasks.filter { task in
+            task.title.lowercased().contains(query)
+            || task.agentType.rawValue.lowercased().contains(query)
+            || (task.backend ?? "").lowercased().contains(query)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForgeToolbar(title: "Agents") {
                 HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        TextField("Search agents...", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12))
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                    .frame(width: 180)
+
                     Picker("Project", selection: $selectedProjectForHealth) {
                         Text("Select project").tag(nil as UUID?)
                         ForEach(projects) { project in
@@ -98,14 +133,14 @@ struct AgentStatusView: View {
                         }
 
                         // Recent completed/failed/cancelled tasks
-                        if !recentTasks.isEmpty {
+                        if !filteredRecentTasks.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Recent")
                                     .font(.subheadline.bold())
                                     .foregroundStyle(.secondary)
                                     .padding(.top, orchestrator.activeRunners.isEmpty ? 0 : 8)
 
-                                ForEach(recentTasks) { task in
+                                ForEach(filteredRecentTasks) { task in
                                     recentTaskRow(task)
                                         .onTapGesture { selectedTaskId = task.id }
                                 }

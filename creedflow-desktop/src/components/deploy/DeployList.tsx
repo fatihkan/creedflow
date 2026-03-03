@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Rocket, Trash2, Plus, Filter } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
+import { SearchBar } from "../shared/SearchBar";
+import { SkeletonRow } from "../shared/Skeleton";
 import * as api from "../../tauri";
 import type { DeploymentInfo } from "../../types/models";
 import { DeployDetailPanel } from "./DeployDetailPanel";
@@ -30,10 +32,16 @@ export function DeployList() {
   const [newEnv, setNewEnv] = useState("development");
   const [newMethod, setNewMethod] = useState("docker");
   const [deploying, setDeploying] = useState(false);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const fetchDeployments = () => {
     if (selectedProjectId) {
-      api.listDeployments(selectedProjectId).then(setDeployments).catch(console.error);
+      setLoading(true);
+      api.listDeployments(selectedProjectId)
+        .then(setDeployments)
+        .catch(console.error)
+        .finally(() => setLoading(false));
     }
   };
 
@@ -44,6 +52,15 @@ export function DeployList() {
   const filtered = deployments.filter((d) => {
     if (envFilter !== "all" && d.environment !== envFilter) return false;
     if (statusFilter !== "all" && d.status !== statusFilter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        d.version.toLowerCase().includes(q) ||
+        d.environment.toLowerCase().includes(q) ||
+        d.status.toLowerCase().includes(q) ||
+        (d.deployMethod || "").toLowerCase().includes(q)
+      );
+    }
     return true;
   });
 
@@ -103,6 +120,11 @@ export function DeployList() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search deploys..."
+            />
             <button
               onClick={() => setShowNewDeploy(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-700 text-white rounded-md transition-colors"
@@ -172,7 +194,13 @@ export function DeployList() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="p-4 space-y-2">
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500">
               <Rocket className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">No deployments found</p>

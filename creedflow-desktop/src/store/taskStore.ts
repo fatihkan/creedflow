@@ -24,6 +24,7 @@ interface TaskStore {
   toggleSelection: (id: string) => void;
   setSelectionMode: (mode: boolean) => void;
   clearSelection: () => void;
+  duplicateTask: (id: string) => Promise<void>;
   archiveSelected: () => Promise<void>;
   restoreSelected: () => Promise<void>;
   deleteSelected: () => Promise<void>;
@@ -102,6 +103,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set({ selectionMode: mode, selectedIds: new Set() }),
 
   clearSelection: () => set({ selectedIds: new Set(), selectionMode: false }),
+
+  duplicateTask: async (id) => {
+    try {
+      const task = await api.duplicateTask(id);
+      set((s) => ({ tasks: [...s.tasks, task] }));
+    } catch (e) {
+      console.error("Failed to duplicate task:", e);
+    }
+  },
 
   archiveSelected: async () => {
     const ids = Array.from(get().selectedIds);

@@ -45,6 +45,9 @@ final class Orchestrator {
     private let contentExporter: ContentExporter
     private let branchManager: GitBranchManager
     private let preferencesStore = AgentBackendPreferencesStore()
+    let notificationService: NotificationService
+    let backendHealthMonitor: BackendHealthMonitor
+    let mcpHealthMonitor: MCPHealthMonitor
 
     /// Agent types that require at least one creative MCP service to be configured
     private static let creativeAgentTypes: Set<AgentTask.AgentType> = [
@@ -94,6 +97,9 @@ final class Orchestrator {
             gitHubService: self.gitHubService,
             dbQueue: dbQueue
         )
+        self.notificationService = NotificationService(dbQueue: dbQueue)
+        self.backendHealthMonitor = BackendHealthMonitor(dbQueue: dbQueue, notificationService: self.notificationService)
+        self.mcpHealthMonitor = MCPHealthMonitor(dbQueue: dbQueue, notificationService: self.notificationService)
 
         // Register backends (done after init to avoid capturing self before init completes)
         // All three are registered; BackendRouter checks isEnabled + isAvailable before selection.
@@ -138,6 +144,13 @@ final class Orchestrator {
         // Start scheduled publication polling
         await publishingService.startScheduledPublishing()
 
+        // Start health monitors
+        await backendHealthMonitor.start()
+        await mcpHealthMonitor.start()
+
+        // Prune old notifications
+        await notificationService.pruneOld()
+
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.pollAndDispatch()
@@ -152,6 +165,8 @@ final class Orchestrator {
         pollingTask = nil
         isRunning = false
         await publishingService.stopScheduledPublishing()
+        await backendHealthMonitor.stop()
+        await mcpHealthMonitor.stop()
         // Cancel all backends
         for backend in await backendRouter.allBackends {
             await backend.cancelAll()
@@ -206,6 +221,14 @@ final class Orchestrator {
                 await scheduler.release(task: task)
                 try? await taskQueue.deferTask(task)
                 continue  // No backend for THIS task, but others might have one
+            }
+
+            // Health-aware dispatch: skip unhealthy backends, defer task instead
+            let healthStatus = await backendHealthMonitor.status(for: backend.backendType)
+            if healthStatus == .unhealthy {
+                await scheduler.release(task: task)
+                try? await taskQueue.deferTask(task)
+                continue
             }
             let runner = MultiBackendRunner(backend: backend, dbQueue: dbQueue)
             activeRunners[task.id] = runner
@@ -330,18 +353,44 @@ final class Orchestrator {
                     // Check if project is fully done and backfill prompt usage outcomes
                     await self.checkProjectCompletion(projectId: task.projectId)
 
+                    // In-app notification: task completed
+                    await self.notificationService.emit(
+                        category: .task,
+                        severity: .success,
+                        title: "Task Completed",
+                        message: task.title
+                    )
+
                     // Telegram notification: task completed
                     await self.sendTelegramNotification(for: task) { telegram, project in
                         await telegram.notifyTaskCompleted(task: task, project: project)
                     }
                 } catch {
-                    // Handle retry
-                    if self.retryPolicy.shouldRetry(task: task, error: error) {
+                    // Rate-limit path: longer backoff + notification
+                    if self.retryPolicy.isRateLimited(error: error) {
+                        let backoff = self.retryPolicy.rateLimitBackoff(retryCount: task.retryCount)
+                        await self.notificationService.emit(
+                            category: .rateLimit,
+                            severity: .warning,
+                            title: "Rate Limited",
+                            message: "\(task.title) — retrying in \(Int(backoff))s"
+                        )
+                        try? await Task.sleep(for: .seconds(backoff))
+                        try? await self.taskQueue.requeue(task)
+                    } else if self.retryPolicy.shouldRetry(task: task, error: error) {
                         let backoff = self.retryPolicy.backoffInterval(for: task.retryCount)
                         try? await Task.sleep(for: .seconds(backoff))
                         try? await self.taskQueue.requeue(task)
                     } else {
                         try? await self.taskQueue.fail(task, error: error.localizedDescription)
+
+                        // In-app notification: task failed
+                        await self.notificationService.emit(
+                            category: .task,
+                            severity: .error,
+                            title: "Task Failed",
+                            message: "\(task.title): \(error.localizedDescription)"
+                        )
 
                         // Telegram notification: task failed (no more retries)
                         await self.sendTelegramNotification(for: task) { telegram, project in

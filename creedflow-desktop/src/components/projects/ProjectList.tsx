@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Terminal, FolderOpen, Code2 } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { NewProjectDialog } from "./NewProjectDialog";
+import { SearchBar } from "../shared/SearchBar";
 import {
   openTerminal,
   openInFileManager,
@@ -15,6 +16,7 @@ export function ProjectList() {
   const { projects, fetchProjects, selectProject, selectedProjectId, deleteProject } =
     useProjectStore();
   const [showNew, setShowNew] = useState(false);
+  const [search, setSearch] = useState("");
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
 
@@ -48,29 +50,54 @@ export function ProjectList() {
     }
   };
 
+  const filteredProjects = search.trim()
+    ? projects.filter((p) => {
+        const q = search.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          (p.techStack || "").toLowerCase().includes(q) ||
+          p.status.toLowerCase().includes(q)
+        );
+      })
+    : projects;
+
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <h2 className="text-sm font-semibold text-zinc-200">Projects</h2>
-        <button
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs rounded-md transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New Project
-        </button>
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-200">Projects</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""}
+            {search && ` matching "${search}"`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search projects..."
+          />
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs rounded-md transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Project
+          </button>
+        </div>
       </div>
 
       {/* List */}
       <div className="flex-1 overflow-y-auto p-2">
-        {projects.length === 0 ? (
+        {filteredProjects.length === 0 ? (
           <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
-            No projects yet. Create one to get started.
+            {search ? "No projects match your search" : "No projects yet. Create one to get started."}
           </div>
         ) : (
           <div className="space-y-1">
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <button
                 key={project.id}
                 onClick={() => selectProject(project.id)}

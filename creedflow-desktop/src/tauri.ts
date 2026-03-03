@@ -98,6 +98,9 @@ export const retryTaskWithRevision = (id: string, revisionPrompt?: string) =>
     revisionPrompt: revisionPrompt ?? null,
   });
 
+export const duplicateTask = (id: string) =>
+  invoke<AgentTask>("duplicate_task", { id });
+
 // ─── Backends ────────────────────────────────────────────────────────────────
 
 export const listBackends = () => invoke<BackendInfo[]>("list_backends");
@@ -384,6 +387,29 @@ export const approveChatProposal = (messageId: string, metadata: string) =>
 export const rejectChatProposal = (messageId: string) =>
   invoke<void>("reject_chat_proposal", { messageId });
 
+// ─── Notifications & Health ──────────────────────────────────────────────────
+
+export const listNotifications = (limit?: number) =>
+  invoke<AppNotif[]>("list_notifications", { limit: limit ?? null });
+
+export const getUnreadCount = () =>
+  invoke<number>("get_unread_count");
+
+export const markNotificationRead = (id: string) =>
+  invoke<void>("mark_notification_read", { id });
+
+export const markAllNotificationsRead = () =>
+  invoke<void>("mark_all_notifications_read");
+
+export const dismissNotification = (id: string) =>
+  invoke<void>("dismiss_notification", { id });
+
+export const getBackendHealthStatus = () =>
+  invoke<HealthEvent[]>("get_backend_health_status");
+
+export const getMcpHealthStatus = () =>
+  invoke<HealthEvent[]>("get_mcp_health_status");
+
 // ─── Prompt Import/Export ───────────────────────────────────────────────────
 
 export const exportPrompts = (promptIds: string[], filePath: string) =>
@@ -394,7 +420,7 @@ export const importPrompts = (filePath: string) =>
 
 // ─── Prompt Versions & Diff ─────────────────────────────────────────────────
 
-import type { PromptVersionDiff, PromptRecommendation } from "./types/models";
+import type { PromptVersionDiff, PromptRecommendation, AppNotification as AppNotif, HealthEvent } from "./types/models";
 
 export const getPromptVersions = (promptId: string) =>
   invoke<PromptVersion[]>("get_prompt_versions", { promptId });

@@ -468,6 +468,53 @@ public struct AppDatabase {
             )
         }
 
+        migrator.registerMigration("v20_notifications_and_health") { db in
+            // In-app notifications
+            try db.create(table: "appNotification") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("category", .text).notNull()
+                t.column("severity", .text).notNull()
+                t.column("title", .text).notNull()
+                t.column("message", .text).notNull()
+                t.column("metadata", .text)
+                t.column("isRead", .boolean).notNull().defaults(to: false)
+                t.column("isDismissed", .boolean).notNull().defaults(to: false)
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "appNotification_on_isRead_createdAt",
+                on: "appNotification",
+                columns: ["isRead", "createdAt"]
+            )
+            try db.create(
+                index: "appNotification_on_category",
+                on: "appNotification",
+                columns: ["category"]
+            )
+
+            // Health check events
+            try db.create(table: "healthEvent") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("targetType", .text).notNull()
+                t.column("targetName", .text).notNull()
+                t.column("status", .text).notNull()
+                t.column("responseTimeMs", .integer)
+                t.column("errorMessage", .text)
+                t.column("metadata", .text)
+                t.column("checkedAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "healthEvent_on_targetType_targetName",
+                on: "healthEvent",
+                columns: ["targetType", "targetName"]
+            )
+            try db.create(
+                index: "healthEvent_on_checkedAt",
+                on: "healthEvent",
+                columns: ["checkedAt"]
+            )
+        }
+
         return migrator
     }
 }

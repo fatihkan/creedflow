@@ -13,16 +13,20 @@ public struct ContentView: View {
     @State private var chatServices: [UUID: ProjectChatService] = [:]
     @State private var telegramService = TelegramBotService()
     @State private var keyboardMonitor: Any?
+    @State private var notificationViewModel: NotificationViewModel?
+    @State private var showShortcutsOverlay = false
 
     public init() {}
 
     public var body: some View {
+        ZStack {
         HSplitView {
             SidebarView(
                 selectedSection: $selectedSection,
                 selectedProjectId: $selectedProjectId,
                 orchestrator: orchestrator,
-                appDatabase: appDatabase
+                appDatabase: appDatabase,
+                notificationViewModel: notificationViewModel
             )
             .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
 
@@ -57,6 +61,19 @@ public struct ContentView: View {
             .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
             .animation(.easeInOut(duration: 0.2), value: showChatPanel)
         }
+        // Toast overlay
+        if let notificationViewModel {
+            NotificationToastOverlay(viewModel: notificationViewModel)
+                .allowsHitTesting(true)
+        }
+        // Keyboard shortcuts overlay
+        if showShortcutsOverlay {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { showShortcutsOverlay = false }
+            KeyboardShortcutsView(isPresented: $showShortcutsOverlay)
+        }
+        } // end ZStack
         .frame(minWidth: 960, minHeight: 640)
         .onChange(of: selectedSection) { _, newSection in
             if newSection != .deploys {
@@ -74,6 +91,12 @@ public struct ContentView: View {
             if let db = appDatabase {
                 let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)
                 orchestrator = orch
+
+                // Set up notification view model
+                let nvm = NotificationViewModel(dbQueue: db.dbQueue, service: orch.notificationService)
+                notificationViewModel = nvm
+                nvm.startObserving()
+
                 await orch.start()
 
                 // Start Telegram polling if configured (#32)
@@ -91,6 +114,10 @@ public struct ContentView: View {
             keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 // Escape — dismiss panels
                 if event.keyCode == 53 {
+                    if showShortcutsOverlay {
+                        showShortcutsOverlay = false
+                        return nil
+                    }
                     if selectedTaskId != nil {
                         selectedTaskId = nil
                         return nil
@@ -104,6 +131,13 @@ public struct ContentView: View {
                         return nil
                     }
                     return event
+                }
+
+                // Cmd+? (Cmd+Shift+/) — keyboard shortcuts overlay
+                if event.modifierFlags.contains(.command) && event.modifierFlags.contains(.shift),
+                   event.charactersIgnoringModifiers == "/" {
+                    showShortcutsOverlay.toggle()
+                    return nil
                 }
 
                 guard event.modifierFlags.contains(.command),
@@ -129,6 +163,7 @@ public struct ContentView: View {
             }
             // Stop orchestrator and telegram polling on window close (#45)
             telegramService.stopPolling()
+            notificationViewModel?.stopObserving()
             Task {
                 await orchestrator?.stop()
             }

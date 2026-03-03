@@ -221,6 +221,9 @@ struct TaskBoardView: View {
                             archiveSelection: $archiveSelection,
                             onMoveTask: { taskId, newStatus in
                                 moveTask(taskId: taskId, to: newStatus)
+                            },
+                            onDuplicateTask: { taskId in
+                                duplicateTask(taskId: taskId)
                             }
                         )
                     }
@@ -340,6 +343,29 @@ struct TaskBoardView: View {
             try task.update(dbConn)
         }
     }
+
+    private func duplicateTask(taskId: UUID) {
+        guard let db = appDatabase else { return }
+        do {
+            try db.dbQueue.write { dbConn in
+                guard let source = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
+                var copy = AgentTask(
+                    projectId: source.projectId,
+                    featureId: source.featureId,
+                    agentType: source.agentType,
+                    title: "Copy of \(source.title)",
+                    description: source.description,
+                    priority: source.priority,
+                    maxRetries: source.maxRetries,
+                    promptChainId: source.promptChainId,
+                    skillPersona: source.skillPersona
+                )
+                try copy.insert(dbConn)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 }
 
 // MARK: - New Task Sheet
@@ -429,6 +455,7 @@ struct KanbanColumnView: View {
     var isArchiveSelectionMode: Bool = false
     @Binding var archiveSelection: Set<UUID>
     let onMoveTask: (UUID, AgentTask.Status) -> Void
+    var onDuplicateTask: ((UUID) -> Void)?
 
     @State private var isDropTargeted = false
 
@@ -492,7 +519,8 @@ struct KanbanColumnView: View {
                                     task: task,
                                     isSelected: selectedTaskId == task.id,
                                     isRunning: orchestrator?.runner(for: task.id) != nil,
-                                    onMoveTask: onMoveTask
+                                    onMoveTask: onMoveTask,
+                                    onDuplicateTask: onDuplicateTask
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
@@ -537,6 +565,7 @@ struct TaskCardView: View {
     let isSelected: Bool
     var isRunning: Bool = false
     let onMoveTask: (UUID, AgentTask.Status) -> Void
+    var onDuplicateTask: ((UUID) -> Void)?
 
     @State private var isHovered = false
 
@@ -670,6 +699,12 @@ struct TaskCardView: View {
             Button { onMoveTask(task.id, .queued) } label: {
                 Label("Requeue", systemImage: "arrow.counterclockwise")
             }
+        }
+
+        Divider()
+
+        Button { onDuplicateTask?(task.id) } label: {
+            Label("Duplicate", systemImage: "doc.on.doc")
         }
     }
 }

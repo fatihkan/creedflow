@@ -15,10 +15,13 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
+  Bell,
 } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { useTaskStore } from "../../store/taskStore";
 import { useReviewStore } from "../../store/reviewStore";
+import { useNotificationStore } from "../../store/notificationStore";
+import { NotificationPanel } from "../notifications/NotificationPanel";
 
 export type SidebarSection =
   | "projects"
@@ -61,6 +64,10 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
 
   const pendingReviewCount = useReviewStore((s) => s.pendingCount);
   const fetchPendingCount = useReviewStore((s) => s.fetchPendingCount);
+
+  const unreadNotifCount = useNotificationStore((s) => s.unreadCount);
+  const showNotifPanel = useNotificationStore((s) => s.showPanel);
+  const setShowNotifPanel = useNotificationStore((s) => s.setShowPanel);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     workspace: true,
@@ -197,6 +204,34 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
 
       {/* Bottom bar */}
       <div className="border-t border-zinc-800 p-2 space-y-1">
+        {/* Notifications */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifPanel(!showNotifPanel)}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors"
+          >
+            <div className="relative">
+              <Bell className="w-4 h-4 flex-shrink-0" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1.5 text-[8px] font-bold text-white bg-red-500 rounded-full w-3.5 h-3.5 flex items-center justify-center leading-none">
+                  {Math.min(unreadNotifCount, 9)}
+                </span>
+              )}
+            </div>
+            <span className="flex-1 text-left">Notifications</span>
+            {unreadNotifCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                {unreadNotifCount}
+              </span>
+            )}
+          </button>
+          {showNotifPanel && (
+            <div className="absolute bottom-full left-0 mb-2 z-50">
+              <NotificationPanel onClose={() => setShowNotifPanel(false)} />
+            </div>
+          )}
+        </div>
+
         {/* Settings */}
         <NavItem id="settings" label="Settings" icon={Settings} selected={selected} onSelect={onSelect} />
 

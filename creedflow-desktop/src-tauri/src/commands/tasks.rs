@@ -156,6 +156,46 @@ pub async fn list_archived_tasks(
 }
 
 #[tauri::command]
+pub async fn duplicate_task(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<AgentTask, String> {
+    let db = state.db.lock().await;
+    let source = AgentTask::get(&db.conn, &id).map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let task = AgentTask {
+        id: Uuid::new_v4().to_string(),
+        project_id: source.project_id,
+        feature_id: source.feature_id,
+        agent_type: source.agent_type,
+        title: format!("Copy of {}", source.title),
+        description: source.description,
+        priority: source.priority,
+        status: "queued".to_string(),
+        result: None,
+        error_message: None,
+        retry_count: 0,
+        max_retries: source.max_retries,
+        session_id: None,
+        branch_name: None,
+        pr_number: None,
+        cost_usd: None,
+        duration_ms: None,
+        created_at: now.clone(),
+        updated_at: now,
+        started_at: None,
+        completed_at: None,
+        backend: None,
+        prompt_chain_id: source.prompt_chain_id,
+        revision_prompt: None,
+        skill_persona: source.skill_persona,
+        archived_at: None,
+    };
+    AgentTask::insert(&db.conn, &task).map_err(|e| e.to_string())?;
+    Ok(task)
+}
+
+#[tauri::command]
 pub async fn retry_task_with_revision(
     state: State<'_, AppState>,
     id: String,

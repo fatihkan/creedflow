@@ -12,3 +12,4 @@ pub mod prompts;
 pub mod git;
 pub mod platform;
 pub mod chat;
+pub mod notifications;

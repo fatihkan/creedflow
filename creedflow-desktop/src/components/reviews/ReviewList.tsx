@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useReviewStore } from "../../store/reviewStore";
 import { Check, X, ChevronDown, ChevronUp, FileCheck } from "lucide-react";
+import { SearchBar } from "../shared/SearchBar";
+import { SkeletonRow } from "../shared/Skeleton";
 import type { Review } from "../../types/models";
 
 type FilterType = "all" | "pending" | "approved";
@@ -35,17 +37,27 @@ export function ReviewList() {
   const { reviews, loading, fetchReviews, approveReview, rejectReview } =
     useReviewStore();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReviews();
   }, [fetchReviews]);
 
-  const filtered = reviews.filter((r) => {
-    if (filter === "pending") return !r.isApproved;
-    if (filter === "approved") return r.isApproved;
-    return true;
-  });
+  const filtered = reviews
+    .filter((r) => {
+      if (filter === "pending") return !r.isApproved;
+      if (filter === "approved") return r.isApproved;
+      return true;
+    })
+    .filter((r) => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (
+        r.summary.toLowerCase().includes(q) ||
+        r.verdict.toLowerCase().includes(q)
+      );
+    });
 
   return (
     <div className="flex-1 flex flex-col">
@@ -56,7 +68,13 @@ export function ReviewList() {
             {filtered.length} review{filtered.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search reviews..."
+          />
+          <div className="flex gap-1">
           {(["all", "pending", "approved"] as FilterType[]).map((f) => (
             <button
               key={f}
@@ -70,13 +88,17 @@ export function ReviewList() {
               {f}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
-            Loading...
+          <div className="p-4 space-y-2">
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-zinc-500">

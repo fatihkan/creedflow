@@ -39,6 +39,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (18, V18_TASK_ARCHIVE),
         (19, V19_PROJECT_MESSAGE),
         (20, V20_MESSAGE_ATTACHMENTS),
+        (21, V21_NOTIFICATIONS_AND_HEALTH),
     ];
 
     for (version, sql) in migrations {
@@ -415,4 +416,36 @@ CREATE INDEX IF NOT EXISTS idx_project_message_project_created ON project_messag
 
 const V20_MESSAGE_ATTACHMENTS: &str = r#"
 ALTER TABLE project_message ADD COLUMN attachments TEXT;
+"#;
+
+const V21_NOTIFICATIONS_AND_HEALTH: &str = r#"
+CREATE TABLE IF NOT EXISTS appNotification (
+    id TEXT PRIMARY KEY NOT NULL,
+    category TEXT NOT NULL DEFAULT 'system',
+    severity TEXT NOT NULL DEFAULT 'info',
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    metadata TEXT,
+    isRead INTEGER NOT NULL DEFAULT 0,
+    isDismissed INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_appNotification_isRead ON appNotification(isRead);
+CREATE INDEX IF NOT EXISTS idx_appNotification_category ON appNotification(category);
+CREATE INDEX IF NOT EXISTS idx_appNotification_createdAt ON appNotification(createdAt);
+
+CREATE TABLE IF NOT EXISTS healthEvent (
+    id TEXT PRIMARY KEY NOT NULL,
+    targetType TEXT NOT NULL,
+    targetName TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'unknown',
+    responseTimeMs INTEGER,
+    errorMessage TEXT,
+    metadata TEXT,
+    checkedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_healthEvent_targetType_name ON healthEvent(targetType, targetName);
+CREATE INDEX IF NOT EXISTS idx_healthEvent_checkedAt ON healthEvent(checkedAt);
 "#;

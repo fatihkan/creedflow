@@ -51,6 +51,7 @@ pub fn run() {
             commands::tasks::permanently_delete_tasks,
             commands::tasks::list_archived_tasks,
             commands::tasks::retry_task_with_revision,
+            commands::tasks::duplicate_task,
             // Backends
             commands::backends::list_backends,
             commands::backends::check_backend,
@@ -131,6 +132,14 @@ pub fn run() {
             commands::chat::list_chat_messages,
             commands::chat::approve_chat_proposal,
             commands::chat::reject_chat_proposal,
+            // Notifications & Health
+            commands::notifications::list_notifications,
+            commands::notifications::get_unread_count,
+            commands::notifications::mark_notification_read,
+            commands::notifications::mark_all_notifications_read,
+            commands::notifications::dismiss_notification,
+            commands::notifications::get_backend_health_status,
+            commands::notifications::get_mcp_health_status,
             // Git
             commands::git::git_ensure_branch_structure,
             commands::git::git_setup_feature_branch,

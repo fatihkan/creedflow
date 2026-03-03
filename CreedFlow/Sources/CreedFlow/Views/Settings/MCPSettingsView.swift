@@ -9,6 +9,7 @@ struct MCPSettingsView: View {
     @State private var editingConfig: MCPServerConfig?
     @State private var setupTemplate: MCPServerTemplate?
     @State private var configToDelete: MCPServerConfig?
+    @State private var mcpHealthStatus: [String: HealthEvent.HealthStatus] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,6 +27,9 @@ struct MCPSettingsView: View {
             if let db = appDatabase {
                 store.observe(in: db.dbQueue)
             }
+        }
+        .task {
+            await loadMCPHealthStatus()
         }
         .sheet(isPresented: $showAddSheet) {
             MCPServerEditSheet(appDatabase: appDatabase)
@@ -93,6 +97,7 @@ struct MCPSettingsView: View {
                 ForEach(store.configs) { config in
                     MCPServerRow(
                         config: config,
+                        healthStatus: mcpHealthStatus[config.name] ?? .unknown,
                         onToggle: { toggleEnabled(config) },
                         onEdit: { editingConfig = config },
                         onDelete: { configToDelete = config }
@@ -138,6 +143,27 @@ struct MCPSettingsView: View {
         guard let db = appDatabase else { return }
         _ = try? db.dbQueue.write { dbConn in
             try config.delete(dbConn)
+        }
+    }
+
+    private func loadMCPHealthStatus() async {
+        guard let db = appDatabase else { return }
+        do {
+            let events = try await db.dbQueue.read { dbConn in
+                try HealthEvent
+                    .filter(Column("targetType") == HealthEvent.TargetType.mcp.rawValue)
+                    .order(Column("checkedAt").desc)
+                    .fetchAll(dbConn)
+            }
+            var statusMap: [String: HealthEvent.HealthStatus] = [:]
+            for event in events {
+                if statusMap[event.targetName] == nil {
+                    statusMap[event.targetName] = event.status
+                }
+            }
+            mcpHealthStatus = statusMap
+        } catch {
+            // Non-fatal
         }
     }
 }
@@ -282,6 +308,7 @@ private struct MCPTemplateSetupSheet: View {
 
 private struct MCPServerRow: View {
     let config: MCPServerConfig
+    let healthStatus: HealthEvent.HealthStatus
     let onToggle: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -293,8 +320,15 @@ private struct MCPServerRow: View {
                 .toggleStyle(.switch)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(config.name)
-                    .font(.headline)
+                HStack(spacing: 6) {
+                    Text(config.name)
+                        .font(.headline)
+                    if config.isEnabled {
+                        Circle()
+                            .fill(healthStatus.indicatorColor)
+                            .frame(width: 7, height: 7)
+                    }
+                }
                 Text(config.command)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
