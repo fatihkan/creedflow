@@ -17,6 +17,10 @@ final class EnvironmentDetector {
     var opencodePath: String = ""
     var opencodeVersion: String = ""
 
+    // Qwen Code
+    var qwenPath: String = ""
+    var qwenVersion: String = ""
+
     // Local LLMs
     var ollamaPath: String = ""
     var ollamaVersion: String = ""
@@ -35,6 +39,7 @@ final class EnvironmentDetector {
 
     // Code editors
     var detectedEditors: [(name: String, command: String, path: String)] = []
+    var uninstalledEditors: [(name: String, command: String, brewFormula: String)] = []
 
     var isDetecting = false
 
@@ -47,6 +52,8 @@ final class EnvironmentDetector {
     var geminiInstallError: String?
     var opencodeInstalling = false
     var opencodeInstallError: String?
+    var qwenInstalling = false
+    var qwenInstallError: String?
     var ollamaInstalling = false
     var ollamaInstallError: String?
     var lmstudioInstalling = false
@@ -56,10 +63,15 @@ final class EnvironmentDetector {
     var mlxInstalling = false
     var mlxInstallError: String?
 
+    // Editor install state
+    var editorInstalling: String?
+    var editorInstallError: String?
+
     var claudeFound: Bool { !claudePath.isEmpty && !claudeVersion.isEmpty }
     var codexFound: Bool { !codexPath.isEmpty && !codexVersion.isEmpty }
     var geminiFound: Bool { !geminiPath.isEmpty && !geminiVersion.isEmpty }
     var opencodeFound: Bool { !opencodePath.isEmpty && !opencodeVersion.isEmpty }
+    var qwenFound: Bool { !qwenPath.isEmpty && !qwenVersion.isEmpty }
     var ollamaFound: Bool { !ollamaPath.isEmpty && !ollamaVersion.isEmpty }
     var lmstudioFound: Bool { !lmstudioPath.isEmpty && !lmstudioVersion.isEmpty }
     var llamacppFound: Bool { !llamacppPath.isEmpty && !llamacppVersion.isEmpty }
@@ -94,6 +106,13 @@ final class EnvironmentDetector {
         "/usr/local/bin/opencode",
         "/opt/homebrew/bin/opencode",
         "\(home)/go/bin/opencode",
+    ]
+
+    private static let qwenCandidates = [
+        "\(home)/.local/bin/qwen",
+        "/usr/local/bin/qwen",
+        "/opt/homebrew/bin/qwen",
+        "\(home)/.npm-global/bin/qwen",
     ]
 
     private static let ollamaCandidates = [
@@ -156,11 +175,20 @@ final class EnvironmentDetector {
         ]),
     ]
 
+    /// Editor command → Homebrew cask formula (Xcode excluded — no brew formula)
+    private static let editorBrewFormulas: [String: String] = [
+        "code": "visual-studio-code",
+        "cursor": "cursor",
+        "zed": "zed",
+        "subl": "sublime-text",
+        "windsurf": "windsurf",
+    ]
+
     /// Auto-detect all tools using candidate paths
     func detectAll() async {
         await detectAll(
             claudeOverride: "", codexOverride: "", geminiOverride: "",
-            opencodeOverride: "",
+            opencodeOverride: "", qwenOverride: "",
             ollamaOverride: "", lmstudioOverride: "", llamacppOverride: "", mlxOverride: ""
         )
     }
@@ -168,7 +196,7 @@ final class EnvironmentDetector {
     /// Detect all tools, preferring user-provided override paths when non-empty
     func detectAll(
         claudeOverride: String, codexOverride: String, geminiOverride: String,
-        opencodeOverride: String = "",
+        opencodeOverride: String = "", qwenOverride: String = "",
         ollamaOverride: String = "", lmstudioOverride: String = "",
         llamacppOverride: String = "", mlxOverride: String = ""
     ) async {
@@ -187,6 +215,9 @@ final class EnvironmentDetector {
             }}
             group.addTask { await self.detectCLI(override: opencodeOverride, candidates: Self.opencodeCandidates) { path, version in
                 self.opencodePath = path; self.opencodeVersion = version
+            }}
+            group.addTask { await self.detectCLI(override: qwenOverride, candidates: Self.qwenCandidates) { path, version in
+                self.qwenPath = path; self.qwenVersion = version
             }}
             group.addTask { await self.detectCLI(override: ollamaOverride, candidates: Self.ollamaCandidates) { path, version in
                 self.ollamaPath = path; self.ollamaVersion = version
@@ -275,6 +306,16 @@ final class EnvironmentDetector {
             }
         }
         detectedEditors = found
+
+        // Build list of uninstalled editors that can be installed via Homebrew
+        let foundCommands = Set(found.map(\.command))
+        var notInstalled: [(name: String, command: String, brewFormula: String)] = []
+        for editor in Self.editorCandidates {
+            if !foundCommands.contains(editor.command), let formula = Self.editorBrewFormulas[editor.command] {
+                notInstalled.append((name: editor.name, command: editor.command, brewFormula: formula))
+            }
+        }
+        uninstalledEditors = notInstalled
     }
 
     /// Derive the CLI binary path from a .app bundle URL.
@@ -339,6 +380,10 @@ final class EnvironmentDetector {
             await installNpmCLI(id: "gemini", package: "@google/gemini-cli",
                                 installing: \.geminiInstalling, error: \.geminiInstallError,
                                 candidates: Self.geminiCandidates) { p, v in self.geminiPath = p; self.geminiVersion = v }
+        case "qwen":
+            await installNpmCLI(id: "qwen", package: "@qwen-code/qwen-code@latest",
+                                installing: \.qwenInstalling, error: \.qwenInstallError,
+                                candidates: Self.qwenCandidates) { p, v in self.qwenPath = p; self.qwenVersion = v }
         case "opencode":
             await installGoCLI(
                 installing: \.opencodeInstalling, error: \.opencodeInstallError,
@@ -362,6 +407,35 @@ final class EnvironmentDetector {
         default:
             break
         }
+    }
+
+    // MARK: - Editor Installation
+
+    /// Install a code editor via Homebrew cask and re-detect editors
+    func installEditor(_ command: String) async {
+        guard let formula = Self.editorBrewFormulas[command] else { return }
+        guard let brewPath = findBrewPath() else {
+            editorInstallError = "Homebrew not found"
+            return
+        }
+        editorInstalling = command
+        editorInstallError = nil
+        defer { editorInstalling = nil }
+
+        let (stdout, stderr, exitCode) = await runProcessWithStatus(brewPath, arguments: ["install", "--cask", formula])
+        if exitCode != 0 {
+            let combined = stdout + " " + stderr
+            let isSuccess = combined.contains("successfully installed")
+                || combined.contains("was successfully installed")
+                || combined.contains("Moving App")
+                || combined.contains("is already installed")
+            if !isSuccess {
+                editorInstallError = stderr.isEmpty ? "Install failed (exit \(exitCode))" : String(stderr.prefix(200))
+                return
+            }
+        }
+        // Re-detect editors
+        await detectEditors()
     }
 
     // MARK: - Install Helpers

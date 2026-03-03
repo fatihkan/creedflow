@@ -10,6 +10,7 @@ struct WizardEnvironmentStep: View {
     @Binding var codexPathOverride: String
     @Binding var geminiPathOverride: String
     @Binding var opencodePathOverride: String
+    @Binding var qwenPathOverride: String
     @Binding var ollamaPathOverride: String
     @Binding var lmstudioPathOverride: String
     @Binding var llamacppPathOverride: String
@@ -102,6 +103,22 @@ struct WizardEnvironmentStep: View {
                     Task { await detector.installCLI("opencode") }
                 }
                 CLIPathOverrideRow(path: $opencodePathOverride, placeholder: "OpenCode custom path")
+
+                Divider()
+
+                CLIDetectionRow(
+                    label: "Qwen Code",
+                    found: detector.qwenFound,
+                    path: detector.qwenPath,
+                    version: detector.qwenVersion,
+                    installing: detector.qwenInstalling,
+                    installError: detector.qwenInstallError,
+                    hasPrerequisite: hasNode,
+                    prerequisiteName: "Node.js"
+                ) {
+                    Task { await detector.installCLI("qwen") }
+                }
+                CLIPathOverrideRow(path: $qwenPathOverride, placeholder: "Qwen Code custom path")
             }
 
             Section("Local LLMs (Optional)") {
@@ -176,6 +193,7 @@ struct WizardEnvironmentStep: View {
                             codexOverride: codexPathOverride,
                             geminiOverride: geminiPathOverride,
                             opencodeOverride: opencodePathOverride,
+                            qwenOverride: qwenPathOverride,
                             ollamaOverride: ollamaPathOverride,
                             lmstudioOverride: lmstudioPathOverride,
                             llamacppOverride: llamacppPathOverride,
@@ -236,7 +254,7 @@ struct WizardEnvironmentStep: View {
             }
 
             Section("Code Editors") {
-                if detector.detectedEditors.isEmpty && !detector.isDetecting {
+                if detector.detectedEditors.isEmpty && detector.uninstalledEditors.isEmpty && !detector.isDetecting {
                     Text("No code editors found")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -247,6 +265,43 @@ struct WizardEnvironmentStep: View {
                             found: true,
                             detail: editor.path
                         )
+                    }
+
+                    ForEach(detector.uninstalledEditors, id: \.command) { editor in
+                        HStack(spacing: 8) {
+                            Image(systemName: "circle.dashed")
+                                .foregroundStyle(.forgeNeutral)
+                                .font(.body)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(editor.name)
+                                    .font(.subheadline.weight(.medium))
+                                Text("Not installed")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if detector.editorInstalling == editor.command {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                    .frame(width: 16, height: 16)
+                            } else if hasBrew {
+                                Button("Install") {
+                                    Task { await detector.installEditor(editor.command) }
+                                }
+                                .controlSize(.small)
+                            } else {
+                                Text("Needs Homebrew")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if let error = detector.editorInstallError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .lineLimit(2)
                     }
                 }
 
@@ -825,6 +880,7 @@ struct WizardSummaryStep: View {
     let codexPathOverride: String
     let geminiPathOverride: String
     let opencodePathOverride: String
+    let qwenPathOverride: String
     let ollamaPathOverride: String
     let lmstudioPathOverride: String
     let llamacppPathOverride: String
@@ -864,6 +920,12 @@ struct WizardSummaryStep: View {
         return "Not found"
     }
 
+    private var effectiveQwenPath: String {
+        if !qwenPathOverride.isEmpty { return qwenPathOverride }
+        if detector.qwenFound { return detector.qwenPath }
+        return "Not found"
+    }
+
     private var effectiveOllamaPath: String {
         if !ollamaPathOverride.isEmpty { return ollamaPathOverride }
         if detector.ollamaFound { return detector.ollamaPath }
@@ -895,6 +957,7 @@ struct WizardSummaryStep: View {
                 SummaryRow(label: "Codex CLI", value: effectiveCodexPath, ok: detector.codexFound || !codexPathOverride.isEmpty)
                 SummaryRow(label: "Gemini CLI", value: effectiveGeminiPath, ok: detector.geminiFound || !geminiPathOverride.isEmpty)
                 SummaryRow(label: "OpenCode", value: effectiveOpencodePath, ok: detector.opencodeFound || !opencodePathOverride.isEmpty)
+                SummaryRow(label: "Qwen Code", value: effectiveQwenPath, ok: detector.qwenFound || !qwenPathOverride.isEmpty)
             }
 
             Section("Local LLMs") {

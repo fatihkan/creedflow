@@ -7,6 +7,7 @@ public struct SetupWizardView: View {
     @AppStorage("codexPath") private var storedCodexPath = ""
     @AppStorage("geminiPath") private var storedGeminiPath = ""
     @AppStorage("opencodePath") private var storedOpencodePath = ""
+    @AppStorage("qwenPath") private var storedQwenPath = ""
     @AppStorage("ollamaPath") private var storedOllamaPath = ""
     @AppStorage("lmstudioEnabled") private var storedLmstudioEnabled = false
     @AppStorage("llamacppPath") private var storedLlamacppPath = ""
@@ -30,6 +31,7 @@ public struct SetupWizardView: View {
     @State private var codexPathOverride = ""
     @State private var geminiPathOverride = ""
     @State private var opencodePathOverride = ""
+    @State private var qwenPathOverride = ""
     @State private var ollamaPathOverride = ""
     @State private var lmstudioPathOverride = ""
     @State private var llamacppPathOverride = ""
@@ -94,6 +96,7 @@ public struct SetupWizardView: View {
                         codexPathOverride: $codexPathOverride,
                         geminiPathOverride: $geminiPathOverride,
                         opencodePathOverride: $opencodePathOverride,
+                        qwenPathOverride: $qwenPathOverride,
                         ollamaPathOverride: $ollamaPathOverride,
                         lmstudioPathOverride: $lmstudioPathOverride,
                         llamacppPathOverride: $llamacppPathOverride,
@@ -127,6 +130,7 @@ public struct SetupWizardView: View {
                         codexPathOverride: codexPathOverride,
                         geminiPathOverride: geminiPathOverride,
                         opencodePathOverride: opencodePathOverride,
+                        qwenPathOverride: qwenPathOverride,
                         ollamaPathOverride: ollamaPathOverride,
                         lmstudioPathOverride: lmstudioPathOverride,
                         llamacppPathOverride: llamacppPathOverride,
@@ -216,6 +220,12 @@ public struct SetupWizardView: View {
             storedOpencodePath = opencodePathOverride
         } else if detector.opencodeFound {
             storedOpencodePath = detector.opencodePath
+        }
+
+        if !qwenPathOverride.isEmpty {
+            storedQwenPath = qwenPathOverride
+        } else if detector.qwenFound {
+            storedQwenPath = detector.qwenPath
         }
 
         if !ollamaPathOverride.isEmpty {
