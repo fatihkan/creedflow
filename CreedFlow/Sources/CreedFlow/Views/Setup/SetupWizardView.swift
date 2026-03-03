@@ -89,6 +89,7 @@ public struct SetupWizardView: View {
                 case 0:
                     WizardEnvironmentStep(
                         detector: detector,
+                        installer: installer,
                         claudePathOverride: $claudePathOverride,
                         codexPathOverride: $codexPathOverride,
                         geminiPathOverride: $geminiPathOverride,

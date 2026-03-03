@@ -405,12 +405,17 @@ final class DependencyInstaller {
         if dep.isBrewCask { args.append("--cask") }
         args.append(dep.installCommand)
 
-        do {
-            let (output, error) = await runProcessStreaming(brewPath, arguments: args)
-            dependencies[index].installOutput = output
-            if !error.isEmpty && !output.contains("successfully installed") && !output.contains("Pouring") {
-                dependencies[index].installError = error
-            }
+        let (output, error) = await runProcessStreaming(brewPath, arguments: args)
+        dependencies[index].installOutput = output
+        // Homebrew cask writes success messages to stderr, so check combined output
+        let combined = output + " " + error
+        let isSuccess = combined.contains("successfully installed")
+            || combined.contains("was successfully installed")
+            || combined.contains("Pouring")
+            || combined.contains("Moving App")
+            || combined.contains("is already installed")
+        if !error.isEmpty && !isSuccess {
+            dependencies[index].installError = error
         }
 
         // Re-detect this dep
@@ -448,6 +453,8 @@ final class DependencyInstaller {
                     env["PATH"] = "\(brewBin):\(currentPath)"
                 }
             }
+            // Skip slow auto-update during installs
+            env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
             process.environment = env
 
             let stdoutPipe = Pipe()

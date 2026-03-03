@@ -38,6 +38,24 @@ final class EnvironmentDetector {
 
     var isDetecting = false
 
+    // Install state per CLI
+    var claudeInstalling = false
+    var claudeInstallError: String?
+    var codexInstalling = false
+    var codexInstallError: String?
+    var geminiInstalling = false
+    var geminiInstallError: String?
+    var opencodeInstalling = false
+    var opencodeInstallError: String?
+    var ollamaInstalling = false
+    var ollamaInstallError: String?
+    var lmstudioInstalling = false
+    var lmstudioInstallError: String?
+    var llamacppInstalling = false
+    var llamacppInstallError: String?
+    var mlxInstalling = false
+    var mlxInstallError: String?
+
     var claudeFound: Bool { !claudePath.isEmpty && !claudeVersion.isEmpty }
     var codexFound: Bool { !codexPath.isEmpty && !codexVersion.isEmpty }
     var geminiFound: Bool { !geminiPath.isEmpty && !geminiVersion.isEmpty }
@@ -302,5 +320,223 @@ final class EnvironmentDetector {
             _ = try? await Process.run("/usr/bin/git", arguments: ["config", "--global", "user.email", email])
         }
         await detectGit()
+    }
+
+    // MARK: - CLI Installation
+
+    /// Install a CLI by its identifier (e.g. "claude", "codex", "gemini", etc.)
+    func installCLI(_ cliId: String) async {
+        switch cliId {
+        case "claude":
+            await installNpmCLI(id: "claude", package: "@anthropic-ai/claude-code",
+                                installing: \.claudeInstalling, error: \.claudeInstallError,
+                                candidates: Self.claudeCandidates) { p, v in self.claudePath = p; self.claudeVersion = v }
+        case "codex":
+            await installNpmCLI(id: "codex", package: "@openai/codex",
+                                installing: \.codexInstalling, error: \.codexInstallError,
+                                candidates: Self.codexCandidates) { p, v in self.codexPath = p; self.codexVersion = v }
+        case "gemini":
+            await installNpmCLI(id: "gemini", package: "@google/gemini-cli",
+                                installing: \.geminiInstalling, error: \.geminiInstallError,
+                                candidates: Self.geminiCandidates) { p, v in self.geminiPath = p; self.geminiVersion = v }
+        case "opencode":
+            await installGoCLI(
+                installing: \.opencodeInstalling, error: \.opencodeInstallError,
+                candidates: Self.opencodeCandidates) { p, v in self.opencodePath = p; self.opencodeVersion = v }
+        case "ollama":
+            await installBrewCLI(formula: "ollama", isCask: false,
+                                 installing: \.ollamaInstalling, error: \.ollamaInstallError,
+                                 candidates: Self.ollamaCandidates) { p, v in self.ollamaPath = p; self.ollamaVersion = v }
+        case "lmstudio":
+            await installBrewCLI(formula: "lm-studio", isCask: true,
+                                 installing: \.lmstudioInstalling, error: \.lmstudioInstallError,
+                                 candidates: Self.lmstudioCandidates) { p, v in self.lmstudioPath = p; self.lmstudioVersion = v }
+        case "llamacpp":
+            await installBrewCLI(formula: "llama.cpp", isCask: false,
+                                 installing: \.llamacppInstalling, error: \.llamacppInstallError,
+                                 candidates: Self.llamacppCandidates) { p, v in self.llamacppPath = p; self.llamacppVersion = v }
+        case "mlx":
+            await installPipCLI(
+                installing: \.mlxInstalling, error: \.mlxInstallError,
+                candidates: Self.mlxCandidates) { p, v in self.mlxPath = p; self.mlxVersion = v }
+        default:
+            break
+        }
+    }
+
+    // MARK: - Install Helpers
+
+    private func installNpmCLI(
+        id: String, package: String,
+        installing: ReferenceWritableKeyPath<EnvironmentDetector, Bool>,
+        error: ReferenceWritableKeyPath<EnvironmentDetector, String?>,
+        candidates: [String],
+        apply: (String, String) -> Void
+    ) async {
+        guard let npmPath = findExecutable("npm") else {
+            self[keyPath: error] = "Node.js (npm) not found — install Node.js first"
+            return
+        }
+        self[keyPath: installing] = true
+        self[keyPath: error] = nil
+        defer { self[keyPath: installing] = false }
+
+        let (_, stderr, exitCode) = await runProcessWithStatus(npmPath, arguments: ["install", "-g", package])
+        if exitCode != 0 {
+            self[keyPath: error] = stderr.isEmpty ? "Install failed (exit \(exitCode))" : String(stderr.prefix(200))
+            return
+        }
+        // Re-detect
+        await detectCLI(override: "", candidates: candidates, apply: apply)
+    }
+
+    private func installGoCLI(
+        installing: ReferenceWritableKeyPath<EnvironmentDetector, Bool>,
+        error: ReferenceWritableKeyPath<EnvironmentDetector, String?>,
+        candidates: [String],
+        apply: (String, String) -> Void
+    ) async {
+        guard let goPath = findExecutable("go") else {
+            self[keyPath: error] = "Go not found — install Go first"
+            return
+        }
+        self[keyPath: installing] = true
+        self[keyPath: error] = nil
+        defer { self[keyPath: installing] = false }
+
+        let (_, stderr, exitCode) = await runProcessWithStatus(goPath, arguments: ["install", "github.com/opencode-ai/opencode@latest"])
+        if exitCode != 0 {
+            self[keyPath: error] = stderr.isEmpty ? "Install failed (exit \(exitCode))" : String(stderr.prefix(200))
+            return
+        }
+        await detectCLI(override: "", candidates: candidates, apply: apply)
+    }
+
+    private func installBrewCLI(
+        formula: String, isCask: Bool,
+        installing: ReferenceWritableKeyPath<EnvironmentDetector, Bool>,
+        error: ReferenceWritableKeyPath<EnvironmentDetector, String?>,
+        candidates: [String],
+        apply: (String, String) -> Void
+    ) async {
+        guard let brewPath = findBrewPath() else {
+            self[keyPath: error] = "Homebrew not found — install Homebrew first"
+            return
+        }
+        self[keyPath: installing] = true
+        self[keyPath: error] = nil
+        defer { self[keyPath: installing] = false }
+
+        var args = ["install"]
+        if isCask { args.append("--cask") }
+        args.append(formula)
+
+        let (stdout, stderr, exitCode) = await runProcessWithStatus(brewPath, arguments: args)
+        if exitCode != 0 {
+            // Homebrew cask writes success to stderr, check combined
+            let combined = stdout + " " + stderr
+            let isSuccess = combined.contains("successfully installed")
+                || combined.contains("was successfully installed")
+                || combined.contains("Pouring")
+                || combined.contains("Moving App")
+                || combined.contains("is already installed")
+            if !isSuccess {
+                self[keyPath: error] = stderr.isEmpty ? "Install failed (exit \(exitCode))" : String(stderr.prefix(200))
+                return
+            }
+        }
+        await detectCLI(override: "", candidates: candidates, apply: apply)
+    }
+
+    private func installPipCLI(
+        installing: ReferenceWritableKeyPath<EnvironmentDetector, Bool>,
+        error: ReferenceWritableKeyPath<EnvironmentDetector, String?>,
+        candidates: [String],
+        apply: (String, String) -> Void
+    ) async {
+        guard let pip3Path = findExecutable("pip3") else {
+            self[keyPath: error] = "Python 3 (pip3) not found — install Python 3 first"
+            return
+        }
+        self[keyPath: installing] = true
+        self[keyPath: error] = nil
+        defer { self[keyPath: installing] = false }
+
+        let (_, stderr, exitCode) = await runProcessWithStatus(pip3Path, arguments: ["install", "mlx-lm"])
+        if exitCode != 0 {
+            self[keyPath: error] = stderr.isEmpty ? "Install failed (exit \(exitCode))" : String(stderr.prefix(200))
+            return
+        }
+        await detectCLI(override: "", candidates: candidates, versionArgs: ["--help"], apply: apply)
+    }
+
+    // MARK: - Utility
+
+    /// Find an executable on common PATH locations
+    func findExecutable(_ name: String) -> String? {
+        let searchPaths = [
+            "/usr/local/bin/\(name)",
+            "/opt/homebrew/bin/\(name)",
+            "/usr/bin/\(name)",
+            "\(Self.home)/.local/bin/\(name)",
+            "\(Self.home)/.npm-global/bin/\(name)",
+            "\(Self.home)/go/bin/\(name)",
+        ]
+        for candidate in searchPaths {
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    /// Find Homebrew binary path
+    func findBrewPath() -> String? {
+        let candidates = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+        for candidate in candidates {
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    /// Run a process and return (stdout, stderr, exitCode)
+    private func runProcessWithStatus(_ executablePath: String, arguments: [String]) async -> (String, String, Int32) {
+        await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: executablePath)
+            process.arguments = arguments
+
+            var env = ProcessInfo.processInfo.environment
+            // Ensure common paths are available
+            let extraPaths = ["/opt/homebrew/bin", "/usr/local/bin", "\(Self.home)/.local/bin", "\(Self.home)/go/bin"]
+            let currentPath = env["PATH"] ?? "/usr/bin:/bin"
+            let missingPaths = extraPaths.filter { !currentPath.contains($0) }
+            if !missingPaths.isEmpty {
+                env["PATH"] = (missingPaths + [currentPath]).joined(separator: ":")
+            }
+            env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+            process.environment = env
+
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+
+            process.terminationHandler = { proc in
+                let outData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                let out = String(data: outData, encoding: .utf8) ?? ""
+                let err = String(data: errData, encoding: .utf8) ?? ""
+                continuation.resume(returning: (out, err, proc.terminationStatus))
+            }
+
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(returning: ("", error.localizedDescription, -1))
+            }
+        }
     }
 }

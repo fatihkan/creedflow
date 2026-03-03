@@ -200,7 +200,7 @@ public struct SettingsView: View {
                 if geminiEnabled {
                     UsageLimitFields(limit4h: $gemini4hLimit, limitWeek: $geminiWeeklyLimit)
                 }
-                Text("Install: npm install -g @anthropic-ai/gemini-cli")
+                Text("Install: npm install -g @google/gemini-cli")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
