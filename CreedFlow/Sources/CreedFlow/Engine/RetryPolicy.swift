@@ -33,4 +33,14 @@ struct RetryPolicy: Sendable {
         }
         return backoffIntervals[retryCount]
     }
+
+    /// Check if an error is a rate-limit error.
+    func isRateLimited(error: Error) -> Bool {
+        error is RateLimitError || RateLimitDetector.detect(in: error.localizedDescription) != nil
+    }
+
+    /// Get the backoff interval for a rate-limited retry (longer than normal).
+    func rateLimitBackoff(retryCount: Int) -> TimeInterval {
+        RateLimitDetector.backoffInterval(retryCount: retryCount)
+    }
 }

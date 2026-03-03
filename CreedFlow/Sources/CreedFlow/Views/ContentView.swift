@@ -13,16 +13,19 @@ public struct ContentView: View {
     @State private var chatServices: [UUID: ProjectChatService] = [:]
     @State private var telegramService = TelegramBotService()
     @State private var keyboardMonitor: Any?
+    @State private var notificationViewModel: NotificationViewModel?
 
     public init() {}
 
     public var body: some View {
+        ZStack {
         HSplitView {
             SidebarView(
                 selectedSection: $selectedSection,
                 selectedProjectId: $selectedProjectId,
                 orchestrator: orchestrator,
-                appDatabase: appDatabase
+                appDatabase: appDatabase,
+                notificationViewModel: notificationViewModel
             )
             .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
 
@@ -57,6 +60,12 @@ public struct ContentView: View {
             .animation(.easeInOut(duration: 0.2), value: showDetailPanel)
             .animation(.easeInOut(duration: 0.2), value: showChatPanel)
         }
+        // Toast overlay
+        if let notificationViewModel {
+            NotificationToastOverlay(viewModel: notificationViewModel)
+                .allowsHitTesting(true)
+        }
+        } // end ZStack
         .frame(minWidth: 960, minHeight: 640)
         .onChange(of: selectedSection) { _, newSection in
             if newSection != .deploys {
@@ -74,6 +83,12 @@ public struct ContentView: View {
             if let db = appDatabase {
                 let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)
                 orchestrator = orch
+
+                // Set up notification view model
+                let nvm = NotificationViewModel(dbQueue: db.dbQueue, service: orch.notificationService)
+                notificationViewModel = nvm
+                nvm.startObserving()
+
                 await orch.start()
 
                 // Start Telegram polling if configured (#32)
@@ -129,6 +144,7 @@ public struct ContentView: View {
             }
             // Stop orchestrator and telegram polling on window close (#45)
             telegramService.stopPolling()
+            notificationViewModel?.stopObserving()
             Task {
                 await orchestrator?.stop()
             }

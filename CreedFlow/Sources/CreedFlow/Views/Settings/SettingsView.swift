@@ -1,4 +1,5 @@
 import SwiftUI
+import GRDB
 
 public struct SettingsView: View {
     @Environment(\.appDatabase) private var appDatabase
@@ -57,6 +58,7 @@ public struct SettingsView: View {
     @State private var llamacppVersion = "Checking..."
     @State private var mlxVersion = "Checking..."
     @State private var ghVersion = "Checking..."
+    @State private var backendHealthStatus: [CLIBackendType: HealthEvent.HealthStatus] = [:]
 
     // Git & Dependencies
     @State private var gitDetector = EnvironmentDetector()
@@ -92,6 +94,7 @@ public struct SettingsView: View {
             await depInstaller.detectAll()
             gitNameField = gitDetector.gitUserName
             gitEmailField = gitDetector.gitUserEmail
+            await loadBackendHealthStatus()
         }
     }
 
@@ -165,14 +168,7 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             } header: {
-                HStack {
-                    Text("Claude CLI")
-                    if claudeEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("Claude CLI", type: .claude, enabled: claudeEnabled)
             }
 
             Section {
@@ -190,14 +186,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("Codex CLI")
-                    if codexEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("Codex CLI", type: .codex, enabled: codexEnabled)
             }
 
             Section {
@@ -210,14 +199,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("Gemini CLI")
-                    if geminiEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("Gemini CLI", type: .gemini, enabled: geminiEnabled)
             }
 
             Section {
@@ -227,14 +209,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("OpenCode")
-                    if opencodeEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("OpenCode", type: .opencode, enabled: opencodeEnabled)
             }
 
             Section {
@@ -244,14 +219,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("OpenClaw")
-                    if openclawEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("OpenClaw", type: .openclaw, enabled: openclawEnabled)
             }
 
             Section {
@@ -287,14 +255,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("Ollama")
-                    if ollamaEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("Ollama", type: .ollama, enabled: ollamaEnabled)
             }
 
             Section {
@@ -306,14 +267,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("LM Studio")
-                    if lmstudioEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("LM Studio", type: .lmstudio, enabled: lmstudioEnabled)
             }
 
             Section {
@@ -338,14 +292,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("llama.cpp")
-                    if llamacppEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("llama.cpp", type: .llamacpp, enabled: llamacppEnabled)
             }
 
             Section {
@@ -358,14 +305,7 @@ public struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } header: {
-                HStack {
-                    Text("MLX-LM")
-                    if mlxEnabled {
-                        Text("Active").font(.caption).foregroundStyle(.green)
-                    } else {
-                        Text("Disabled").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                backendSectionHeader("MLX-LM", type: .mlx, enabled: mlxEnabled)
             }
 
             AgentBackendPreferencesSection()
@@ -532,6 +472,22 @@ public struct SettingsView: View {
         .formStyle(.grouped)
     }
 
+    @ViewBuilder
+    private func backendSectionHeader(_ label: String, type: CLIBackendType, enabled: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+            if enabled {
+                let status = backendHealthStatus[type] ?? .unknown
+                Circle()
+                    .fill(status.indicatorColor)
+                    .frame(width: 7, height: 7)
+                Text("Active").font(.caption).foregroundStyle(.green)
+            } else {
+                Text("Disabled").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func branchBadge(_ name: String, color: Color) -> some View {
         Text(name)
             .font(.system(size: 13, weight: .semibold, design: .monospaced))
@@ -606,6 +562,29 @@ public struct SettingsView: View {
         let detector = EnvironmentDetector()
         await detector.detectAll()
         detectedEditors = detector.detectedEditors
+    }
+
+    private func loadBackendHealthStatus() async {
+        guard let db = appDatabase else { return }
+        do {
+            let events = try await db.dbQueue.read { dbConn in
+                // Get the latest health event per backend
+                try HealthEvent
+                    .filter(Column("targetType") == HealthEvent.TargetType.backend.rawValue)
+                    .order(Column("checkedAt").desc)
+                    .fetchAll(dbConn)
+            }
+            // Take the latest event per backend name
+            var statusMap: [CLIBackendType: HealthEvent.HealthStatus] = [:]
+            for event in events {
+                if let type = CLIBackendType(rawValue: event.targetName), statusMap[type] == nil {
+                    statusMap[type] = event.status
+                }
+            }
+            backendHealthStatus = statusMap
+        } catch {
+            // Non-fatal — status dots will show unknown/gray
+        }
     }
 
     private static func checkCLIVersion(at path: String, args: [String] = ["--version"]) async -> String {

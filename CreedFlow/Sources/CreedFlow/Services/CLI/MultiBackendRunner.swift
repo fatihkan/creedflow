@@ -162,6 +162,24 @@ final class MultiBackendRunner {
             throw ClaudeError.timeout
         } catch {
             let errorMsg = error.localizedDescription
+
+            // Detect rate-limit signals in error output
+            if let signal = RateLimitDetector.detect(in: errorMsg) {
+                addOutputLine("Rate limited: \(signal)", type: .error)
+
+                try await dbQueue.write { db in
+                    var updatedTask = task
+                    updatedTask.status = .failed
+                    updatedTask.errorMessage = "Rate limited: \(signal)"
+                    updatedTask.backend = self.backendType.rawValue
+                    updatedTask.updatedAt = Date()
+                    updatedTask.completedAt = Date()
+                    try updatedTask.update(db)
+                }
+
+                throw RateLimitError(backendType: backendType, rawSignal: signal)
+            }
+
             addOutputLine("Error: \(errorMsg)", type: .error)
 
             try await dbQueue.write { db in

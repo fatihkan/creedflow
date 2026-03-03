@@ -6,6 +6,7 @@ struct SidebarView: View {
     @Binding var selectedProjectId: UUID?
     let orchestrator: Orchestrator?
     let appDatabase: AppDatabase?
+    var notificationViewModel: NotificationViewModel?
 
     @State private var projects: [Project] = []
     @State private var totalProjectCount: Int = 0
@@ -14,6 +15,7 @@ struct SidebarView: View {
     @State private var pendingDeployCount: Int = 0
     @State private var isHoveringCoffee = false
     @State private var usageStore = CLIUsageStore()
+    @State private var showNotificationPanel = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -167,6 +169,37 @@ struct SidebarView: View {
     private var bottomPanel: some View {
         VStack(spacing: 8) {
             orchestratorButton
+
+            HStack {
+                // Bell icon with unread badge
+                if let notificationViewModel {
+                    Button {
+                        showNotificationPanel.toggle()
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                            if notificationViewModel.unreadCount > 0 {
+                                Text("\(min(notificationViewModel.unreadCount, 99))")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 3)
+                                    .padding(.vertical, 1)
+                                    .background(Color.red, in: Capsule())
+                                    .offset(x: 6, y: -4)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Notifications")
+                    .popover(isPresented: $showNotificationPanel) {
+                        NotificationPanelView(viewModel: notificationViewModel)
+                    }
+                }
+
+                Spacer()
+            }
 
             HStack {
                 Button {
