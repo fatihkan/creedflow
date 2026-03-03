@@ -73,33 +73,49 @@ sudo dpkg -i CreedFlow_1.2.0_amd64.deb
 
 ---
 
-## What's New in v1.3.0
+## What's New in v1.4.0
 
-### AI Chat System
+### Phase 1: Core Engine Hardening
+- **Backend Health Monitoring** — Periodic health checks for all AI backends with status indicators in Settings
+- **Rate Limit Detection** — Automatic detection of rate-limit responses with exponential backoff (60s base, 600s max)
+- **MCP Health Monitoring** — Connection health checks for all configured MCP servers every 120s
+- **In-App Notification Center** — Toast notifications (top-right, auto-dismiss), bell icon with unread count, notification panel with mark-read/dismiss
+
+### Phase 2: UI Foundation
+- **Search & Filter** — Real-time search on all list views: Projects, Tasks, Reviews, Deployments, Agents, Archive
+- **Skeleton Loading** — Animated pulse loading states replacing "Loading..." text across all views
+- **Dark/Light Mode** — System/Light/Dark theme toggle in Settings (both SwiftUI and Tauri)
+- **Keyboard Shortcuts Overlay** — Press `Cmd+?` to see all navigation and action shortcuts
+- **Task Duplication** — Right-click any task to duplicate it with all fields copied and status reset to Queued
+
+<details>
+<summary><strong>v1.3.0 changes</strong></summary>
+
+#### AI Chat System
 - **Project Chat Panel** — Slide-in chat panel for AI-assisted task planning and brainstorming
 - **Task Proposals** — AI suggests features and tasks inline; approve or reject with one click
 - **Streaming Responses** — Real-time typing indicator with partial content display
 
-### New Backends: OpenCode & OpenClaw
+#### New Backends: OpenCode & OpenClaw
 - **9 AI Backends** — OpenCode and OpenClaw CLI support with auto-detection and smart routing
-- Backend count: 7 → 9 (Claude, Codex, Gemini, OpenCode, OpenClaw, Ollama, LM Studio, llama.cpp, MLX)
 
-### Project Management
+#### Project Management
 - **Import Existing Projects** — Point to an existing directory instead of creating a new one
 - **Project Creation Wizard** — Step-by-step guided project setup with tech stack detection
-- **Project Docs Export** — Bundle architecture docs, diagrams, and README into a single file (for NotebookLM or other tools)
-- **Project-Type-Aware Analysis** — Analyzer produces specialized output per project type (software, content, image, video)
+- **Project Docs Export** — Bundle architecture docs, diagrams, and README into a single file
+- **Project-Type-Aware Analysis** — Analyzer produces specialized output per project type
 
-### Prompt System
+#### Prompt System
 - **Prompt Import/Export** — Share prompts as JSON files across teams
 - **Version Diff** — Side-by-side comparison of prompt versions with line-level diff
 - **Prompt Recommender** — AI-powered prompt suggestions based on success rate and review scores
 
-### Platform
-- **CLI Usage Tracking** — Real-time API usage monitoring via Anthropic/OpenAI admin APIs with sidebar progress bars
-- **MCP Requirements Checker** — Auto-detect missing MCP servers based on project type and agent configuration
-- **Creative AI Services** — HeyGen, Replicate, Leonardo.AI MCP templates for video/image generation
-- **Skill Persona** — Assign personality/expertise profiles to tasks for specialized agent behavior
+#### Platform
+- **CLI Usage Tracking** — Real-time API usage monitoring via Anthropic/OpenAI admin APIs
+- **MCP Requirements Checker** — Auto-detect missing MCP servers based on project type
+- **Creative AI Services** — HeyGen, Replicate, Leonardo.AI MCP templates
+- **Skill Persona** — Assign personality/expertise profiles to tasks
+</details>
 
 ---
 
@@ -125,11 +141,16 @@ Telegram notification → You approve → Deploy
 
 ## Features
 
-- **11 AI Agents** — Analyzer, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor, Publisher
+- **12 AI Agents** — Analyzer, Planner, Coder, Reviewer, Tester, DevOps, Monitor, ContentWriter, Designer, ImageGenerator, VideoEditor, Publisher
 - **Deep Analysis** — Architecture docs, data models with field-level detail, Mermaid diagrams (ER, flowchart, sequence, class), tasks with acceptance criteria and file lists
 - **9 AI Backends** — Claude, Codex, Gemini, OpenCode, OpenClaw (cloud) + Ollama, LM Studio, llama.cpp, MLX (local) with smart routing and automatic fallback
+- **Backend Health Monitoring** — Periodic health checks with status indicators, rate-limit detection, and exponential backoff
+- **In-App Notifications** — Toast notifications, bell icon with unread count, notification panel with mark-read/dismiss
+- **Search & Filter** — Real-time search on all list views with consistent search bar component
+- **Dark/Light Mode** — System/Light/Dark theme toggle with persistent preference
+- **Keyboard Shortcuts** — Full shortcut overlay via `Cmd+?` with navigation and action shortcuts
 - **AI Chat** — Project-scoped chat panel for AI-assisted planning with inline task proposals
-- **Kanban Board** — Drag-and-drop task management with live agent output
+- **Kanban Board** — Drag-and-drop task management with live agent output and task duplication
 - **Project Wizard** — Step-by-step project creation with import existing directory support
 - **Setup Wizard** — Environment detection, one-click dependency install via Homebrew (macOS) or apt/dnf/pacman (Linux)
 - **Asset Pipeline** — Creative agents produce images/videos/designs with versioning, checksums, and format variants (.md → .html, .txt, .pdf)
@@ -202,11 +223,11 @@ pnpm tauri build      # Production (.deb + .AppImage)
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│                    11 AI Agents                              │
+│                    12 AI Agents                              │
 │                                                              │
-│  Analyzer → Coder → Reviewer → Tester → DevOps → Monitor   │
-│  ContentWriter → Designer → ImageGenerator → VideoEditor    │
-│  Publisher                                                   │
+│  Analyzer → Planner → Coder → Reviewer → Tester → DevOps   │
+│  Monitor → ContentWriter → Designer → ImageGenerator        │
+│  VideoEditor → Publisher                                     │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
@@ -221,6 +242,7 @@ pnpm tauri build      # Production (.deb + .AppImage)
 | Agent | Backend | Timeout | Purpose |
 |-------|---------|---------|---------|
 | Analyzer | Any | 5 min | Architecture analysis, data models, diagrams, task decomposition |
+| Planner | Any | 5 min | Project planning and task breakdown |
 | Coder | Claude preferred | 15 min | Write code, create branches/PRs |
 | Reviewer | Claude preferred | 5 min | AI code review with 0-10 scoring |
 | Tester | Claude preferred | 10 min | Generate and run tests |

@@ -2,6 +2,33 @@
 
 All notable changes to CreedFlow are documented in this file.
 
+## [v1.4.0] — 2026-03-03
+
+### Added
+
+#### Phase 1: Core Engine Hardening (#142, #143, #171, #144)
+- **Backend Health Monitoring** — `BackendHealthMonitor` actor checks all CLI backends every 60s (--version with 5s timeout, LMStudio via HTTP)
+- **Rate Limit Detection** — `RateLimitDetector` with regex patterns for 429, "rate limit", "RESOURCE_EXHAUSTED"; exponential backoff (60s base, 600s max)
+- **MCP Health Monitoring** — `MCPHealthMonitor` actor checks enabled MCP servers every 120s (spawns process, checks if stays running)
+- **In-App Notification Center** — `NotificationService` actor with `AppNotification` model, toast overlay (top-right, auto-dismiss 5s), notification panel (bell icon in sidebar), mark-read/dismiss
+- **Health status dots** in Settings for backends and MCP servers (green=healthy, red=unhealthy)
+- New DB migration (v20): `appNotification` and `healthEvent` tables with indexes
+
+#### Phase 2: UI Foundation (#145, #150, #147, #148, #158)
+- **Search & Filter on all list views** — Reusable `SearchBar` component (React) + inline search pattern (Swift) on Projects, Tasks, Reviews, Deployments, Agents, Archive
+- **Skeleton loading states** — `Skeleton`, `SkeletonCard`, `SkeletonRow` components replacing "Loading..." text (React)
+- **Dark/Light Mode toggle** — System/Light/Dark with `localStorage` persistence (React) and `@AppStorage` + `NSApp.appearance` (Swift)
+- **Keyboard Shortcuts Overlay** — `Cmd+?` opens modal listing all navigation (Cmd+1-8) and action (Escape, Cmd+?) shortcuts
+- **Task Duplication** — "Duplicate" in task context menu: copies all task fields with fresh UUID, "Copy of " title prefix, status reset to Queued
+
+### Changed
+- Orchestrator now health-aware: skips unhealthy backends during dispatch
+- Rate-limit catch branch with longer backoff in retry pipeline
+- In-app notifications alongside Telegram for task/deploy/review events
+- `MultiBackendRunner` detects rate limits in error output
+- `RetryPolicy` extended with `isRateLimited()` and `rateLimitBackoff()`
+- Empty state messages now distinguish "no data" vs "no search results" on ReviewApprovalView and DeployView
+
 ## [v1.3.0] — 2026-03-03
 
 ### Added
@@ -93,6 +120,7 @@ All notable changes to CreedFlow are documented in this file.
 - **Multi-task parallel dispatch** with configurable concurrency
 - **Deploy failure auto-recovery** pipeline
 
+[v1.4.0]: https://github.com/fatihkan/creedflow/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/fatihkan/creedflow/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/fatihkan/creedflow/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/fatihkan/creedflow/compare/v1.0.0...v1.1.0
