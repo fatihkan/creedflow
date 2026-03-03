@@ -10,7 +10,7 @@ Thanks for your interest in contributing!
 ## Maintainer
 
 - **Fatih Kan** — Creator & Maintainer
-  - GitHub: [@fatihkan](https://github.com/fatihkan) · X: [@fatihkan](https://x.com/fatihkan)
+  - GitHub: [@fatihkan](https://github.com/fatihkan) · X: [@KanFatih](https://x.com/KanFatih)
 
 ## How to Contribute
 
