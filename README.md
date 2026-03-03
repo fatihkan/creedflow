@@ -30,10 +30,10 @@
 
 | Platform | Architecture | Version | Download |
 |----------|-------------|---------|----------|
-| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.3.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow-1.3.0-arm64.dmg) |
-| **macOS** | Intel | v1.3.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow-1.3.0-x86_64.dmg) |
-| **Linux** | x86_64 (AppImage) | v1.3.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow_1.3.0_amd64.AppImage) |
-| **Linux** | x86_64 (Debian/Ubuntu) | v1.3.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow_1.3.0_amd64.deb) |
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.3.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow-1.2.0-arm64.dmg) |
+| **macOS** | Intel | v1.3.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow-1.2.0-x86_64.dmg) |
+| **Linux** | x86_64 (AppImage) | v1.3.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow_1.2.0_amd64.AppImage) |
+| **Linux** | x86_64 (Debian/Ubuntu) | v1.3.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow_1.2.0_amd64.deb) |
 
 > **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, OpenCode, OpenClaw, Ollama, LM Studio, llama.cpp, or MLX.
 
@@ -62,13 +62,13 @@ This only needs to be done once.
 
 **AppImage:**
 ```bash
-chmod +x CreedFlow_1.3.0_amd64.AppImage
-./CreedFlow_1.3.0_amd64.AppImage
+chmod +x CreedFlow_1.2.0_amd64.AppImage
+./CreedFlow_1.2.0_amd64.AppImage
 ```
 
 **Debian/Ubuntu:**
 ```bash
-sudo dpkg -i CreedFlow_1.3.0_amd64.deb
+sudo dpkg -i CreedFlow_1.2.0_amd64.deb
 ```
 
 ---
