@@ -208,6 +208,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
               onClick={fetchData}
               disabled={loading}
               className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-50"
+              aria-label="Refresh git history"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </button>

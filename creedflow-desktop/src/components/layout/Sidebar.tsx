@@ -212,6 +212,7 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
           <button
             onClick={() => setShowNotifPanel(!showNotifPanel)}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors"
+            aria-label={`Notifications${unreadNotifCount > 0 ? `, ${unreadNotifCount} unread` : ""}`}
           >
             <div className="relative">
               <Bell className="w-4 h-4 flex-shrink-0" />

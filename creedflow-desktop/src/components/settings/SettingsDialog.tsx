@@ -15,17 +15,20 @@ import { BackendSettings } from "./BackendSettings";
 import { AgentPreferences } from "./AgentPreferences";
 import { MCPSettings } from "./MCPSettings";
 import { ThemeToggle } from "../shared/ThemeToggle";
+import { Database } from "lucide-react";
 import * as api from "../../tauri";
+import { useFontStore } from "../../store/fontStore";
 import type { DependencyStatus, DetectedEditor } from "../../types/models";
 import type { GitConfig } from "../../tauri";
 
-type Tab = "general" | "backends" | "git" | "telegram" | "mcp";
+type Tab = "general" | "backends" | "git" | "telegram" | "database" | "mcp";
 
 const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: "general", label: "General", icon: Settings },
   { id: "backends", label: "AI CLIs", icon: Cpu },
   { id: "git", label: "Git & Tools", icon: GitBranch },
   { id: "telegram", label: "Telegram", icon: Bell },
+  { id: "database", label: "Database", icon: Database },
   { id: "mcp", label: "MCP", icon: Server },
 ];
 
@@ -69,6 +72,7 @@ export function SettingsDialog() {
         {tab === "backends" && <BackendsTab />}
         {tab === "git" && <GitToolsTab />}
         {tab === "telegram" && <TelegramTab />}
+        {tab === "database" && <DatabaseTab />}
         {tab === "mcp" && <MCPTab />}
       </div>
     </div>
@@ -79,6 +83,8 @@ function GeneralTab() {
   const { settings, updateSettings } = useSettingsStore();
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
+  const fontSize = useFontStore((s) => s.size);
+  const setFontSize = useFontStore((s) => s.setSize);
 
   useEffect(() => {
     api.detectEditors().then(setEditors).catch(console.error);
@@ -98,6 +104,25 @@ function GeneralTab() {
       <div>
         <label className="block text-xs text-zinc-400 mb-2">Appearance</label>
         <ThemeToggle />
+      </div>
+
+      <div>
+        <label className="block text-xs text-zinc-400 mb-2">Text Size</label>
+        <div className="flex gap-1">
+          {(["normal", "large", "xl"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setFontSize(s)}
+              className={`px-3 py-1.5 text-xs rounded border transition-colors ${
+                fontSize === s
+                  ? "bg-brand-600/20 border-brand-500 text-brand-400"
+                  : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              {s === "normal" ? "Normal" : s === "large" ? "Large" : "X-Large"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>
@@ -375,6 +400,122 @@ function TelegramTab() {
       <p className="text-[10px] text-zinc-600">
         Create a bot via @BotFather on Telegram. The chat ID is the group or channel where notifications will be sent.
       </p>
+    </div>
+  );
+}
+
+function DatabaseTab() {
+  const [dbInfo, setDbInfo] = useState<api.DbInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getDbInfo()
+      .then(setDbInfo)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleVacuum = async () => {
+    setWorking(true);
+    try {
+      await api.vacuumDatabase();
+      setResult("Vacuum completed");
+      const info = await api.getDbInfo();
+      setDbInfo(info);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handlePrune = async () => {
+    setWorking(true);
+    try {
+      const count = await api.pruneOldLogs(30);
+      setResult(`Pruned ${count} log entries`);
+      const info = await api.getDbInfo();
+      setDbInfo(info);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-zinc-500 text-xs">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading database info...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {dbInfo && (
+        <section>
+          <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+            Database Info
+          </h3>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between py-1.5 px-3 rounded bg-zinc-800/30">
+              <span className="text-zinc-400">File Size</span>
+              <span className="text-zinc-200 font-mono">{formatSize(dbInfo.sizeBytes)}</span>
+            </div>
+            <div className="flex justify-between py-1.5 px-3 rounded bg-zinc-800/30">
+              <span className="text-zinc-400">Path</span>
+              <span className="text-zinc-500 font-mono text-[10px] truncate max-w-[300px]">{dbInfo.path}</span>
+            </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-zinc-400 hover:text-zinc-300 py-1">
+                Tables ({dbInfo.tables.length})
+              </summary>
+              <div className="mt-1 space-y-0.5">
+                {dbInfo.tables.map((t) => (
+                  <div key={t.name} className="flex justify-between py-1 px-3 rounded bg-zinc-800/20">
+                    <span className="text-zinc-400 font-mono">{t.name}</span>
+                    <span className="text-zinc-500">{t.rowCount} rows</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        </section>
+      )}
+
+      <section>
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+          Maintenance
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleVacuum}
+            disabled={working}
+            className="px-4 py-1.5 text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {working ? "Working..." : "Vacuum"}
+          </button>
+          <button
+            onClick={handlePrune}
+            disabled={working}
+            className="px-4 py-1.5 text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-50"
+          >
+            Prune Logs (&gt; 30 days)
+          </button>
+        </div>
+        {result && (
+          <p className="text-[10px] text-zinc-500 mt-2">{result}</p>
+        )}
+      </section>
     </div>
   );
 }

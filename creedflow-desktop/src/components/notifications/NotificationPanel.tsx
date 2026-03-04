@@ -60,7 +60,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   }, [fetchNotifications]);
 
   return (
-    <div className="w-[360px] max-h-[480px] bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl flex flex-col overflow-hidden">
+    <div className="w-[360px] max-h-[480px] bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-label="Notifications">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-zinc-800">
         <div className="flex items-center gap-2">
@@ -78,6 +78,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
               onClick={markAllRead}
               className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
               title="Mark all read"
+              aria-label="Mark all notifications as read"
             >
               <CheckCheck className="w-4 h-4" />
             </button>
@@ -85,6 +86,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           <button
             onClick={onClose}
             className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+            aria-label="Close notifications"
           >
             <X className="w-4 h-4" />
           </button>
@@ -165,6 +167,7 @@ function NotificationRow({
         }}
         className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-600 hover:text-zinc-400 transition-opacity"
         title="Dismiss"
+        aria-label="Dismiss notification"
       >
         <X className="w-3.5 h-3.5" />
       </button>

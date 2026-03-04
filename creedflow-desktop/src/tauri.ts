@@ -560,6 +560,21 @@ export const getPromptVersionDiff = (
 
 // ─── Prompt Recommender ─────────────────────────────────────────────────────
 
+// ─── Database Maintenance ──────────────────────────────────────────────────
+
+export interface DbInfo {
+  path: string;
+  sizeBytes: number;
+  tables: { name: string; rowCount: number }[];
+}
+
+export const getDbInfo = () => invoke<DbInfo>("get_db_info");
+export const vacuumDatabase = () => invoke<void>("vacuum_database");
+export const backupDatabase = (destPath: string) =>
+  invoke<void>("backup_database", { destPath });
+export const pruneOldLogs = (olderThanDays: number) =>
+  invoke<number>("prune_old_logs", { olderThanDays });
+
 // ─── Updates ────────────────────────────────────────────────────────────────
 
 export interface UpdateInfo {

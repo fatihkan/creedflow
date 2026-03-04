@@ -189,7 +189,7 @@ export function ProjectList() {
 
       {showNew && <NewProjectDialog onClose={() => setShowNew(false)} />}
       {showTemplate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-[480px] max-h-[500px] overflow-y-auto">
             <ProjectTemplateSelector
               onCreated={(id) => {

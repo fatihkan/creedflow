@@ -27,7 +27,7 @@ export function NewProjectDialog({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="dialog" aria-modal="true">
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-[480px] max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
           <h2 className="text-sm font-semibold text-zinc-200">New Project</h2>

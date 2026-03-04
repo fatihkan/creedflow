@@ -14,6 +14,7 @@ import { useTaskStore } from "./store/taskStore";
 import { useSettingsStore } from "./store/settingsStore";
 import { useNotificationStore } from "./store/notificationStore";
 import { useThemeStore } from "./store/themeStore";
+import { useFontStore } from "./store/fontStore";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import * as api from "./tauri";
 import type { UpdateInfo } from "./tauri";
@@ -38,6 +39,8 @@ function App() {
   const addToast = useNotificationStore((s) => s.addToast);
   // Initialize theme on mount (store constructor applies the class)
   useThemeStore();
+  const initFont = useFontStore((s) => s.initialize);
+  useEffect(() => { initFont(); }, [initFont]);
 
   useEffect(() => {
     fetchSettings();

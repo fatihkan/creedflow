@@ -45,7 +45,7 @@ export function ToastOverlay() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm" role="status" aria-live="polite">
       {toasts.map((toast) => {
         const config = SEVERITY_CONFIG[toast.severity] || SEVERITY_CONFIG.info;
         const Icon = config.icon;
@@ -67,6 +67,7 @@ export function ToastOverlay() {
             <button
               onClick={() => removeToast(toast.id)}
               className="text-zinc-500 hover:text-zinc-300 flex-shrink-0"
+              aria-label="Dismiss notification"
             >
               <X className="w-3.5 h-3.5" />
             </button>

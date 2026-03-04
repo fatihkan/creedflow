@@ -386,7 +386,7 @@ function MCPServerFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[440px] p-5 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-zinc-200">

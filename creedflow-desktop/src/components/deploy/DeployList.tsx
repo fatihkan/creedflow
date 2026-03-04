@@ -278,7 +278,7 @@ export function DeployList() {
 
       {/* New deployment dialog */}
       {showNewDeploy && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" role="dialog" aria-modal="true">
           <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-5 w-[380px] space-y-4">
             <h3 className="text-sm font-semibold text-zinc-200">New Deployment</h3>
             <div>

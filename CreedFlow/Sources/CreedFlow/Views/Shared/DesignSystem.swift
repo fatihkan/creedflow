@@ -229,6 +229,20 @@ extension Project.Status {
     }
 }
 
+// MARK: - Dynamic Type Size Mapping
+
+extension DynamicTypeSize {
+    /// Maps a user preference string to a `DynamicTypeSize` value.
+    static func from(preference: String) -> DynamicTypeSize {
+        switch preference {
+        case "small": return .small
+        case "large": return .xxxLarge
+        case "xl": return .accessibility1
+        default: return .large // "normal"
+        }
+    }
+}
+
 // MARK: - View Modifiers
 
 /// Card surface with subtle border and shadow
@@ -416,7 +430,9 @@ struct MetricCard: View {
     }
 }
 
-/// Persistent top bar for content views — ensures consistent layout height across all sections
+/// Persistent top bar for content views — ensures consistent layout height across all sections.
+/// Accessibility: The title text has `.isHeader` trait. Icon-only buttons in `actions` should
+/// include `.accessibilityLabel()` for VoiceOver support.
 struct ForgeToolbar<Actions: View>: View {
     let title: String
     @ViewBuilder let actions: () -> Actions

@@ -192,6 +192,7 @@ struct SidebarView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Notifications\(notificationViewModel.unreadCount > 0 ? ", \(notificationViewModel.unreadCount) unread" : "")")
                     .help("Notifications")
                     .popover(isPresented: $showNotificationPanel) {
                         NotificationPanelView(viewModel: notificationViewModel)

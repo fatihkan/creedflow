@@ -99,6 +99,7 @@ struct GitGraphView: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(.horizontal, 8)
@@ -132,6 +133,7 @@ struct GitGraphView: View {
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
+            .accessibilityLabel("Refresh git history")
             .help("Refresh")
             .disabled(selectedProjectId == nil)
         }

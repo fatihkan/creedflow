@@ -147,6 +147,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                 ? "bg-zinc-700 text-zinc-200"
                 : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
             }`}
+            aria-label={selectionMode ? "Cancel selection" : "Enter selection mode"}
           >
             {selectionMode ? "Cancel" : "Select"}
           </button>
@@ -208,6 +209,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                         onClick={() => selectAllInColumn(status)}
                         className="text-zinc-500 hover:text-zinc-300"
                         title={allColumnSelected ? "Deselect all" : "Select all"}
+                        aria-label={allColumnSelected ? `Deselect all ${label} tasks` : `Select all ${label} tasks`}
                       >
                         {allColumnSelected ? (
                           <CheckSquare className="w-3.5 h-3.5" />

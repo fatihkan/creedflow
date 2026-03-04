@@ -16,6 +16,7 @@ public struct ContentView: View {
     @State private var notificationViewModel: NotificationViewModel?
     @State private var showShortcutsOverlay = false
     @State private var updateInfo: UpdateInfo?
+    @AppStorage("fontSizePreference") private var fontSizePreference = "normal"
 
     public init() {}
 
@@ -86,6 +87,7 @@ public struct ContentView: View {
         }
         } // end ZStack
         } // end VStack
+        .dynamicTypeSize(DynamicTypeSize.from(preference: fontSizePreference))
         .frame(minWidth: 960, minHeight: 640)
         .onChange(of: selectedSection) { _, newSection in
             if newSection != .deploys {

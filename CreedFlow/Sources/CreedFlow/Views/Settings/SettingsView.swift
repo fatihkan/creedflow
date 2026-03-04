@@ -34,6 +34,7 @@ public struct SettingsView: View {
     @AppStorage("mlxModel") private var mlxModel = ""
     @AppStorage("preferredEditor") private var preferredEditor = ""
     @AppStorage("appearanceMode") private var appearanceMode = "system"
+    @AppStorage("fontSizePreference") private var fontSizePreference = "normal"
 
     // Admin API keys for real usage tracking
     @AppStorage("anthropicAdminAPIKey") private var anthropicAdminKey = ""
@@ -84,10 +85,13 @@ public struct SettingsView: View {
             telegramTab
                 .tabItem { Label("Telegram", systemImage: "paperplane") }
 
+            databaseTab
+                .tabItem { Label("Database", systemImage: "cylinder") }
+
             MCPSettingsView(appDatabase: appDatabase)
                 .tabItem { Label("MCP", systemImage: "server.rack") }
         }
-        .frame(width: 550, height: 600)
+        .frame(width: 600, height: 640)
         .task {
             await checkToolVersions()
             await detectEditors()
@@ -124,6 +128,14 @@ public struct SettingsView: View {
                 .onChange(of: appearanceMode) { _, newValue in
                     applyAppearance(newValue)
                 }
+
+                Picker("Text Size", selection: $fontSizePreference) {
+                    Text("Small").tag("small")
+                    Text("Normal").tag("normal")
+                    Text("Large").tag("large")
+                    Text("X-Large").tag("xl")
+                }
+                .pickerStyle(.segmented)
             }
 
             Section("Concurrency") {
@@ -493,6 +505,70 @@ public struct SettingsView: View {
                 }
             } header: {
                 Text("System Dependencies")
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    // MARK: - Database Tab
+
+    private var databaseTab: some View {
+        Form {
+            if let db = appDatabase {
+                let dbPath = db.dbQueue.path ?? ""
+                let service = DatabaseMaintenanceService(dbQueue: db.dbQueue, databasePath: dbPath)
+
+                Section("Database Info") {
+                    let size = service.databaseFileSize()
+                    LabeledContent("File Size", value: DatabaseMaintenanceService.formatSize(size))
+
+                    if let counts = try? service.tableCounts() {
+                        DisclosureGroup("Tables (\(counts.count))") {
+                            ForEach(counts, id: \.table) { item in
+                                LabeledContent(item.table, value: "\(item.count) rows")
+                                    .font(.system(size: 12, design: .monospaced))
+                            }
+                        }
+                    }
+                }
+
+                Section("Maintenance") {
+                    Button("Vacuum Database") {
+                        Task {
+                            try? await service.vacuum()
+                        }
+                    }
+                    .help("Compact the database file to reclaim unused space")
+
+                    Button("Backup Database...") {
+                        let panel = NSSavePanel()
+                        panel.nameFieldStringValue = "creedflow-backup.sqlite"
+                        panel.title = "Save Database Backup"
+                        guard panel.runModal() == .OK, let url = panel.url else { return }
+                        Task {
+                            try? await service.backup(to: url)
+                        }
+                    }
+                    .help("Save a copy of the database to a file")
+
+                    Button("Prune Old Logs (> 30 days)") {
+                        Task {
+                            _ = try? await service.pruneLogs(olderThanDays: 30)
+                        }
+                    }
+                    .help("Delete agent logs older than 30 days")
+                }
+
+                if let result = service.lastResult {
+                    Section {
+                        Text(result)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                Text("Database not available")
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

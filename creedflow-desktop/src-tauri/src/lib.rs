@@ -171,6 +171,11 @@ pub fn run() {
             commands::git::git_log,
             commands::git::get_git_config,
             commands::git::set_git_config,
+            // Database Maintenance
+            commands::database::get_db_info,
+            commands::database::vacuum_database,
+            commands::database::backup_database,
+            commands::database::prune_old_logs,
             // Updates
             commands::updates::check_for_updates,
         ])
