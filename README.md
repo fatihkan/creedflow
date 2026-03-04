@@ -30,10 +30,10 @@
 
 | Platform | Architecture | Version | Download |
 |----------|-------------|---------|----------|
-| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.3.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow-1.2.0-arm64.dmg) |
-| **macOS** | Intel | v1.3.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow-1.2.0-x86_64.dmg) |
-| **Linux** | x86_64 (AppImage) | v1.3.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow_1.2.0_amd64.AppImage) |
-| **Linux** | x86_64 (Debian/Ubuntu) | v1.3.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.3.0/CreedFlow_1.2.0_amd64.deb) |
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.5.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow-1.5.0-arm64.dmg) |
+| **macOS** | Intel | v1.5.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow-1.5.0-x86_64.dmg) |
+| **Linux** | x86_64 (AppImage) | v1.5.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow_1.5.0_amd64.AppImage) |
+| **Linux** | x86_64 (Debian/Ubuntu) | v1.5.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow_1.5.0_amd64.deb) |
 
 > **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, OpenCode, OpenClaw, Ollama, LM Studio, llama.cpp, or MLX.
 
@@ -62,59 +62,47 @@ This only needs to be done once.
 
 **AppImage:**
 ```bash
-chmod +x CreedFlow_1.2.0_amd64.AppImage
-./CreedFlow_1.2.0_amd64.AppImage
+chmod +x CreedFlow_1.5.0_amd64.AppImage
+./CreedFlow_1.5.0_amd64.AppImage
 ```
 
 **Debian/Ubuntu:**
 ```bash
-sudo dpkg -i CreedFlow_1.2.0_amd64.deb
+sudo dpkg -i CreedFlow_1.5.0_amd64.deb
 ```
 
 ---
 
-## What's New in v1.4.0
+## What's New in v1.5.0
 
-### Phase 1: Core Engine Hardening
+- **Backend Comparison** — Run the same prompt on multiple AI backends side-by-side, compare performance metrics, and export results as JSON
+- **Webhooks & CLI** — GitHub webhook handler with HMAC validation, REST API for external integration, and `creedflow-cli.sh` script
+- **Localization (i18n)** — Full English and Turkish language support with runtime switching across both macOS (SwiftUI) and Linux (Tauri) platforms
+- **Accessibility** — Focus trap for modals, ARIA labels on all interactive elements, keyboard navigation for task board
+- **Undo/Redo** — `Cmd+Z` / `Cmd+Shift+Z` with toast undo button and 10-second grace period for destructive actions
+- **Font Size Preference** — Small / Normal / Large text size in Settings, applied globally
+- **Database Maintenance** — JSON export, factory reset, vacuum, backup, and log pruning in Settings
+
+<details>
+<summary><strong>v1.4.0 changes</strong></summary>
+
 - **Backend Health Monitoring** — Periodic health checks for all AI backends with status indicators in Settings
-- **Rate Limit Detection** — Automatic detection of rate-limit responses with exponential backoff (60s base, 600s max)
-- **MCP Health Monitoring** — Connection health checks for all configured MCP servers every 120s
-- **In-App Notification Center** — Toast notifications (top-right, auto-dismiss), bell icon with unread count, notification panel with mark-read/dismiss
-
-### Phase 2: UI Foundation
-- **Search & Filter** — Real-time search on all list views: Projects, Tasks, Reviews, Deployments, Agents, Archive
-- **Skeleton Loading** — Animated pulse loading states replacing "Loading..." text across all views
-- **Dark/Light Mode** — System/Light/Dark theme toggle in Settings (both SwiftUI and Tauri)
-- **Keyboard Shortcuts Overlay** — Press `Cmd+?` to see all navigation and action shortcuts
-- **Task Duplication** — Right-click any task to duplicate it with all fields copied and status reset to Queued
+- **Rate Limit Detection** — Automatic detection of rate-limit responses with exponential backoff
+- **MCP Health Monitoring** — Connection health checks for all configured MCP servers
+- **In-App Notification Center** — Toast notifications, bell icon with unread count, notification panel
+- **Search & Filter** — Real-time search on all list views
+- **Dark/Light Mode** — System/Light/Dark theme toggle in Settings
+- **Keyboard Shortcuts Overlay** — Press `Cmd+?` to see all shortcuts
+- **Task Duplication** — Right-click any task to duplicate
+</details>
 
 <details>
 <summary><strong>v1.3.0 changes</strong></summary>
 
-#### AI Chat System
-- **Project Chat Panel** — Slide-in chat panel for AI-assisted task planning and brainstorming
-- **Task Proposals** — AI suggests features and tasks inline; approve or reject with one click
-- **Streaming Responses** — Real-time typing indicator with partial content display
-
-#### New Backends: OpenCode & OpenClaw
-- **9 AI Backends** — OpenCode and OpenClaw CLI support with auto-detection and smart routing
-
-#### Project Management
-- **Import Existing Projects** — Point to an existing directory instead of creating a new one
-- **Project Creation Wizard** — Step-by-step guided project setup with tech stack detection
-- **Project Docs Export** — Bundle architecture docs, diagrams, and README into a single file
-- **Project-Type-Aware Analysis** — Analyzer produces specialized output per project type
-
-#### Prompt System
-- **Prompt Import/Export** — Share prompts as JSON files across teams
-- **Version Diff** — Side-by-side comparison of prompt versions with line-level diff
-- **Prompt Recommender** — AI-powered prompt suggestions based on success rate and review scores
-
-#### Platform
-- **CLI Usage Tracking** — Real-time API usage monitoring via Anthropic/OpenAI admin APIs
-- **MCP Requirements Checker** — Auto-detect missing MCP servers based on project type
-- **Creative AI Services** — HeyGen, Replicate, Leonardo.AI MCP templates
-- **Skill Persona** — Assign personality/expertise profiles to tasks
+- **OpenClaw & Qwen Code backends** — 9 AI backends total
+- **Planner agent** — 12 agents total
+- **File & image attachments** in AI chat panel
+- **CLI install buttons** — One-click install for AI CLIs from setup wizard
 </details>
 
 ---
@@ -162,6 +150,12 @@ Telegram notification → You approve → Deploy
 - **MCP Server** — 13 tools + 5 resources via `creedflow://` URIs
 - **Creative MCP** — DALL-E, Figma, Stability AI, ElevenLabs, Runway, HeyGen, Replicate, Leonardo.AI integrations
 - **Telegram Notifications** — Task completion, review results, deploy status
+- **Backend Comparison** — Side-by-side AI backend comparison with performance metrics and JSON export
+- **Webhooks & API** — GitHub webhook handler, REST API, and CLI script for external integration
+- **Localization (i18n)** — English and Turkish with runtime language switching on both platforms
+- **Accessibility** — Focus traps, ARIA labels, keyboard navigation across all views
+- **Undo/Redo** — `Cmd+Z` stack with toast undo button and grace period for destructive actions
+- **Database Maintenance** — JSON export, factory reset, vacuum, backup, and log pruning
 
 ## Tech Stack
 

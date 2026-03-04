@@ -17,7 +17,7 @@ package actor UpdateChecker {
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
             currentVersion = version
         } else {
-            currentVersion = "1.3.0"
+            currentVersion = "1.5.0"
         }
     }
 

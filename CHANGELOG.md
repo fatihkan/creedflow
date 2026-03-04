@@ -2,6 +2,49 @@
 
 All notable changes to CreedFlow are documented in this file.
 
+## [v1.5.0] — 2026-03-04
+
+### Added
+
+#### Backend Comparison (#160)
+- **Side-by-side backend comparison** — Run the same prompt on multiple backends and compare results with performance metrics (response time, output length)
+- **Export comparison results** — Save comparison data as JSON via NSSavePanel (Swift) or Tauri save dialog
+
+#### Webhooks & API (#161)
+- **GitHub webhook handler** — `POST /api/webhooks/github` route with `X-Hub-Signature-256` HMAC validation; auto-creates tasks for push and pull_request events
+- **CLI script** — `Scripts/creedflow-cli.sh` for terminal-based status checks and task creation via local webhook API
+- **Webhook settings** — GitHub webhook secret field in Settings
+
+#### Localization (#162)
+- **react-i18next** — Full i18n framework with English and Turkish translations across 27+ React components
+- **Swift LocalizationService** — Runtime language switching via `Bundle.module` with `Localizable.strings` (en/tr, 80+ keys each)
+- **Language picker** — Settings dropdown on both macOS (SwiftUI) and Linux (Tauri) platforms
+- **Persistent language** — Saved to UserDefaults (Swift) / localStorage (React), survives restarts
+
+#### Accessibility (#163)
+- **FocusTrap component** — Traps Tab/Shift+Tab within modals, auto-focuses first element, restores focus on unmount
+- **ARIA labels** — Extended labels on all icon-only buttons across Sidebar, TaskBoard, AgentStatus, PromptsLibrary, and all modal dialogs
+- **Keyboard navigation** — Arrow key navigation in task board and sidebar
+
+#### Undo/Redo (#164)
+- **Undo stack** — `Cmd+Z` / `Cmd+Shift+Z` for task status changes and deletions
+- **Toast undo button** — "Undo" action button in toast notifications with 10-second grace period
+- **Soft-delete pattern** — Tasks are archived immediately, permanently deleted only after timeout if not undone
+
+#### Font Size (#165)
+- **Three size options** — Small / Normal / Large font size preference in Settings
+- **Global application** — CSS custom property (React) + `dynamicTypeSize` (SwiftUI) with persistent preference
+
+#### Database Maintenance (#166)
+- **JSON export** — Export all database tables as a single JSON file
+- **Factory reset** — Delete all user data with confirmation dialog, preserves schema
+- **Vacuum & backup** — One-click database optimization and SQLite backup
+
+### Changed
+- All version references bumped to 1.5.0
+- Font size options renamed from Medium/Large/X-Large to Small/Normal/Large for clarity
+- Sidebar, Settings, and key SwiftUI views now use localized strings via `L()` helper
+
 ## [v1.4.0] — 2026-03-03
 
 ### Added
@@ -120,6 +163,7 @@ All notable changes to CreedFlow are documented in this file.
 - **Multi-task parallel dispatch** with configurable concurrency
 - **Deploy failure auto-recovery** pipeline
 
+[v1.5.0]: https://github.com/fatihkan/creedflow/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/fatihkan/creedflow/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/fatihkan/creedflow/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/fatihkan/creedflow/compare/v1.1.0...v1.2.0
