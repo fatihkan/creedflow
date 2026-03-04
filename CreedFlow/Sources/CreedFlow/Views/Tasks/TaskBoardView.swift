@@ -680,7 +680,9 @@ struct TaskCardView: View {
                         .help("Priority \(task.priority) (1=low, 10=critical)")
                 }
                 Spacer()
-                if let duration = task.durationMs {
+                if task.status == .inProgress, let startedAt = task.startedAt {
+                    LiveTimerView(since: startedAt)
+                } else if let duration = task.durationMs {
                     Text(ForgeDuration.format(ms: duration))
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.tertiary)

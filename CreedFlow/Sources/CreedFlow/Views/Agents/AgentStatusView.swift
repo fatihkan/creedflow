@@ -186,6 +186,9 @@ struct AgentStatusView: View {
                 }
                 Spacer()
                 BackendBadge(type: runner.backendType)
+                if let startedAt = task?.startedAt {
+                    LiveTimerView(since: startedAt)
+                }
                 Text("\(runner.liveOutput.count) lines")
                     .font(.caption)
                     .foregroundStyle(.tertiary)

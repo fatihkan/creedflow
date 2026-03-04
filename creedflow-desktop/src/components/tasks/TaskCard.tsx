@@ -1,8 +1,39 @@
+import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
 import type { AgentTask } from "../../types/models";
 import { AgentTypeBadge } from "../shared/AgentTypeBadge";
 import { BackendBadge } from "../shared/BackendBadge";
 import { useTaskStore } from "../../store/taskStore";
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  if (totalSec < 3600) {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}m ${s}s`;
+  }
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  return `${h}h ${m}m`;
+}
+
+function LiveTimer({ since }: { since: string }) {
+  const [elapsed, setElapsed] = useState(() => Date.now() - new Date(since).getTime());
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Date.now() - new Date(since).getTime());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [since]);
+
+  return (
+    <span className="text-[10px] font-mono text-amber-400">
+      {formatDuration(Math.max(0, elapsed))}
+    </span>
+  );
+}
 
 interface Props {
   task: AgentTask;
@@ -38,6 +69,13 @@ export function TaskCard({ task, onClick }: Props) {
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
         <AgentTypeBadge agentType={task.agentType} />
         <BackendBadge backend={task.backend} />
+        {task.status === "in_progress" && task.startedAt ? (
+          <LiveTimer since={task.startedAt} />
+        ) : task.durationMs != null ? (
+          <span className="text-[10px] font-mono text-zinc-500">
+            {formatDuration(task.durationMs)}
+          </span>
+        ) : null}
         {task.costUsd != null && (
           <span className="text-[10px] text-zinc-500">
             ${task.costUsd.toFixed(4)}
