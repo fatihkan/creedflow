@@ -56,6 +56,8 @@ pub fn run() {
             commands::tasks::list_archived_tasks,
             commands::tasks::retry_task_with_revision,
             commands::tasks::duplicate_task,
+            commands::tasks::batch_retry_tasks,
+            commands::tasks::batch_cancel_tasks,
             commands::tasks::add_task_comment,
             commands::tasks::list_task_comments,
             commands::tasks::get_task_prompt_history,
@@ -76,6 +78,7 @@ pub fn run() {
             commands::costs::get_cost_by_agent,
             commands::costs::get_cost_by_backend,
             commands::costs::get_cost_timeline,
+            commands::costs::get_task_statistics,
             // Reviews
             commands::reviews::list_reviews,
             commands::reviews::approve_review,
@@ -94,6 +97,9 @@ pub fn run() {
             // Publishing
             commands::publishing::list_channels,
             commands::publishing::list_publications,
+            commands::publishing::create_channel,
+            commands::publishing::update_channel,
+            commands::publishing::delete_channel,
             // Deploy
             commands::deploy::list_deployments,
             commands::deploy::create_deployment,
@@ -114,6 +120,8 @@ pub fn run() {
             commands::prompts::add_chain_step,
             commands::prompts::remove_chain_step,
             commands::prompts::reorder_chain_steps,
+            commands::prompts::update_chain_step,
+            commands::prompts::update_prompt_chain,
             // Prompt Effectiveness
             commands::prompts::get_prompt_effectiveness,
             // Prompt Import/Export
@@ -147,6 +155,11 @@ pub fn run() {
             commands::notifications::dismiss_notification,
             commands::notifications::get_backend_health_status,
             commands::notifications::get_mcp_health_status,
+            // MCP
+            commands::mcp::list_mcp_servers,
+            commands::mcp::create_mcp_server,
+            commands::mcp::update_mcp_server,
+            commands::mcp::delete_mcp_server,
             // Git
             commands::git::git_ensure_branch_structure,
             commands::git::git_setup_feature_branch,
@@ -158,6 +171,8 @@ pub fn run() {
             commands::git::git_log,
             commands::git::get_git_config,
             commands::git::set_git_config,
+            // Updates
+            commands::updates::check_for_updates,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

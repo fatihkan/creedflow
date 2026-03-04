@@ -15,10 +15,21 @@ public struct ContentView: View {
     @State private var keyboardMonitor: Any?
     @State private var notificationViewModel: NotificationViewModel?
     @State private var showShortcutsOverlay = false
+    @State private var updateInfo: UpdateInfo?
 
     public init() {}
 
     public var body: some View {
+        VStack(spacing: 0) {
+        // Update banner
+        if let info = updateInfo {
+            UpdateBannerView(updateInfo: info) {
+                // Dismiss and remember version
+                UserDefaults.standard.set(info.latestVersion, forKey: "dismissedUpdateVersion")
+                withAnimation(.easeInOut(duration: 0.15)) { updateInfo = nil }
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
         ZStack {
         HSplitView {
             SidebarView(
@@ -74,6 +85,7 @@ public struct ContentView: View {
             KeyboardShortcutsView(isPresented: $showShortcutsOverlay)
         }
         } // end ZStack
+        } // end VStack
         .frame(minWidth: 960, minHeight: 640)
         .onChange(of: selectedSection) { _, newSection in
             if newSection != .deploys {
@@ -107,6 +119,15 @@ public struct ContentView: View {
                     telegramService.startPolling { command in
                         await handleTelegramCommand(command)
                     }
+                }
+            }
+        }
+        .task {
+            let checker = UpdateChecker()
+            if let info = await checker.checkForUpdates() {
+                let dismissed = UserDefaults.standard.string(forKey: "dismissedUpdateVersion")
+                if dismissed != info.latestVersion {
+                    withAnimation(.easeInOut(duration: 0.3)) { updateInfo = info }
                 }
             }
         }

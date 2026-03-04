@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTaskStore } from "../../store/taskStore";
 import { TaskCard } from "./TaskCard";
-import { Archive, MessageCircle } from "lucide-react";
+import { Archive, RotateCcw, XCircle, MessageCircle, CheckSquare, Square } from "lucide-react";
 import { SearchBar } from "../shared/SearchBar";
 import { SkeletonCard } from "../shared/Skeleton";
 import type { AgentTask, TaskStatus } from "../../types/models";
@@ -22,6 +22,7 @@ const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
 ];
 
 const ARCHIVABLE: TaskStatus[] = ["passed", "failed", "cancelled"];
+const RETRYABLE: TaskStatus[] = ["failed", "needs_revision", "cancelled"];
 
 const VALID_TRANSITIONS: Record<string, TaskStatus[]> = {
   queued: ["in_progress", "cancelled"],
@@ -45,6 +46,8 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
     archiveSelected,
     clearSelection,
     updateTaskStatus,
+    batchRetry,
+    batchCancel,
   } = useTaskStore();
 
   const [search, setSearch] = useState("");
@@ -86,6 +89,24 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
     }
   };
 
+  // Compute which batch actions are available based on selected tasks
+  const selectedTasks = tasks.filter((t) => selectedIds.has(t.id));
+  const hasRetryable = selectedTasks.some((t) => RETRYABLE.includes(t.status));
+  const hasCancellable = selectedTasks.some((t) => t.status === "queued");
+  const hasArchivable = selectedTasks.some((t) => ARCHIVABLE.includes(t.status));
+
+  const selectAllInColumn = (status: TaskStatus) => {
+    const columnTasks = filteredTasks.filter((t) => t.status === status);
+    const allSelected = columnTasks.every((t) => selectedIds.has(t.id));
+    columnTasks.forEach((t) => {
+      if (allSelected) {
+        if (selectedIds.has(t.id)) toggleSelection(t.id);
+      } else {
+        if (!selectedIds.has(t.id)) toggleSelection(t.id);
+      }
+    });
+  };
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-3">
@@ -103,15 +124,6 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
             placeholder="Search tasks..."
           />
 
-          {selectionMode && selectedIds.size > 0 && (
-            <button
-              onClick={archiveSelected}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-700 text-zinc-200 rounded-md hover:bg-zinc-600"
-            >
-              <Archive className="w-3 h-3" />
-              Archive ({selectedIds.size})
-            </button>
-          )}
           {onToggleChat && (
             <button
               onClick={() => onToggleChat(projectId)}
@@ -141,11 +153,47 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
         </div>
       </div>
 
+      {/* Batch action bar */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900/60 flex items-center gap-2">
+          <span className="text-xs text-zinc-400 mr-2">
+            {selectedIds.size} selected
+          </span>
+          {hasRetryable && (
+            <button
+              onClick={batchRetry}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600/20 text-blue-400 rounded-md hover:bg-blue-600/30"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Re-queue
+            </button>
+          )}
+          {hasCancellable && (
+            <button
+              onClick={batchCancel}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600/20 text-red-400 rounded-md hover:bg-red-600/30"
+            >
+              <XCircle className="w-3 h-3" />
+              Cancel
+            </button>
+          )}
+          {hasArchivable && (
+            <button
+              onClick={archiveSelected}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-700 text-zinc-200 rounded-md hover:bg-zinc-600"
+            >
+              <Archive className="w-3 h-3" />
+              Archive
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 overflow-x-auto">
         <div className="flex gap-3 p-4 min-w-max h-full">
           {COLUMNS.map(({ status, label, color }) => {
             const columnTasks = filteredTasks.filter((t) => t.status === status);
-            const isArchivableColumn = ARCHIVABLE.includes(status);
+            const allColumnSelected = columnTasks.length > 0 && columnTasks.every((t) => selectedIds.has(t.id));
             return (
               <div
                 key={status}
@@ -154,9 +202,24 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                 onDrop={(e) => handleDrop(e, status)}
               >
                 <div className="px-3 py-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-zinc-400">
-                    {label}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {selectionMode && columnTasks.length > 0 && (
+                      <button
+                        onClick={() => selectAllInColumn(status)}
+                        className="text-zinc-500 hover:text-zinc-300"
+                        title={allColumnSelected ? "Deselect all" : "Select all"}
+                      >
+                        {allColumnSelected ? (
+                          <CheckSquare className="w-3.5 h-3.5" />
+                        ) : (
+                          <Square className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                    <span className="text-xs font-medium text-zinc-400">
+                      {label}
+                    </span>
+                  </div>
                   <span className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">
                     {columnTasks.length}
                   </span>
@@ -169,7 +232,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                     </>
                   ) : columnTasks.map((task) => (
                     <div key={task.id} className="relative">
-                      {selectionMode && isArchivableColumn && (
+                      {selectionMode && (
                         <div
                           className="absolute inset-0 z-10 flex items-start justify-start p-2 cursor-pointer"
                           onClick={() => toggleSelection(task.id)}
@@ -186,7 +249,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                         draggable={!selectionMode}
                         onDragStart={(e) => handleDragStart(e, task)}
                         className={
-                          selectionMode && isArchivableColumn
+                          selectionMode
                             ? selectedIds.has(task.id)
                               ? "opacity-75"
                               : ""
@@ -197,7 +260,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                           task={task}
                           onClick={() =>
                             selectionMode
-                              ? isArchivableColumn && toggleSelection(task.id)
+                              ? toggleSelection(task.id)
                               : selectTask(task.id)
                           }
                         />

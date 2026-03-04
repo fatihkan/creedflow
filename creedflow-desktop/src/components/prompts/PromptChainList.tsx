@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Link2,
   Plus,
@@ -6,8 +6,9 @@ import {
   ChevronDown,
   ChevronRight,
   GripVertical,
+  Pencil,
 } from "lucide-react";
-import type { PromptChainWithSteps } from "../../types/models";
+import type { PromptChainWithSteps, PromptChainStep } from "../../types/models";
 import * as api from "../../tauri";
 import { usePromptStore } from "../../store/promptStore";
 
@@ -16,6 +17,8 @@ export function PromptChainList() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [editingChain, setEditingChain] = useState<PromptChainWithSteps | null>(null);
+  const [dragStepId, setDragStepId] = useState<string | null>(null);
   const prompts = usePromptStore((s) => s.prompts);
   const fetchPrompts = usePromptStore((s) => s.fetchPrompts);
 
@@ -50,6 +53,24 @@ export function PromptChainList() {
   const handleRemoveStep = async (stepId: string) => {
     await api.removeChainStep(stepId);
     fetchChains();
+  };
+
+  const handleDrop = async (_chainId: string, steps: PromptChainStep[], dropIdx: number) => {
+    const dragStep = steps.find((s) => s.id === dragStepId);
+    if (!dragStep || dragStep.id === steps[dropIdx]?.id) {
+      setDragStepId(null);
+      return;
+    }
+    const reordered = steps.filter((s) => s.id !== dragStep.id);
+    reordered.splice(dropIdx, 0, dragStep);
+    const updates: [string, number][] = reordered.map((s, i) => [s.id, i + 1]);
+    await api.reorderChainSteps(updates);
+    setDragStepId(null);
+    fetchChains();
+  };
+
+  const handleTransitionNoteBlur = async (stepId: string, value: string) => {
+    await api.updateChainStep(stepId, value || null);
   };
 
   const getPromptTitle = (promptId: string) => {
@@ -119,6 +140,16 @@ export function PromptChainList() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    setEditingChain(chain);
+                  }}
+                  className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors"
+                  title="Edit chain"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     handleDelete(chain.id);
                   }}
                   className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400 transition-colors"
@@ -130,29 +161,20 @@ export function PromptChainList() {
               {isExpanded && (
                 <div className="border-t border-zinc-800 px-4 py-3 space-y-2">
                   {chain.steps.map((step, i) => (
-                    <div
+                    <StepRow
                       key={step.id}
-                      className="flex items-center gap-2 px-3 py-2 bg-zinc-800/40 rounded-md"
-                    >
-                      <GripVertical className="w-3 h-3 text-zinc-600" />
-                      <span className="text-[10px] text-zinc-500 w-5">
-                        {i + 1}.
-                      </span>
-                      <span className="text-xs text-zinc-300 flex-1 truncate">
-                        {getPromptTitle(step.promptId)}
-                      </span>
-                      {step.transitionNote && (
-                        <span className="text-[10px] text-zinc-500 truncate max-w-[120px]">
-                          {step.transitionNote}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => handleRemoveStep(step.id)}
-                        className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
+                      step={step}
+                      index={i}
+                      promptTitle={getPromptTitle(step.promptId)}
+                      onRemove={() => handleRemoveStep(step.id)}
+                      onDragStart={() => setDragStepId(step.id)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => handleDrop(chain.id, chain.steps, i)}
+                      isDragging={dragStepId === step.id}
+                      onTransitionNoteBlur={(val) =>
+                        handleTransitionNoteBlur(step.id, val)
+                      }
+                    />
                   ))}
 
                   {/* Add step */}
@@ -177,14 +199,18 @@ export function PromptChainList() {
         })
       )}
 
-      {/* Create dialog */}
-      {showCreate && (
-        <CreateChainDialog
-          onClose={() => setShowCreate(false)}
-          onCreate={async (name, description, category) => {
-            await api.createPromptChain(name, description, category);
+      {/* Create / Edit dialog */}
+      {(showCreate || editingChain) && (
+        <ChainFormDialog
+          chain={editingChain}
+          onClose={() => {
+            setShowCreate(false);
+            setEditingChain(null);
+          }}
+          onSaved={() => {
             fetchChains();
             setShowCreate(false);
+            setEditingChain(null);
           }}
         />
       )}
@@ -192,22 +218,92 @@ export function PromptChainList() {
   );
 }
 
-function CreateChainDialog({
-  onClose,
-  onCreate,
+function StepRow({
+  step,
+  index,
+  promptTitle,
+  onRemove,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging,
+  onTransitionNoteBlur,
 }: {
-  onClose: () => void;
-  onCreate: (name: string, description: string, category: string) => Promise<void>;
+  step: PromptChainStep;
+  index: number;
+  promptTitle: string;
+  onRemove: () => void;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  isDragging: boolean;
+  onTransitionNoteBlur: (value: string) => void;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("general");
+  const [note, setNote] = useState(step.transitionNote ?? "");
+  const noteRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`flex items-center gap-2 px-3 py-2 bg-zinc-800/40 rounded-md cursor-grab active:cursor-grabbing transition-opacity ${
+        isDragging ? "opacity-50" : ""
+      }`}
+    >
+      <GripVertical className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+      <span className="text-[10px] text-zinc-500 w-5 flex-shrink-0">
+        {index + 1}.
+      </span>
+      <span className="text-xs text-zinc-300 flex-1 truncate">{promptTitle}</span>
+      <input
+        ref={noteRef}
+        type="text"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onBlur={() => onTransitionNoteBlur(note)}
+        placeholder="transition note..."
+        className="w-[140px] px-2 py-0.5 text-[10px] bg-zinc-900 border border-zinc-700/50 rounded text-zinc-400 placeholder:text-zinc-600 focus:outline-none focus:border-brand-500"
+      />
+      <button
+        onClick={onRemove}
+        className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0"
+      >
+        <Trash2 className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
+function ChainFormDialog({
+  chain,
+  onClose,
+  onSaved,
+}: {
+  chain: PromptChainWithSteps | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEditing = chain !== null;
+  const [name, setName] = useState(chain?.name ?? "");
+  const [description, setDescription] = useState(chain?.description ?? "");
+  const [category, setCategory] = useState(chain?.category ?? "general");
+
+  const handleSubmit = async () => {
+    if (isEditing) {
+      await api.updatePromptChain(chain.id, name, description, category);
+    } else {
+      await api.createPromptChain(name, description, category);
+    }
+    onSaved();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[400px] p-5 shadow-2xl">
         <h3 className="text-sm font-semibold text-zinc-200 mb-4">
-          New Prompt Chain
+          {isEditing ? "Edit Prompt Chain" : "New Prompt Chain"}
         </h3>
         <div className="space-y-3">
           <input
@@ -246,11 +342,11 @@ function CreateChainDialog({
             Cancel
           </button>
           <button
-            onClick={() => onCreate(name, description, category)}
+            onClick={handleSubmit}
             disabled={!name.trim()}
             className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded disabled:opacity-50 transition-colors"
           >
-            Create
+            {isEditing ? "Update" : "Create"}
           </button>
         </div>
       </div>

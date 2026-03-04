@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Circle,
   Bell,
+  Radio,
 } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { useTaskStore } from "../../store/taskStore";
@@ -34,7 +35,8 @@ export type SidebarSection =
   | "prompts"
   | "archive"
   | "gitHistory"
-  | "assets";
+  | "assets"
+  | "publishing";
 
 interface SidebarProps {
   selected: SidebarSection;
@@ -172,6 +174,7 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
           <div className="px-2 space-y-0.5 mb-1">
             <NavItem id="gitHistory" label="Git History" icon={GitBranch} selected={selected} onSelect={onSelect} />
             <NavItem id="deploys" label="Deployments" icon={Rocket} selected={selected} onSelect={onSelect} />
+            <NavItem id="publishing" label="Publishing" icon={Radio} selected={selected} onSelect={onSelect} />
           </div>
         )}
 

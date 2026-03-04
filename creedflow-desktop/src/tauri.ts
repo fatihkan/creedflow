@@ -118,6 +118,12 @@ export const retryTaskWithRevision = (id: string, revisionPrompt?: string) =>
     revisionPrompt: revisionPrompt ?? null,
   });
 
+export const batchRetryTasks = (ids: string[]) =>
+  invoke<void>("batch_retry_tasks", { ids });
+
+export const batchCancelTasks = (ids: string[]) =>
+  invoke<void>("batch_cancel_tasks", { ids });
+
 export const duplicateTask = (id: string) =>
   invoke<AgentTask>("duplicate_task", { id });
 
@@ -170,6 +176,9 @@ export const getCostByBackend = () =>
 export const getCostTimeline = () =>
   invoke<CostBreakdown[]>("get_cost_timeline");
 
+export const getTaskStatistics = () =>
+  invoke<import("./types/models").TaskStatistics>("get_task_statistics");
+
 // ─── Reviews ─────────────────────────────────────────────────────────────────
 
 export const listReviews = () => invoke<Review[]>("list_reviews");
@@ -218,6 +227,39 @@ export const listChannels = () => invoke<PublishingChannel[]>("list_channels");
 
 export const listPublications = () =>
   invoke<Publication[]>("list_publications");
+
+export const createChannel = (
+  name: string,
+  channelType: string,
+  credentialsJson: string,
+  defaultTags: string,
+) =>
+  invoke<PublishingChannel>("create_channel", {
+    name,
+    channelType,
+    credentialsJson,
+    defaultTags,
+  });
+
+export const updateChannel = (
+  id: string,
+  name: string,
+  channelType: string,
+  credentialsJson: string,
+  defaultTags: string,
+  isEnabled: boolean,
+) =>
+  invoke<PublishingChannel>("update_channel", {
+    id,
+    name,
+    channelType,
+    credentialsJson,
+    defaultTags,
+    isEnabled,
+  });
+
+export const deleteChannel = (id: string) =>
+  invoke<void>("delete_channel", { id });
 
 // ─── Deploy ──────────────────────────────────────────────────────────────────
 
@@ -316,6 +358,17 @@ export const removeChainStep = (id: string) =>
 
 export const reorderChainSteps = (steps: [string, number][]) =>
   invoke<void>("reorder_chain_steps", { steps });
+
+export const updateChainStep = (id: string, transitionNote: string | null) =>
+  invoke<void>("update_chain_step", { id, transitionNote });
+
+export const updatePromptChain = (
+  id: string,
+  name: string,
+  description: string,
+  category: string,
+) =>
+  invoke<PromptChain>("update_prompt_chain", { id, name, description, category });
 
 // ─── Prompt Effectiveness ────────────────────────────────────────────────────
 
@@ -439,6 +492,46 @@ export const getBackendHealthStatus = () =>
 export const getMcpHealthStatus = () =>
   invoke<HealthEvent[]>("get_mcp_health_status");
 
+// ─── MCP Server Config ─────────────────────────────────────────────────────
+
+import type { MCPServerConfig } from "./types/models";
+
+export const listMcpServers = () =>
+  invoke<MCPServerConfig[]>("list_mcp_servers");
+
+export const createMcpServer = (
+  name: string,
+  command: string,
+  arguments_: string,
+  environmentVars: string,
+) =>
+  invoke<MCPServerConfig>("create_mcp_server", {
+    name,
+    command,
+    arguments: arguments_,
+    environmentVars,
+  });
+
+export const updateMcpServer = (
+  id: string,
+  name: string,
+  command: string,
+  arguments_: string,
+  environmentVars: string,
+  isEnabled: boolean,
+) =>
+  invoke<MCPServerConfig>("update_mcp_server", {
+    id,
+    name,
+    command,
+    arguments: arguments_,
+    environmentVars,
+    isEnabled,
+  });
+
+export const deleteMcpServer = (id: string) =>
+  invoke<void>("delete_mcp_server", { id });
+
 // ─── Prompt Import/Export ───────────────────────────────────────────────────
 
 export const exportPrompts = (promptIds: string[], filePath: string) =>
@@ -464,6 +557,20 @@ export const getPromptVersionDiff = (
     versionA,
     versionB,
   });
+
+// ─── Prompt Recommender ─────────────────────────────────────────────────────
+
+// ─── Updates ────────────────────────────────────────────────────────────────
+
+export interface UpdateInfo {
+  latestVersion: string;
+  currentVersion: string;
+  releaseUrl: string;
+  releaseNotes: string;
+}
+
+export const checkForUpdates = () =>
+  invoke<UpdateInfo | null>("check_for_updates");
 
 // ─── Prompt Recommender ─────────────────────────────────────────────────────
 

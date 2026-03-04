@@ -10,49 +10,71 @@ struct GitGraphView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var selectedBranch: String = "All"
+    @State private var searchText: String = ""
+    @State private var selectedCommit: GitCommit?
 
     private let gitService = GitService()
 
     var body: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                toolbar
+                Divider()
 
-            if selectedProjectId == nil {
-                ForgeEmptyState(
-                    icon: "arrow.triangle.branch",
-                    title: "Git History",
-                    subtitle: "Select a project to view its git history"
-                )
-            } else if isLoading {
-                ProgressView("Loading git history...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let error = errorMessage {
-                ForgeEmptyState(
-                    icon: "exclamationmark.triangle",
-                    title: "Git Error",
-                    subtitle: error,
-                    actionTitle: "Retry"
-                ) {
-                    Task { await loadGraph() }
+                if selectedProjectId == nil {
+                    ForgeEmptyState(
+                        icon: "arrow.triangle.branch",
+                        title: "Git History",
+                        subtitle: "Select a project to view its git history"
+                    )
+                } else if isLoading {
+                    ProgressView("Loading git history...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let error = errorMessage {
+                    ForgeEmptyState(
+                        icon: "exclamationmark.triangle",
+                        title: "Git Error",
+                        subtitle: error,
+                        actionTitle: "Retry"
+                    ) {
+                        Task { await loadGraph() }
+                    }
+                } else if searchFilteredGraphData.rows.isEmpty {
+                    ForgeEmptyState(
+                        icon: "arrow.triangle.branch",
+                        title: searchText.isEmpty ? "No Git History" : "No Matching Commits",
+                        subtitle: searchText.isEmpty ? "This project has no git commits yet" : "No commits match \"\(searchText)\""
+                    )
+                } else {
+                    GitGraphContentView(
+                        graphData: searchFilteredGraphData,
+                        maxColumns: graphData.maxColumns,
+                        selectedCommitId: selectedCommit?.id,
+                        onSelectCommit: { commit in
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                selectedCommit = selectedCommit?.id == commit.id ? nil : commit
+                            }
+                        }
+                    )
                 }
-            } else if graphData.rows.isEmpty {
-                ForgeEmptyState(
-                    icon: "arrow.triangle.branch",
-                    title: "No Git History",
-                    subtitle: "This project has no git commits yet"
+            }
+
+            // Commit detail panel
+            if let commit = selectedCommit {
+                Divider()
+                GitCommitDetailView(
+                    commit: commit,
+                    onDismiss: { withAnimation(.easeInOut(duration: 0.15)) { selectedCommit = nil } }
                 )
-            } else {
-                GitGraphContentView(
-                    graphData: filteredGraphData,
-                    maxColumns: graphData.maxColumns
-                )
+                .frame(minWidth: 300, idealWidth: 340, maxWidth: 400)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
         .task {
             await observeProjects()
         }
         .onChange(of: selectedProjectId) { _, _ in
+            selectedCommit = nil
             Task { await loadGraph() }
         }
     }
@@ -61,6 +83,30 @@ struct GitGraphView: View {
 
     private var toolbar: some View {
         ForgeToolbar(title: "Git History") {
+            HStack(spacing: 4) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                TextField("Search commits...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .frame(width: 180)
+
             Picker("Project", selection: $selectedProjectId) {
                 Text("Select Project").tag(UUID?.none)
                 ForEach(projects) { project in
@@ -107,6 +153,26 @@ struct GitGraphView: View {
             currentBranch: graphData.currentBranch,
             maxColumns: graphData.maxColumns,
             allBranches: graphData.allBranches
+        )
+    }
+
+    private var searchFilteredGraphData: GitGraphData {
+        let branchFiltered = filteredGraphData
+        guard !searchText.isEmpty else { return branchFiltered }
+
+        let query = searchText.lowercased()
+        let filtered = branchFiltered.rows.filter { row in
+            row.commit.message.lowercased().contains(query)
+            || row.commit.id.lowercased().contains(query)
+            || row.commit.shortHash.lowercased().contains(query)
+            || row.commit.author.lowercased().contains(query)
+        }
+
+        return GitGraphData(
+            rows: filtered,
+            currentBranch: branchFiltered.currentBranch,
+            maxColumns: branchFiltered.maxColumns,
+            allBranches: branchFiltered.allBranches
         )
     }
 

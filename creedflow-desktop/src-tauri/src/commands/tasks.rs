@@ -210,6 +210,40 @@ pub async fn retry_task_with_revision(
     Ok(())
 }
 
+// ─── Batch Operations ───────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn batch_retry_tasks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    for id in &ids {
+        db.conn.execute(
+            "UPDATE agentTask SET status = 'queued', retryCount = retryCount + 1, updatedAt = datetime('now')
+             WHERE id = ?1 AND status IN ('failed', 'needs_revision', 'cancelled')",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn batch_cancel_tasks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    for id in &ids {
+        db.conn.execute(
+            "UPDATE agentTask SET status = 'cancelled', updatedAt = datetime('now')
+             WHERE id = ?1 AND status = 'queued'",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 // ─── Task Comments ──────────────────────────────────────────────────────────
 
 #[tauri::command]

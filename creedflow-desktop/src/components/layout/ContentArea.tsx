@@ -10,6 +10,7 @@ import { ReviewList } from "../reviews/ReviewList";
 import { GitGraphView } from "../git/GitGraphView";
 import { PromptsLibrary } from "../prompts/PromptsLibrary";
 import { ProjectAssetsView } from "../assets/ProjectAssetsView";
+import { PublishingView } from "../publishing/PublishingView";
 
 interface ContentAreaProps {
   section: SidebarSection;
@@ -61,6 +62,8 @@ export function ContentArea({
       return <PromptsLibrary />;
     case "assets":
       return <ProjectAssetsView />;
+    case "publishing":
+      return <PublishingView />;
     default:
       return <EmptyState message="Select a section" />;
   }

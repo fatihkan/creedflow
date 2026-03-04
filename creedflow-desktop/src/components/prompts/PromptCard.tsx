@@ -1,4 +1,4 @@
-import { Star, Trash2, Copy, Check } from "lucide-react";
+import { Star, Trash2, Copy, Check, Clock } from "lucide-react";
 import { useState } from "react";
 import type { Prompt } from "../../store/promptStore";
 
@@ -6,9 +6,10 @@ interface PromptCardProps {
   prompt: Prompt;
   onToggleFavorite: () => void;
   onDelete: () => void;
+  onShowHistory?: () => void;
 }
 
-export function PromptCard({ prompt, onToggleFavorite, onDelete }: PromptCardProps) {
+export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }: PromptCardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -36,6 +37,15 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete }: PromptCardPro
               <Copy className="w-3 h-3" />
             )}
           </button>
+          {onShowHistory && (
+            <button
+              onClick={onShowHistory}
+              className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
+              title="Version history"
+            >
+              <Clock className="w-3 h-3" />
+            </button>
+          )}
           <button
             onClick={onToggleFavorite}
             className="p-1 rounded hover:bg-zinc-700"

@@ -13,3 +13,5 @@ pub mod git;
 pub mod platform;
 pub mod chat;
 pub mod notifications;
+pub mod mcp;
+pub mod updates;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { usePromptStore } from "../../store/promptStore";
 import { PromptCard } from "./PromptCard";
 import { PromptEditDialog } from "./PromptEditDialog";
+import { PromptVersionHistory } from "./PromptVersionHistory";
 import { Plus, Search, Star, BookOpen } from "lucide-react";
 import { PromptChainList } from "./PromptChainList";
 import { PromptEffectivenessDashboard } from "./PromptEffectivenessDashboard";
@@ -23,6 +24,7 @@ export function PromptsLibrary() {
     usePromptStore();
   const [showCreate, setShowCreate] = useState(false);
   const [tab, setTab] = useState<"library" | "chains" | "effectiveness">("library");
+  const [historyPrompt, setHistoryPrompt] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     fetchPrompts();
@@ -139,6 +141,7 @@ export function PromptsLibrary() {
                     prompt={prompt}
                     onToggleFavorite={() => toggleFavorite(prompt.id)}
                     onDelete={() => deletePrompt(prompt.id)}
+                    onShowHistory={() => setHistoryPrompt({ id: prompt.id, title: prompt.title })}
                   />
                 ))}
               </div>
@@ -153,6 +156,15 @@ export function PromptsLibrary() {
 
       {/* Create dialog */}
       {showCreate && <PromptEditDialog onClose={() => setShowCreate(false)} />}
+
+      {/* Version history modal */}
+      {historyPrompt && (
+        <PromptVersionHistory
+          promptId={historyPrompt.id}
+          promptTitle={historyPrompt.title}
+          onClose={() => setHistoryPrompt(null)}
+        />
+      )}
     </div>
   );
 }

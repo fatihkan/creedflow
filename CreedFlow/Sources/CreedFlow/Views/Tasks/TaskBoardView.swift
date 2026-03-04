@@ -50,6 +50,20 @@ struct TaskBoardView: View {
 
     private var archivableCount: Int { archivableTasks.count }
 
+    /// Tasks that can be retried (failed + needs_revision + cancelled)
+    private static let retryableStatuses: Set<AgentTask.Status> = [.failed, .needsRevision, .cancelled]
+
+    /// Selected tasks eligible for each batch action
+    private var selectedRetryableCount: Int {
+        tasks.filter { archiveSelection.contains($0.id) && Self.retryableStatuses.contains($0.status) }.count
+    }
+    private var selectedCancellableCount: Int {
+        tasks.filter { archiveSelection.contains($0.id) && $0.status == .queued }.count
+    }
+    private var selectedArchivableCount: Int {
+        tasks.filter { archiveSelection.contains($0.id) && ($0.status == .passed || $0.status == .failed || $0.status == .cancelled) }.count
+    }
+
     /// Count of failed tasks whose error message mentions MCP
     private var mcpFailedCount: Int {
         tasks.filter { task in
@@ -124,43 +138,53 @@ struct TaskBoardView: View {
                     }
                     .frame(maxWidth: 200)
 
-                    if archivableCount > 0 {
-                        if isArchiveSelectionMode {
-                            Button {
-                                if archiveSelection.count == archivableTasks.count {
-                                    archiveSelection.removeAll()
-                                } else {
-                                    archiveSelection = Set(archivableTasks.map(\.id))
-                                }
-                            } label: {
-                                Label(
-                                    archiveSelection.count == archivableTasks.count ? "Deselect All" : "Select All",
-                                    systemImage: archiveSelection.count == archivableTasks.count ? "checkmark.circle" : "circle"
-                                )
-                            }
+                    if isArchiveSelectionMode {
+                        if !archiveSelection.isEmpty {
+                            Text("\(archiveSelection.count) selected")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
 
+                        if selectedRetryableCount > 0 {
+                            Button {
+                                batchRetryTasks()
+                            } label: {
+                                Label("Re-queue (\(selectedRetryableCount))", systemImage: "arrow.counterclockwise")
+                            }
+                            .help("Re-queue failed/revision/cancelled tasks")
+                        }
+
+                        if selectedCancellableCount > 0 {
+                            Button {
+                                batchCancelTasks()
+                            } label: {
+                                Label("Cancel (\(selectedCancellableCount))", systemImage: "xmark.circle")
+                            }
+                            .help("Cancel queued tasks")
+                        }
+
+                        if selectedArchivableCount > 0 {
                             Button {
                                 showArchiveConfirm = true
                             } label: {
-                                Label("Archive Selected (\(archiveSelection.count))", systemImage: "archivebox")
+                                Label("Archive (\(selectedArchivableCount))", systemImage: "archivebox")
                             }
-                            .disabled(archiveSelection.isEmpty)
-
-                            Button {
-                                isArchiveSelectionMode = false
-                                archiveSelection.removeAll()
-                            } label: {
-                                Label("Cancel", systemImage: "xmark")
-                            }
-                        } else {
-                            Button {
-                                isArchiveSelectionMode = true
-                                archiveSelection.removeAll()
-                            } label: {
-                                Label("Archive", systemImage: "archivebox")
-                            }
-                            .help("Select tasks to archive")
                         }
+
+                        Button {
+                            isArchiveSelectionMode = false
+                            archiveSelection.removeAll()
+                        } label: {
+                            Label("Done", systemImage: "xmark")
+                        }
+                    } else {
+                        Button {
+                            isArchiveSelectionMode = true
+                            archiveSelection.removeAll()
+                        } label: {
+                            Label("Select", systemImage: "checkmark.circle")
+                        }
+                        .help("Select tasks for batch operations")
                     }
 
                     if filterProjectId != nil {
@@ -325,6 +349,45 @@ struct TaskBoardView: View {
         isArchiveSelectionMode = false
     }
 
+    private func batchRetryTasks() {
+        guard let db = appDatabase else { return }
+        let retryableIds = tasks
+            .filter { archiveSelection.contains($0.id) && Self.retryableStatuses.contains($0.status) }
+            .map(\.id)
+        guard !retryableIds.isEmpty else { return }
+        try? db.dbQueue.write { dbConn in
+            try AgentTask
+                .filter(retryableIds.contains(Column("id")))
+                .updateAll(
+                    dbConn,
+                    Column("status").set(to: AgentTask.Status.queued.rawValue),
+                    Column("retryCount").set(to: Column("retryCount") + 1),
+                    Column("updatedAt").set(to: Date())
+                )
+        }
+        archiveSelection.removeAll()
+        isArchiveSelectionMode = false
+    }
+
+    private func batchCancelTasks() {
+        guard let db = appDatabase else { return }
+        let cancellableIds = tasks
+            .filter { archiveSelection.contains($0.id) && $0.status == .queued }
+            .map(\.id)
+        guard !cancellableIds.isEmpty else { return }
+        try? db.dbQueue.write { dbConn in
+            try AgentTask
+                .filter(cancellableIds.contains(Column("id")))
+                .updateAll(
+                    dbConn,
+                    Column("status").set(to: AgentTask.Status.cancelled.rawValue),
+                    Column("updatedAt").set(to: Date())
+                )
+        }
+        archiveSelection.removeAll()
+        isArchiveSelectionMode = false
+    }
+
     private func moveTask(taskId: UUID, to newStatus: AgentTask.Status) {
         guard let db = appDatabase else { return }
         try? db.dbQueue.write { dbConn in
@@ -459,8 +522,6 @@ struct KanbanColumnView: View {
 
     @State private var isDropTargeted = false
 
-    private static let archivableStatuses: Set<AgentTask.Status> = [.passed, .failed, .cancelled]
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Column header
@@ -498,9 +559,8 @@ struct KanbanColumnView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 6) {
                         ForEach(tasks) { task in
-                            let isArchivable = Self.archivableStatuses.contains(task.status)
                             HStack(spacing: 6) {
-                                if isArchiveSelectionMode && isArchivable {
+                                if isArchiveSelectionMode {
                                     Button {
                                         if archiveSelection.contains(task.id) {
                                             archiveSelection.remove(task.id)
@@ -529,7 +589,7 @@ struct KanbanColumnView: View {
                                 )
                             }
                             .onTapGesture {
-                                if isArchiveSelectionMode && isArchivable {
+                                if isArchiveSelectionMode {
                                     if archiveSelection.contains(task.id) {
                                         archiveSelection.remove(task.id)
                                     } else {

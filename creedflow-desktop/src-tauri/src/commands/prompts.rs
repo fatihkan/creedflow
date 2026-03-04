@@ -237,6 +237,41 @@ pub async fn reorder_chain_steps(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn update_chain_step(
+    state: State<'_, AppState>,
+    id: String,
+    transition_note: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.conn.execute(
+        "UPDATE promptChainStep SET transitionNote = ?1 WHERE id = ?2",
+        params![transition_note, id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn update_prompt_chain(
+    state: State<'_, AppState>,
+    id: String,
+    name: String,
+    description: String,
+    category: String,
+) -> Result<PromptChain, String> {
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let db = state.db.lock().await;
+    db.conn.execute(
+        "UPDATE promptChain SET name = ?1, description = ?2, category = ?3, updatedAt = ?4 WHERE id = ?5",
+        params![name, description, category, now, id],
+    ).map_err(|e| e.to_string())?;
+    db.conn.query_row(
+        "SELECT * FROM promptChain WHERE id = ?1",
+        [&id],
+        |row| PromptChain::from_row(row),
+    ).map_err(|e| e.to_string())
+}
+
 // ─── Prompt Effectiveness ───────────────────────────────────────────────────
 
 #[derive(serde::Serialize)]

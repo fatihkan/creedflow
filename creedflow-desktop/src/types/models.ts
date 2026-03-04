@@ -203,9 +203,11 @@ export interface PublishingChannel {
   id: string;
   name: string;
   channelType: "medium" | "wordpress" | "twitter" | "linkedin" | "devTo";
+  credentialsJson: string;
   isEnabled: boolean;
   defaultTags: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Publication {
@@ -214,8 +216,14 @@ export interface Publication {
   projectId: string;
   channelId: string;
   status: "scheduled" | "publishing" | "published" | "failed";
+  externalId: string | null;
   publishedUrl: string | null;
+  scheduledAt: string | null;
+  publishedAt: string | null;
+  errorMessage: string | null;
+  exportFormat: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface DeploymentInfo {
@@ -276,6 +284,7 @@ export interface PromptVersion {
   id: string;
   promptId: string;
   version: number;
+  title: string;
   content: string;
   changeNote: string | null;
   createdAt: string;
@@ -333,6 +342,19 @@ export interface PromptEffectivenessStats {
   failCount: number;
   avgReviewScore: number | null;
   successRate: number;
+}
+
+// ─── MCP ────────────────────────────────────────────────────────────────────
+
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  arguments: string;
+  environmentVars: string;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── Chat ───────────────────────────────────────────────────────────────────
@@ -462,6 +484,30 @@ export interface TemplateTask {
   title: string;
   description: string;
   priority: number;
+}
+
+// ─── Task Statistics ─────────────────────────────────────────────────────────
+
+export interface TaskStatistics {
+  byAgent: AgentTaskStats[];
+  dailyCompleted: DailyCount[];
+  totalTasks: number;
+  successRate: number;
+  avgDurationMs: number | null;
+}
+
+export interface AgentTaskStats {
+  agentType: string;
+  total: number;
+  passed: number;
+  failed: number;
+  needsRevision: number;
+  avgDurationMs: number | null;
+}
+
+export interface DailyCount {
+  date: string;
+  count: number;
 }
 
 // ─── Prompt Usage (for task prompt history) ─────────────────────────────────

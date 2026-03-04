@@ -28,6 +28,8 @@ interface TaskStore {
   archiveSelected: () => Promise<void>;
   restoreSelected: () => Promise<void>;
   deleteSelected: () => Promise<void>;
+  batchRetry: () => Promise<void>;
+  batchCancel: () => Promise<void>;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -141,6 +143,41 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     await api.permanentlyDeleteTasks(ids);
     set((s) => ({
       archivedTasks: s.archivedTasks.filter((t) => !s.selectedIds.has(t.id)),
+      selectedIds: new Set(),
+      selectionMode: false,
+    }));
+  },
+
+  batchRetry: async () => {
+    const { selectedIds, tasks } = get();
+    const retryable = ["failed", "needs_revision", "cancelled"];
+    const ids = Array.from(selectedIds).filter((id) => {
+      const t = tasks.find((task) => task.id === id);
+      return t && retryable.includes(t.status);
+    });
+    if (ids.length === 0) return;
+    await api.batchRetryTasks(ids);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        ids.includes(t.id) ? { ...t, status: "queued" as const, retryCount: t.retryCount + 1 } : t,
+      ),
+      selectedIds: new Set(),
+      selectionMode: false,
+    }));
+  },
+
+  batchCancel: async () => {
+    const { selectedIds, tasks } = get();
+    const ids = Array.from(selectedIds).filter((id) => {
+      const t = tasks.find((task) => task.id === id);
+      return t && t.status === "queued";
+    });
+    if (ids.length === 0) return;
+    await api.batchCancelTasks(ids);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        ids.includes(t.id) ? { ...t, status: "cancelled" as const } : t,
+      ),
       selectedIds: new Set(),
       selectionMode: false,
     }));
