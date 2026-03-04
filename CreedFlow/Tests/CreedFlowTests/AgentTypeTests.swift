@@ -3,7 +3,7 @@ import Foundation
 
 enum AgentTypeTests {
     static func runAll() {
-        testAllElevenAgentTypes()
+        testAllAgentTypes()
         testAgentTypeRawValues()
         testAgentTypeCaseIterable()
         testStatusRawValues()
@@ -13,9 +13,9 @@ enum AgentTypeTests {
         print("  AgentTypeTests: 7/7 passed")
     }
 
-    static func testAllElevenAgentTypes() {
+    static func testAllAgentTypes() {
         let types = AgentTask.AgentType.allCases
-        assertEq(types.count, 11)
+        assertEq(types.count, 12)
     }
 
     static func testAgentTypeRawValues() {
@@ -30,6 +30,7 @@ enum AgentTypeTests {
         assertEq(AgentTask.AgentType.imageGenerator.rawValue, "imageGenerator")
         assertEq(AgentTask.AgentType.videoEditor.rawValue, "videoEditor")
         assertEq(AgentTask.AgentType.publisher.rawValue, "publisher")
+        assertEq(AgentTask.AgentType.planner.rawValue, "planner")
     }
 
     static func testAgentTypeCaseIterable() {

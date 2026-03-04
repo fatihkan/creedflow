@@ -7,12 +7,19 @@ import { ProjectChatPanel } from "./components/chat/ProjectChatPanel";
 import { SetupWizard } from "./components/setup/SetupWizard";
 import { ToastOverlay } from "./components/notifications/ToastOverlay";
 import { KeyboardShortcutsOverlay } from "./components/shared/KeyboardShortcutsOverlay";
+import { ErrorBoundary } from "./components/shared/ErrorBoundary";
+import { UpdateBanner } from "./components/shared/UpdateBanner";
 import { useProjectStore } from "./store/projectStore";
 import { useTaskStore } from "./store/taskStore";
 import { useSettingsStore } from "./store/settingsStore";
 import { useNotificationStore } from "./store/notificationStore";
 import { useThemeStore } from "./store/themeStore";
+import { useFontStore } from "./store/fontStore";
+import { useHistoryStore } from "./store/historyStore";
 import { useTauriEvent } from "./hooks/useTauriEvent";
+import * as api from "./tauri";
+import type { UpdateInfo } from "./tauri";
+import "./i18n";
 
 type DetailMode = "none" | "task" | "project";
 
@@ -22,6 +29,7 @@ function App() {
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [chatProjectId, setChatProjectId] = useState<string | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const projects = useProjectStore((s) => s.projects);
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId);
@@ -33,17 +41,54 @@ function App() {
   const addToast = useNotificationStore((s) => s.addToast);
   // Initialize theme on mount (store constructor applies the class)
   useThemeStore();
+  const initFont = useFontStore((s) => s.initialize);
+  useEffect(() => { initFont(); }, [initFont]);
 
   useEffect(() => {
     fetchSettings();
     fetchUnreadCount();
 
+    // Check for updates
+    const dismissedVersion = localStorage.getItem("creedflow_dismissed_update");
+    api.checkForUpdates()
+      .then((info) => {
+        if (info && info.latestVersion !== dismissedVersion) {
+          setUpdateInfo(info);
+        }
+      })
+      .catch(() => {/* fail silently */});
+
     // Poll for unread count every 10s
     const interval = setInterval(() => {
       fetchUnreadCount();
     }, 10000);
-    return () => clearInterval(interval);
-  }, [fetchSettings, fetchUnreadCount]);
+
+    // Catch unhandled promise rejections
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      event.preventDefault();
+      const message =
+        event.reason instanceof Error
+          ? event.reason.message
+          : String(event.reason);
+      addToast({
+        id: crypto.randomUUID(),
+        category: "system",
+        severity: "error",
+        title: "Unhandled Error",
+        message,
+        metadata: null,
+        isRead: false,
+        isDismissed: false,
+        createdAt: new Date().toISOString(),
+      });
+    };
+    window.addEventListener("unhandledrejection", handleRejection);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
+  }, [fetchSettings, fetchUnreadCount, addToast]);
 
   // Show project detail when a project is selected from the projects list
   useEffect(() => {
@@ -66,6 +111,18 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "?") {
         e.preventDefault();
         setShowShortcuts((v) => !v);
+        return;
+      }
+      // Cmd+Z — undo, Cmd+Shift+Z — redo
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+        e.preventDefault();
+        if (e.shiftKey) {
+          useHistoryStore.getState().redo();
+        } else {
+          useHistoryStore.getState().undo();
+        }
         return;
       }
       if (e.metaKey || e.ctrlKey) {
@@ -173,50 +230,74 @@ function App() {
     }
   };
 
+  const handleDismissUpdate = () => {
+    if (updateInfo) {
+      localStorage.setItem("creedflow_dismissed_update", updateInfo.latestVersion);
+    }
+    setUpdateInfo(null);
+  };
+
+  const handleViewRelease = () => {
+    if (updateInfo) {
+      api.openUrl(updateInfo.releaseUrl).catch(console.error);
+    }
+  };
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden relative">
-      <ToastOverlay />
-      <KeyboardShortcutsOverlay
-        open={showShortcuts}
-        onClose={() => setShowShortcuts(false)}
-      />
-      <Sidebar selected={section} onSelect={setSection} />
-      <div className="flex-1 flex flex-row min-w-0">
-        {/* Left: Chat panel */}
-        {showChatPanel && chatProjectId && chatProject && (
-          <div className="w-[380px] flex-shrink-0">
-            <ProjectChatPanel
-              projectId={chatProjectId}
-              projectName={chatProject.name}
-              onClose={() => setShowChatPanel(false)}
+    <ErrorBoundary>
+      <div className="flex flex-col h-screen w-screen overflow-hidden relative">
+        {updateInfo && (
+          <UpdateBanner
+            update={updateInfo}
+            onDismiss={handleDismissUpdate}
+            onViewRelease={handleViewRelease}
+          />
+        )}
+        <div className="flex flex-1 min-h-0">
+        <ToastOverlay />
+        <KeyboardShortcutsOverlay
+          open={showShortcuts}
+          onClose={() => setShowShortcuts(false)}
+        />
+        <Sidebar selected={section} onSelect={setSection} />
+        <div className="flex-1 flex flex-row min-w-0">
+          {/* Left: Chat panel */}
+          {showChatPanel && chatProjectId && chatProject && (
+            <div className="w-[380px] flex-shrink-0">
+              <ProjectChatPanel
+                projectId={chatProjectId}
+                projectName={chatProject.name}
+                onClose={() => setShowChatPanel(false)}
+              />
+            </div>
+          )}
+
+          {/* Center: Content */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <ContentArea
+              section={section}
+              selectedProjectId={selectedProjectId}
+              onToggleChat={handleToggleChat}
+              showChatPanel={showChatPanel}
+              chatProjectId={chatProjectId}
             />
           </div>
-        )}
 
-        {/* Center: Content */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <ContentArea
-            section={section}
-            selectedProjectId={selectedProjectId}
-            onToggleChat={handleToggleChat}
-            showChatPanel={showChatPanel}
-            chatProjectId={chatProjectId}
-          />
+          {/* Right: Detail panels */}
+          {detailMode === "task" && (
+            <DetailPanel onClose={closeDetail} />
+          )}
+          {detailMode === "project" && selectedProjectId && (
+            <ProjectDetailPanel
+              projectId={selectedProjectId}
+              onClose={closeDetail}
+              onViewTasks={handleViewTasks}
+            />
+          )}
         </div>
-
-        {/* Right: Detail panels */}
-        {detailMode === "task" && (
-          <DetailPanel onClose={closeDetail} />
-        )}
-        {detailMode === "project" && selectedProjectId && (
-          <ProjectDetailPanel
-            projectId={selectedProjectId}
-            onClose={closeDetail}
-            onViewTasks={handleViewTasks}
-          />
-        )}
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 

@@ -515,6 +515,26 @@ public struct AppDatabase {
             )
         }
 
+        migrator.registerMigration("v21_project_completion_and_comments") { db in
+            try db.alter(table: "project") { t in
+                t.add(column: "completedAt", .datetime)
+            }
+
+            try db.create(table: "taskComment") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("taskId", .text).notNull()
+                    .references("agentTask", onDelete: .cascade)
+                t.column("content", .text).notNull()
+                t.column("author", .text).notNull().defaults(to: "user")
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "taskComment_on_taskId",
+                on: "taskComment",
+                columns: ["taskId"]
+            )
+        }
+
         return migrator
     }
 }

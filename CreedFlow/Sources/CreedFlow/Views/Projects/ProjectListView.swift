@@ -9,6 +9,7 @@ struct ProjectListView: View {
 
     @State private var projects: [Project] = []
     @State private var showNewProject = false
+    @State private var showTemplateSelector = false
     @State private var errorMessage: String?
     @State private var searchText = ""
     @State private var projectToDelete: Project?
@@ -38,8 +39,17 @@ struct ProjectListView: View {
                     .padding(.vertical, 5)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
 
-                    Button {
-                        showNewProject = true
+                    Menu {
+                        Button {
+                            showNewProject = true
+                        } label: {
+                            Label("New Project", systemImage: "plus")
+                        }
+                        Button {
+                            showTemplateSelector = true
+                        } label: {
+                            Label("New from Template", systemImage: "doc.on.doc")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -131,6 +141,11 @@ struct ProjectListView: View {
         .sheet(isPresented: $showNewProject) {
             ProjectCreationWizard(appDatabase: appDatabase)
         }
+        .sheet(isPresented: $showTemplateSelector) {
+            ProjectTemplateSelectorSheet(appDatabase: appDatabase) { projectId in
+                selectedProjectId = projectId
+            }
+        }
         .confirmationDialog(
             "Delete Project",
             isPresented: Binding(
@@ -211,6 +226,187 @@ struct ProjectListView: View {
         }
         if selectedProjectId == project.id {
             selectedProjectId = nil
+        }
+    }
+}
+
+// MARK: - Project Template Selector Sheet
+
+struct ProjectTemplateSelectorSheet: View {
+    let appDatabase: AppDatabase?
+    var onCreated: ((UUID) -> Void)?
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTemplate: ProjectTemplate?
+    @State private var projectName: String = ""
+    @State private var errorMessage: String?
+    @State private var isCreating = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("New from Template")
+                    .font(.headline)
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(.plain)
+            }
+            .padding()
+
+            Divider()
+
+            if let template = selectedTemplate {
+                // Configuration step
+                VStack(alignment: .leading, spacing: 12) {
+                    Button {
+                        selectedTemplate = nil
+                    } label: {
+                        Label("Back to Templates", systemImage: "chevron.left")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.plain)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: template.icon)
+                            .font(.title2)
+                            .foregroundStyle(.forgeAmber)
+                        VStack(alignment: .leading) {
+                            Text(template.name).font(.headline)
+                            Text(template.description).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    TextField("Project Name", text: $projectName)
+                        .textFieldStyle(.roundedBorder)
+
+                    Text("This will create \(template.features.count) features with \(template.features.flatMap(\.tasks).count) tasks.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    if let errorMessage {
+                        ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
+                    }
+
+                    HStack {
+                        Spacer()
+                        Button {
+                            Task { await createFromTemplate(template) }
+                        } label: {
+                            if isCreating {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Text("Create Project")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.forgeAmber)
+                        .disabled(projectName.trimmingCharacters(in: .whitespaces).isEmpty || isCreating)
+                    }
+                }
+                .padding()
+            } else {
+                // Template grid
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ForEach(ProjectTemplate.builtInTemplates) { template in
+                            Button {
+                                selectedTemplate = template
+                                projectName = ""
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Image(systemName: template.icon)
+                                            .font(.title3)
+                                            .foregroundStyle(.forgeAmber)
+                                        Spacer()
+                                        Text(template.projectType.rawValue)
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    Text(template.name)
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(.primary)
+                                    Text(template.description)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                    Text(template.techStack)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(10)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.quaternary.opacity(0.3))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(.quaternary, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+        .frame(width: 500, height: 420)
+    }
+
+    private func createFromTemplate(_ template: ProjectTemplate) async {
+        guard let db = appDatabase else { return }
+        let name = projectName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+
+        isCreating = true
+        defer { isCreating = false }
+
+        do {
+            let projectId = UUID()
+            let projectsDir = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("CreedFlow/projects/\(name)")
+            try FileManager.default.createDirectory(at: projectsDir, withIntermediateDirectories: true)
+
+            try await db.dbQueue.write { dbConn in
+                var project = Project(
+                    id: projectId,
+                    name: name,
+                    description: template.description,
+                    techStack: template.techStack,
+                    directoryPath: projectsDir.path,
+                    projectType: template.projectType
+                )
+                try project.insert(dbConn)
+
+                for templateFeature in template.features {
+                    let featureId = UUID()
+                    var feature = Feature(
+                        id: featureId,
+                        projectId: projectId,
+                        name: templateFeature.name,
+                        description: templateFeature.description
+                    )
+                    try feature.insert(dbConn)
+
+                    for templateTask in templateFeature.tasks {
+                        var task = AgentTask(
+                            projectId: projectId,
+                            featureId: featureId,
+                            agentType: templateTask.agentType,
+                            title: templateTask.title,
+                            description: templateTask.description,
+                            priority: templateTask.priority
+                        )
+                        try task.insert(dbConn)
+                    }
+                }
+            }
+
+            onCreated?(projectId)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

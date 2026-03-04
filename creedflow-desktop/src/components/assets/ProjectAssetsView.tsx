@@ -13,6 +13,7 @@ import { useProjectStore } from "../../store/projectStore";
 import { useAssetStore } from "../../store/assetStore";
 import { AssetCard } from "./AssetCard";
 import { AssetDetailSheet } from "./AssetDetailSheet";
+import { useTranslation } from "react-i18next";
 
 const TYPE_FILTERS = [
   { id: "all" as const, label: "All", icon: Package },
@@ -31,6 +32,7 @@ const SORT_OPTIONS = [
 ];
 
 export function ProjectAssetsView() {
+  const { t } = useTranslation();
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const {
     loading,
@@ -59,7 +61,7 @@ export function ProjectAssetsView() {
   if (!selectedProjectId) {
     return (
       <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
-        Select a project to view assets
+        {t("assets.selectProject")}
       </div>
     );
   }
@@ -70,7 +72,7 @@ export function ProjectAssetsView() {
       <div className="px-4 py-3 border-b border-zinc-800">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-zinc-200">
-            Assets
+            {t("assets.title")}
             {assets.length > 0 && (
               <span className="ml-2 text-zinc-500 font-normal">
                 {filtered.length}
@@ -87,7 +89,7 @@ export function ProjectAssetsView() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
             <input
               type="text"
-              placeholder="Search assets..."
+              placeholder={t("assets.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 bg-zinc-800/60 border border-zinc-700 rounded-md text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-brand-500/50"
@@ -134,20 +136,20 @@ export function ProjectAssetsView() {
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="flex items-center justify-center h-32 text-zinc-500 text-sm">
-            Loading assets...
+            {t("assets.loading")}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-zinc-500">
             <Package className="w-8 h-8 mb-2 opacity-40" />
             <p className="text-sm">
               {assets.length === 0
-                ? "No assets generated yet"
-                : "No assets match filters"}
+                ? t("assets.empty")
+                : t("assets.noMatch")}
             </p>
             <p className="text-xs mt-1 text-zinc-600">
               {assets.length === 0
-                ? "Creative agents will produce assets here"
-                : "Try adjusting your search or filters"}
+                ? t("assets.emptyDescription")
+                : t("assets.noMatchDescription")}
             </p>
           </div>
         ) : (

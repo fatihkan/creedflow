@@ -1,0 +1,132 @@
+/* Sidebar */
+"sidebar.workspace" = "Çalışma Alanı";
+"sidebar.projects" = "Projeler";
+"sidebar.tasks" = "Görevler";
+"sidebar.archive" = "Arşiv";
+"sidebar.recent" = "Son";
+"sidebar.pipeline" = "İş Hattı";
+"sidebar.gitHistory" = "Git Geçmişi";
+"sidebar.deployments" = "Dağıtımlar";
+"sidebar.publishing" = "Yayınlama";
+"sidebar.monitor" = "İzleme";
+"sidebar.agents" = "Ajanlar";
+"sidebar.reviews" = "İncelemeler";
+"sidebar.compare" = "Karşılaştır";
+"sidebar.library" = "Kütüphane";
+"sidebar.prompts" = "Promptlar";
+"sidebar.assets" = "Varlıklar";
+"sidebar.settings" = "Ayarlar";
+"sidebar.running" = "Çalışıyor";
+"sidebar.startOrchestrator" = "Orkestratörü Başlat";
+
+/* Projects */
+"projects.title" = "Projeler";
+"projects.newProject" = "Yeni Proje";
+"projects.searchPlaceholder" = "Proje ara...";
+"projects.empty" = "Henüz proje yok. Başlamak için bir tane oluşturun.";
+
+/* New Project */
+"newProject.title" = "Yeni Proje";
+"newProject.name" = "Ad";
+"newProject.namePlaceholder" = "Harika Projem";
+"newProject.description" = "Açıklama";
+"newProject.descriptionPlaceholder" = "Bu projenin ne yapması gerektiğini açıklayın...";
+"newProject.techStack" = "Teknoloji Yığını";
+"newProject.techStackPlaceholder" = "React, Node.js, PostgreSQL";
+"newProject.projectType" = "Proje Türü";
+"newProject.cancel" = "İptal";
+"newProject.create" = "Proje Oluştur";
+
+/* Tasks */
+"tasks.title" = "Görev Panosu";
+"tasks.searchPlaceholder" = "Görev ara...";
+"tasks.queued" = "Kuyrukta";
+"tasks.inProgress" = "Devam Ediyor";
+"tasks.passed" = "Başarılı";
+"tasks.failed" = "Başarısız";
+"tasks.needsRevision" = "Düzenleme Gerekli";
+"tasks.cancelled" = "İptal Edildi";
+
+/* Agents */
+"agents.title" = "Ajanlar";
+"agents.searchPlaceholder" = "Ajan ara...";
+
+/* Deploy */
+"deploy.title" = "Dağıtımlar";
+"deploy.newDeploy" = "Yeni Dağıtım";
+"deploy.environment" = "Ortam";
+"deploy.version" = "Sürüm";
+"deploy.method" = "Dağıtım Yöntemi";
+"deploy.cancel" = "İptal";
+"deploy.deploy" = "Dağıt";
+
+/* Settings */
+"settings.title" = "Ayarlar";
+"settings.general" = "Genel";
+"settings.aiClis" = "Yapay Zeka CLI";
+"settings.git" = "Git ve Araçlar";
+"settings.telegram" = "Telegram";
+"settings.database" = "Veritabanı";
+"settings.mcp" = "MCP";
+"settings.appearance" = "Görünüm";
+"settings.theme" = "Tema";
+"settings.system" = "Sistem";
+"settings.light" = "Açık";
+"settings.dark" = "Koyu";
+"settings.language" = "Dil";
+"settings.textSize" = "Yazı Boyutu";
+"settings.small" = "Küçük";
+"settings.normal" = "Normal";
+"settings.large" = "Büyük";
+"settings.xl" = "Çok Büyük";
+"settings.concurrency" = "Eşzamanlılık";
+"settings.projectsDir" = "Proje Dizini";
+"settings.baseDirectory" = "Ana dizin";
+"settings.maxParallel" = "Maks Paralel Ajan";
+"settings.codeEditor" = "Kod Editörü";
+"settings.preferredEditor" = "Tercih Edilen Editör";
+"settings.webhookServer" = "Webhook Sunucusu";
+"settings.enableWebhook" = "Webhook Sunucusunu Etkinleştir";
+"settings.setup" = "Kurulum";
+"settings.rerunSetup" = "Kurulum Sihirbazını Yeniden Çalıştır";
+
+/* Setup */
+"setup.welcomeTitle" = "CreedFlow'a Hoş Geldiniz";
+"setup.welcomeDescription" = "Yazılım projelerinizi otonom olarak yöneten yapay zeka destekli orkestrasyon platformu. Hadi kuruluma başlayalım.";
+"setup.getStarted" = "Başla";
+"setup.next" = "İleri";
+"setup.back" = "Geri";
+"setup.launch" = "CreedFlow'u Başlat";
+"setup.allSet" = "Hazır!";
+"setup.completeDescription" = "CreedFlow projelerinizi yönetmeye hazır. Başlamak için ilk projenizi oluşturun.";
+
+/* Git */
+"git.title" = "Git Geçmişi";
+"git.searchPlaceholder" = "Commit ara...";
+
+/* Reviews */
+"reviews.title" = "İncelemeler";
+"reviews.searchPlaceholder" = "İnceleme ara...";
+"reviews.approve" = "Onayla";
+"reviews.reject" = "Reddet";
+
+/* Compare */
+"compare.title" = "Backend Karşılaştır";
+
+/* Prompts */
+"prompts.title" = "Prompt Kütüphanesi";
+"prompts.newPrompt" = "Yeni Prompt";
+
+/* Assets */
+"assets.title" = "Varlıklar";
+"assets.searchPlaceholder" = "Varlık ara...";
+
+/* Common */
+"common.cancel" = "İptal";
+"common.save" = "Kaydet";
+"common.delete" = "Sil";
+"common.edit" = "Düzenle";
+"common.close" = "Kapat";
+"common.loading" = "Yükleniyor...";
+"common.browse" = "Gözat";
+"common.none" = "Yok";

@@ -5,8 +5,10 @@ import { useTaskStore } from "../../store/taskStore";
 import { Cpu, Clock, Shield, Activity } from "lucide-react";
 import { SearchBar } from "../shared/SearchBar";
 import { Skeleton } from "../shared/Skeleton";
+import { useTranslation } from "react-i18next";
 
 export function AgentStatus() {
+  const { t } = useTranslation();
   const { agentTypes, fetchAgentTypes } = useAgentStore();
   const tasks = useTaskStore((s) => s.tasks);
   const projects = useProjectStore((s) => s.projects);
@@ -43,19 +45,19 @@ export function AgentStatus() {
       <div className="px-4 py-3 border-b border-zinc-800">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-200">Agents</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">{agentTypes.length} agent types configured</p>
+            <h2 className="text-sm font-semibold text-zinc-200">{t("agents.title")}</h2>
+            <p className="text-xs text-zinc-500 mt-0.5">{t("agents.configured", { count: agentTypes.length })}</p>
           </div>
           <div className="flex items-center gap-2">
             <SearchBar
               value={search}
               onChange={setSearch}
-              placeholder="Search agents..."
+              placeholder={t("agents.searchPlaceholder")}
             />
             {activeTasks.length > 0 && (
               <span className="flex items-center gap-1.5 text-xs bg-blue-500/15 text-blue-400 px-2.5 py-1 rounded-full">
                 <Activity className="w-3 h-3" />
-                {activeTasks.length} active
+                {t("agents.active", { count: activeTasks.length })}
               </span>
             )}
           </div>
@@ -67,7 +69,7 @@ export function AgentStatus() {
         {activeTasks.length > 0 && (
           <section>
             <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">
-              Active Runners
+              {t("agents.activeRunners")}
             </h3>
             <div className="space-y-1.5">
               {activeTasks.map((task) => {
@@ -95,7 +97,7 @@ export function AgentStatus() {
         {/* Agent cards */}
         <section>
           <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">
-            Agent Types
+            {t("agents.agentTypes")}
           </h3>
           <div className="grid grid-cols-2 gap-3">
             {filteredAgents.length === 0 && !search ? (
@@ -167,7 +169,7 @@ export function AgentStatus() {
         {recentCompleted.length > 0 && (
           <section>
             <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">
-              Recent Completed
+              {t("agents.recentCompleted")}
             </h3>
             <div className="space-y-1">
               {recentCompleted.map((task) => (

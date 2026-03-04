@@ -4,6 +4,7 @@ import { AgentTypeBadge } from "../shared/AgentTypeBadge";
 import { StatusBadge } from "../shared/StatusBadge";
 import { SearchBar } from "../shared/SearchBar";
 import { Archive, RotateCcw, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function ArchivedTasksView() {
   const {
@@ -18,6 +19,7 @@ export function ArchivedTasksView() {
     clearSelection,
   } = useTaskStore();
 
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -38,17 +40,17 @@ export function ArchivedTasksView() {
     <div className="flex-1 flex flex-col">
       <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-200">Archived Tasks</h2>
+          <h2 className="text-sm font-semibold text-zinc-200">{t("tasks.archived.title")}</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {filteredTasks.length} archived task{filteredTasks.length !== 1 ? "s" : ""}
-            {search && ` matching "${search}"`}
+            {filteredTasks.length !== 1 ? t("tasks.archived.count_plural", { count: filteredTasks.length }) : t("tasks.archived.count", { count: filteredTasks.length })}
+            {search && ` ${t("tasks.matching", { search })}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="Search archived..."
+            placeholder={t("tasks.archived.searchPlaceholder")}
           />
           {selectionMode && selectedIds.size > 0 && (
             <>
@@ -57,14 +59,14 @@ export function ArchivedTasksView() {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600/20 text-blue-400 rounded-md hover:bg-blue-600/30"
               >
                 <RotateCcw className="w-3 h-3" />
-                Restore ({selectedIds.size})
+                {t("tasks.archived.restore")} ({selectedIds.size})
               </button>
               <button
                 onClick={deleteSelected}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600/20 text-red-400 rounded-md hover:bg-red-600/30"
               >
                 <Trash2 className="w-3 h-3" />
-                Delete ({selectedIds.size})
+                {t("tasks.archived.delete")} ({selectedIds.size})
               </button>
             </>
           )}
@@ -78,7 +80,7 @@ export function ArchivedTasksView() {
                 : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            {selectionMode ? "Cancel" : "Select"}
+            {selectionMode ? t("common.cancel") : t("tasks.select")}
           </button>
         </div>
       </div>
@@ -87,7 +89,7 @@ export function ArchivedTasksView() {
         {filteredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-zinc-500">
             <Archive className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-sm">{search ? "No matches found" : "No archived tasks"}</p>
+            <p className="text-sm">{search ? t("tasks.archived.noMatch") : t("tasks.archived.empty")}</p>
           </div>
         ) : (
           <div className="p-4 space-y-1">

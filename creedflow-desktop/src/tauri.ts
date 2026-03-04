@@ -22,6 +22,10 @@ import type {
   ProjectMessage,
   Prompt,
   PromptVersion,
+  ProjectTimeStats,
+  ProjectTemplate,
+  TaskComment,
+  PromptUsageRecord,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -54,6 +58,22 @@ export const deleteProject = (id: string) =>
 
 export const exportProjectDocs = (id: string, outputPath: string) =>
   invoke<string>("export_project_docs", { id, outputPath });
+
+export const getProjectTimeStats = (projectId: string) =>
+  invoke<ProjectTimeStats>("get_project_time_stats", { projectId });
+
+export const exportProjectZip = (projectId: string, outputPath: string) =>
+  invoke<string>("export_project_zip", { projectId, outputPath });
+
+export const listProjectTemplates = () =>
+  invoke<ProjectTemplate[]>("list_project_templates");
+
+export const createProjectFromTemplate = (templateId: string, name: string, directoryPath?: string) =>
+  invoke<Project>("create_project_from_template", {
+    templateId,
+    name,
+    directoryPath: directoryPath ?? null,
+  });
 
 // ─── Tasks ───────────────────────────────────────────────────────────────────
 
@@ -98,8 +118,23 @@ export const retryTaskWithRevision = (id: string, revisionPrompt?: string) =>
     revisionPrompt: revisionPrompt ?? null,
   });
 
+export const batchRetryTasks = (ids: string[]) =>
+  invoke<void>("batch_retry_tasks", { ids });
+
+export const batchCancelTasks = (ids: string[]) =>
+  invoke<void>("batch_cancel_tasks", { ids });
+
 export const duplicateTask = (id: string) =>
   invoke<AgentTask>("duplicate_task", { id });
+
+export const addTaskComment = (taskId: string, content: string, author?: string) =>
+  invoke<TaskComment>("add_task_comment", { taskId, content, author: author ?? null });
+
+export const listTaskComments = (taskId: string) =>
+  invoke<TaskComment[]>("list_task_comments", { taskId });
+
+export const getTaskPromptHistory = (taskId: string) =>
+  invoke<PromptUsageRecord[]>("get_task_prompt_history", { taskId });
 
 // ─── Backends ────────────────────────────────────────────────────────────────
 
@@ -110,6 +145,19 @@ export const checkBackend = (backendType: string) =>
 
 export const toggleBackend = (backendType: string, enabled: boolean) =>
   invoke<void>("toggle_backend", { backendType, enabled });
+
+export interface ComparisonResult {
+  backendType: string;
+  output: string;
+  durationMs: number;
+  error: string | null;
+}
+
+export const compareBackends = (prompt: string, backendTypes: string[]) =>
+  invoke<ComparisonResult[]>("compare_backends", { prompt, backendTypes });
+
+export const exportComparison = (results: ComparisonResult[], destPath: string) =>
+  invoke<void>("export_comparison", { results, destPath });
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
@@ -140,6 +188,9 @@ export const getCostByBackend = () =>
 
 export const getCostTimeline = () =>
   invoke<CostBreakdown[]>("get_cost_timeline");
+
+export const getTaskStatistics = () =>
+  invoke<import("./types/models").TaskStatistics>("get_task_statistics");
 
 // ─── Reviews ─────────────────────────────────────────────────────────────────
 
@@ -189,6 +240,39 @@ export const listChannels = () => invoke<PublishingChannel[]>("list_channels");
 
 export const listPublications = () =>
   invoke<Publication[]>("list_publications");
+
+export const createChannel = (
+  name: string,
+  channelType: string,
+  credentialsJson: string,
+  defaultTags: string,
+) =>
+  invoke<PublishingChannel>("create_channel", {
+    name,
+    channelType,
+    credentialsJson,
+    defaultTags,
+  });
+
+export const updateChannel = (
+  id: string,
+  name: string,
+  channelType: string,
+  credentialsJson: string,
+  defaultTags: string,
+  isEnabled: boolean,
+) =>
+  invoke<PublishingChannel>("update_channel", {
+    id,
+    name,
+    channelType,
+    credentialsJson,
+    defaultTags,
+    isEnabled,
+  });
+
+export const deleteChannel = (id: string) =>
+  invoke<void>("delete_channel", { id });
 
 // ─── Deploy ──────────────────────────────────────────────────────────────────
 
@@ -287,6 +371,17 @@ export const removeChainStep = (id: string) =>
 
 export const reorderChainSteps = (steps: [string, number][]) =>
   invoke<void>("reorder_chain_steps", { steps });
+
+export const updateChainStep = (id: string, transitionNote: string | null) =>
+  invoke<void>("update_chain_step", { id, transitionNote });
+
+export const updatePromptChain = (
+  id: string,
+  name: string,
+  description: string,
+  category: string,
+) =>
+  invoke<PromptChain>("update_prompt_chain", { id, name, description, category });
 
 // ─── Prompt Effectiveness ────────────────────────────────────────────────────
 
@@ -410,6 +505,46 @@ export const getBackendHealthStatus = () =>
 export const getMcpHealthStatus = () =>
   invoke<HealthEvent[]>("get_mcp_health_status");
 
+// ─── MCP Server Config ─────────────────────────────────────────────────────
+
+import type { MCPServerConfig } from "./types/models";
+
+export const listMcpServers = () =>
+  invoke<MCPServerConfig[]>("list_mcp_servers");
+
+export const createMcpServer = (
+  name: string,
+  command: string,
+  arguments_: string,
+  environmentVars: string,
+) =>
+  invoke<MCPServerConfig>("create_mcp_server", {
+    name,
+    command,
+    arguments: arguments_,
+    environmentVars,
+  });
+
+export const updateMcpServer = (
+  id: string,
+  name: string,
+  command: string,
+  arguments_: string,
+  environmentVars: string,
+  isEnabled: boolean,
+) =>
+  invoke<MCPServerConfig>("update_mcp_server", {
+    id,
+    name,
+    command,
+    arguments: arguments_,
+    environmentVars,
+    isEnabled,
+  });
+
+export const deleteMcpServer = (id: string) =>
+  invoke<void>("delete_mcp_server", { id });
+
 // ─── Prompt Import/Export ───────────────────────────────────────────────────
 
 export const exportPrompts = (promptIds: string[], filePath: string) =>
@@ -435,6 +570,41 @@ export const getPromptVersionDiff = (
     versionA,
     versionB,
   });
+
+// ─── Prompt Recommender ─────────────────────────────────────────────────────
+
+// ─── Database Maintenance ──────────────────────────────────────────────────
+
+export interface DbInfo {
+  path: string;
+  sizeBytes: number;
+  tables: { name: string; rowCount: number }[];
+}
+
+export const getDbInfo = () => invoke<DbInfo>("get_db_info");
+export const vacuumDatabase = () => invoke<void>("vacuum_database");
+export const backupDatabase = (destPath: string) =>
+  invoke<void>("backup_database", { destPath });
+export const pruneOldLogs = (olderThanDays: number) =>
+  invoke<number>("prune_old_logs", { olderThanDays });
+
+export const exportDatabaseJson = (destPath: string) =>
+  invoke<void>("export_database_json", { destPath });
+
+export const factoryResetDatabase = () =>
+  invoke<void>("factory_reset_database");
+
+// ─── Updates ────────────────────────────────────────────────────────────────
+
+export interface UpdateInfo {
+  latestVersion: string;
+  currentVersion: string;
+  releaseUrl: string;
+  releaseNotes: string;
+}
+
+export const checkForUpdates = () =>
+  invoke<UpdateInfo | null>("check_for_updates");
 
 // ─── Prompt Recommender ─────────────────────────────────────────────────────
 

@@ -10,10 +10,14 @@ import {
   Code2,
   Play,
   GitBranch,
+  Download,
 } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useProjectStore } from "../../store/projectStore";
 import * as api from "../../tauri";
 import type { AgentTask, DetectedEditor } from "../../types/models";
+import { ProjectTimeStats } from "./ProjectTimeStats";
+import { useTranslation } from "react-i18next";
 
 interface ProjectDetailPanelProps {
   projectId: string;
@@ -22,6 +26,7 @@ interface ProjectDetailPanelProps {
 }
 
 export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectDetailPanelProps) {
+  const { t } = useTranslation();
   const project = useProjectStore((s) => s.projects.find((p) => p.id === projectId));
   const [tasks, setTasks] = useState<AgentTask[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
@@ -45,7 +50,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
   if (!project) {
     return (
       <div className="w-[400px] min-w-[340px] border-l border-zinc-800 bg-zinc-900/30 flex items-center justify-center text-zinc-500 text-sm">
-        Project not found
+        {t("projectDetail.notFound")}
       </div>
     );
   }
@@ -105,11 +110,14 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
 
         {/* Stats cards */}
         <div className="grid grid-cols-2 gap-2">
-          <StatCard label="Total" value={totalTasks} icon={BarChart3} color="text-zinc-400" />
-          <StatCard label="Done" value={doneTasks} icon={CheckCircle2} color="text-green-400" />
-          <StatCard label="Active" value={activeTasks} icon={Loader2} color="text-blue-400" />
-          <StatCard label="Failed" value={failedTasks} icon={AlertTriangle} color="text-red-400" />
+          <StatCard label={t("projectDetail.total")} value={totalTasks} icon={BarChart3} color="text-zinc-400" />
+          <StatCard label={t("projectDetail.done")} value={doneTasks} icon={CheckCircle2} color="text-green-400" />
+          <StatCard label={t("projectDetail.active")} value={activeTasks} icon={Loader2} color="text-blue-400" />
+          <StatCard label={t("projectDetail.failed")} value={failedTasks} icon={AlertTriangle} color="text-red-400" />
         </div>
+
+        {/* Time stats */}
+        {totalTasks > 0 && <ProjectTimeStats projectId={projectId} />}
 
         {/* Branch info */}
         {currentBranch && (
@@ -122,15 +130,32 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
         {/* Quick actions */}
         <div className="space-y-1.5">
           <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-            Actions
+            {t("projectDetail.actions")}
           </label>
-          <button
-            onClick={onViewTasks}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-brand-600/15 text-brand-400 rounded-md hover:bg-brand-600/25 transition-colors"
-          >
-            <Play className="w-3.5 h-3.5" />
-            View Task Board
-          </button>
+          <div className="flex gap-1.5">
+            <button
+              onClick={onViewTasks}
+              className="flex-1 flex items-center gap-2 px-3 py-2 text-xs bg-brand-600/15 text-brand-400 rounded-md hover:bg-brand-600/25 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5" />
+              {t("projectDetail.viewTaskBoard")}
+            </button>
+            <button
+              onClick={async () => {
+                const path = await save({
+                  defaultPath: `${project.name}.zip`,
+                  filters: [{ name: "ZIP", extensions: ["zip"] }],
+                });
+                if (path) {
+                  api.exportProjectZip(projectId, path).catch(console.error);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              ZIP
+            </button>
+          </div>
           {project.directoryPath && (
             <div className="flex gap-1.5">
               <button
@@ -138,14 +163,14 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
                 className="flex-1 flex items-center gap-1.5 px-3 py-2 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 transition-colors"
               >
                 <Terminal className="w-3.5 h-3.5" />
-                Terminal
+                {t("projectDetail.terminal")}
               </button>
               <button
                 onClick={() => api.openInFileManager(project.directoryPath)}
                 className="flex-1 flex items-center gap-1.5 px-3 py-2 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 transition-colors"
               >
                 <FolderOpen className="w-3.5 h-3.5" />
-                Finder
+                {t("projectDetail.finder")}
               </button>
               {getEditorCommand() && (
                 <button
@@ -153,7 +178,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
                   className="flex-1 flex items-center gap-1.5 px-3 py-2 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 transition-colors"
                 >
                   <Code2 className="w-3.5 h-3.5" />
-                  Editor
+                  {t("projectDetail.editor")}
                 </button>
               )}
             </div>
@@ -164,7 +189,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
         {!loadingTasks && tasks.length > 0 && (
           <div>
             <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-              Recent Tasks
+              {t("projectDetail.recentTasks")}
             </label>
             <div className="mt-2 space-y-1">
               {tasks.slice(0, 8).map((task) => (

@@ -374,6 +374,7 @@ pub struct Project {
     pub project_type: String,
     pub telegram_chat_id: Option<i64>,
     pub staging_pr_number: Option<i32>,
+    pub completed_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -390,6 +391,7 @@ impl Project {
             project_type: row.get("projectType")?,
             telegram_chat_id: row.get("telegramChatId")?,
             staging_pr_number: row.get("stagingPrNumber")?,
+            completed_at: row.get("completedAt")?,
             created_at: row.get("createdAt")?,
             updated_at: row.get("updatedAt")?,
         })
@@ -413,12 +415,12 @@ impl Project {
 
     pub fn insert(conn: &Connection, project: &Self) -> rusqlite::Result<()> {
         conn.execute(
-            "INSERT INTO project (id, name, description, techStack, status, directoryPath, projectType, telegramChatId, createdAt, updatedAt)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO project (id, name, description, techStack, status, directoryPath, projectType, telegramChatId, completedAt, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 project.id, project.name, project.description, project.tech_stack,
                 project.status, project.directory_path, project.project_type,
-                project.telegram_chat_id, project.created_at, project.updated_at,
+                project.telegram_chat_id, project.completed_at, project.created_at, project.updated_at,
             ],
         )?;
         Ok(())
@@ -427,12 +429,12 @@ impl Project {
     pub fn update(conn: &Connection, project: &Self) -> rusqlite::Result<()> {
         conn.execute(
             "UPDATE project SET name=?2, description=?3, techStack=?4, status=?5,
-             directoryPath=?6, projectType=?7, telegramChatId=?8, updatedAt=datetime('now')
+             directoryPath=?6, projectType=?7, telegramChatId=?8, completedAt=?9, updatedAt=datetime('now')
              WHERE id=?1",
             params![
                 project.id, project.name, project.description, project.tech_stack,
                 project.status, project.directory_path, project.project_type,
-                project.telegram_chat_id,
+                project.telegram_chat_id, project.completed_at,
             ],
         )?;
         Ok(())
@@ -1231,6 +1233,16 @@ pub struct AppSettings {
     pub telegram_chat_id: Option<String>,
     pub has_completed_setup: bool,
     pub agent_backend_overrides: Option<AgentBackendOverrides>,
+    #[serde(default)]
+    pub webhook_enabled: Option<bool>,
+    #[serde(default)]
+    pub webhook_port: Option<u16>,
+    #[serde(default)]
+    pub webhook_api_key: Option<String>,
+    #[serde(default)]
+    pub webhook_github_secret: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1274,6 +1286,11 @@ impl Default for AppSettings {
             telegram_chat_id: None,
             has_completed_setup: false,
             agent_backend_overrides: None,
+            webhook_enabled: None,
+            webhook_port: None,
+            webhook_api_key: None,
+            webhook_github_secret: None,
+            language: None,
         }
     }
 }
@@ -1356,4 +1373,144 @@ impl ProjectMessage {
         )?;
         Ok(())
     }
+}
+
+// ─── Task Comments ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskComment {
+    pub id: String,
+    pub task_id: String,
+    pub content: String,
+    pub author: String,
+    pub created_at: String,
+}
+
+impl TaskComment {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            task_id: row.get("taskId")?,
+            content: row.get("content")?,
+            author: row.get("author")?,
+            created_at: row.get("createdAt")?,
+        })
+    }
+
+    pub fn insert(conn: &Connection, comment: &Self) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO taskComment (id, taskId, content, author, createdAt)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                comment.id, comment.task_id, comment.content,
+                comment.author, comment.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn all_for_task(conn: &Connection, task_id: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM taskComment WHERE taskId = ?1 ORDER BY createdAt ASC"
+        )?;
+        let rows = stmt.query_map([task_id], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+}
+
+// ─── Prompt Usage (read-only for task prompt history) ───────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptUsageRecord {
+    pub id: String,
+    pub prompt_id: String,
+    pub prompt_title: Option<String>,
+    pub project_id: Option<String>,
+    pub task_id: Option<String>,
+    pub chain_id: Option<String>,
+    pub agent_type: Option<String>,
+    pub outcome: Option<String>,
+    pub review_score: Option<f64>,
+    pub used_at: String,
+}
+
+impl PromptUsageRecord {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            prompt_id: row.get("promptId")?,
+            prompt_title: row.get("promptTitle")?,
+            project_id: row.get("projectId")?,
+            task_id: row.get("taskId")?,
+            chain_id: row.get("chainId")?,
+            agent_type: row.get("agentType")?,
+            outcome: row.get("outcome")?,
+            review_score: row.get("reviewScore")?,
+            used_at: row.get("usedAt")?,
+        })
+    }
+
+    pub fn for_task(conn: &Connection, task_id: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT pu.*, p.title AS promptTitle
+             FROM promptUsage pu
+             LEFT JOIN prompt p ON p.id = pu.promptId
+             WHERE pu.taskId = ?1
+             ORDER BY pu.usedAt DESC"
+        )?;
+        let rows = stmt.query_map([task_id], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+}
+
+// ─── Project Time Stats ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectTimeStats {
+    pub elapsed_ms: i64,
+    pub total_work_ms: i64,
+    pub idle_ms: i64,
+    pub agent_breakdown: Vec<AgentTimeStat>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTimeStat {
+    pub agent_type: String,
+    pub total_ms: i64,
+    pub task_count: i64,
+}
+
+// ─── Project Template ───────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectTemplate {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub icon: String,
+    pub tech_stack: String,
+    pub project_type: String,
+    pub features: Vec<TemplateFeature>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateFeature {
+    pub name: String,
+    pub description: String,
+    pub tasks: Vec<TemplateTask>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateTask {
+    pub agent_type: String,
+    pub title: String,
+    pub description: String,
+    pub priority: i32,
 }

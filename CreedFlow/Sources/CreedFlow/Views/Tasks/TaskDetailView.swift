@@ -14,6 +14,10 @@ struct TaskDetailView: View {
     @State private var errorMessage: String?
     @State private var showCancelConfirm = false
     @State private var revisionText: String = ""
+    @State private var comments: [TaskComment] = []
+    @State private var newCommentText: String = ""
+    @State private var promptHistory: [PromptUsageWithTitle] = []
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         VStack(spacing: 0) {
@@ -154,6 +158,10 @@ struct TaskDetailView: View {
                         }
                     }
 
+                    commentsSection
+
+                    promptHistorySection
+
                     // Revision prompt (for failed/needs_revision tasks)
                     if task.status == .failed || task.status == .needsRevision {
                         VStack(alignment: .leading, spacing: 4) {
@@ -239,12 +247,139 @@ struct TaskDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
+    // MARK: - Comments Section
+
+    @ViewBuilder
+    private var commentsSection: some View {
+        DisclosureGroup("Comments (\(comments.count))") {
+            VStack(alignment: .leading, spacing: 6) {
+                if comments.isEmpty {
+                    Text("No comments yet")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(comments) { comment in
+                        commentRow(comment)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    TextField("Add a comment...", text: $newCommentText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12))
+
+                    Button {
+                        Task { await addComment() }
+                    } label: {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.forgeAmber)
+                    .controlSize(.small)
+                    .disabled(newCommentText.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .padding(.top, 4)
+        }
+        .font(.subheadline.bold())
+    }
+
+    private func commentRow(_ comment: TaskComment) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: comment.author == .user ? "person.circle.fill" : "gearshape.circle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(comment.author == .user ? .forgeInfo : .forgeNeutral)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(comment.author == .user ? "You" : "System")
+                        .font(.system(size: 11, weight: .semibold))
+                    Spacer()
+                    Text(comment.createdAt, style: .relative)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+                Text(comment.content)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(6)
+        .background(comment.author == .user ? Color.forgeInfo.opacity(0.05) : Color.gray.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    // MARK: - Prompt History Section
+
+    @ViewBuilder
+    private var promptHistorySection: some View {
+        if !promptHistory.isEmpty {
+            DisclosureGroup("Prompt History (\(promptHistory.count))") {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(promptHistory, id: \.id) { record in
+                        promptHistoryRow(record)
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .font(.subheadline.bold())
+        }
+    }
+
+    private func promptHistoryRow(_ record: PromptUsageWithTitle) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "doc.text")
+                .font(.system(size: 14))
+                .foregroundStyle(.forgeNeutral)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(record.promptTitle ?? "Untitled prompt")
+                        .font(.system(size: 11, weight: .semibold))
+                        .lineLimit(1)
+                    Spacer()
+                    if let outcome = record.outcome {
+                        HStack(spacing: 2) {
+                            Image(systemName: outcome == .completed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .font(.system(size: 10))
+                            Text(outcome.rawValue)
+                                .font(.system(size: 10))
+                        }
+                        .foregroundStyle(outcome == .completed ? .forgeSuccess : .forgeDanger)
+                    }
+                }
+                HStack(spacing: 6) {
+                    if let agent = record.agentType {
+                        Text(agent)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                    }
+                    if let score = record.reviewScore {
+                        Text(String(format: "%.1f/10", score))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(score >= 7.0 ? .forgeSuccess : score >= 5.0 ? .forgeWarning : .forgeDanger)
+                    }
+                    Spacer()
+                    Text(record.usedAt, style: .relative)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .padding(6)
+        .background(Color.gray.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
     // MARK: - Data Observation
 
     private func observeData() async {
         guard let db = appDatabase else { return }
         let tid = taskId
-        let observation = ValueObservation.tracking { db -> (AgentTask?, [Review], [AgentLog]) in
+        let observation = ValueObservation.tracking { db -> (AgentTask?, [Review], [AgentLog], [TaskComment], [PromptUsageWithTitle]) in
             let task = try AgentTask.fetchOne(db, id: tid)
             let reviews = try Review
                 .filter(Column("taskId") == tid)
@@ -255,14 +390,42 @@ struct TaskDetailView: View {
                 .order(Column("createdAt").asc)
                 .limit(200)
                 .fetchAll(db)
-            return (task, reviews, logs)
+            let comments = try TaskComment
+                .filter(Column("taskId") == tid)
+                .order(Column("createdAt").asc)
+                .fetchAll(db)
+            let prompts = try PromptUsageWithTitle.fetchAll(db, sql: """
+                SELECT pu.id, pu.promptId, pu.agentType, pu.outcome, pu.reviewScore, pu.usedAt,
+                       p.title AS promptTitle
+                FROM promptUsage pu
+                LEFT JOIN prompt p ON p.id = pu.promptId
+                WHERE pu.taskId = ?
+                ORDER BY pu.usedAt DESC
+                """, arguments: [tid.uuidString])
+            return (task, reviews, logs, comments, prompts)
         }
         do {
-            for try await (t, r, l) in observation.values(in: db.dbQueue) {
+            for try await (t, r, l, c, p) in observation.values(in: db.dbQueue) {
                 task = t
                 reviews = r
                 logs = l
+                comments = c
+                promptHistory = p
             }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func addComment() async {
+        let text = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, let db = appDatabase else { return }
+        do {
+            try await db.dbQueue.write { dbConn in
+                let comment = TaskComment(taskId: taskId, content: text, author: .user)
+                try comment.save(dbConn)
+            }
+            newCommentText = ""
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -271,6 +434,7 @@ struct TaskDetailView: View {
     private func retryTask() async {
         guard let db = appDatabase else { return }
         let revision = revisionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousStatus = task?.status
         do {
             try await db.dbQueue.write { dbConn in
                 guard var t = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
@@ -284,6 +448,7 @@ struct TaskDetailView: View {
                 try t.update(dbConn)
             }
             revisionText = ""
+            registerStatusUndo(from: .queued, to: previousStatus, actionName: "Retry Task")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -291,6 +456,7 @@ struct TaskDetailView: View {
 
     private func cancelTask() async {
         guard let db = appDatabase else { return }
+        let previousStatus = task?.status
         do {
             try await db.dbQueue.write { dbConn in
                 guard var t = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
@@ -299,9 +465,26 @@ struct TaskDetailView: View {
                 t.completedAt = Date()
                 try t.update(dbConn)
             }
+            registerStatusUndo(from: .cancelled, to: previousStatus, actionName: "Cancel Task")
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func registerStatusUndo(from newStatus: AgentTask.Status, to previousStatus: AgentTask.Status?, actionName: String) {
+        guard let undoManager, let previousStatus, let db = appDatabase else { return }
+        let tid = taskId
+        undoManager.registerUndo(withTarget: UndoTarget.shared) { _ in
+            Task {
+                try? await db.dbQueue.write { dbConn in
+                    guard var t = try AgentTask.fetchOne(dbConn, id: tid) else { return }
+                    t.status = previousStatus
+                    t.updatedAt = Date()
+                    try t.update(dbConn)
+                }
+            }
+        }
+        undoManager.setActionName(actionName)
     }
 }
 
@@ -432,4 +615,23 @@ struct LogOutputView: View {
         case .error: return .forgeTerminalRed
         }
     }
+}
+
+// MARK: - Prompt Usage With Title (join result)
+
+struct PromptUsageWithTitle: Codable, FetchableRecord {
+    var id: UUID
+    var promptId: UUID
+    var agentType: String?
+    var outcome: PromptUsage.Outcome?
+    var reviewScore: Double?
+    var usedAt: Date
+    var promptTitle: String?
+}
+
+// MARK: - Undo Helper
+
+/// Singleton target for `UndoManager.registerUndo(withTarget:)` — the undo closure captures all needed state.
+private final class UndoTarget: NSObject {
+    static let shared = UndoTarget()
 }

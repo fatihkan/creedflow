@@ -4,6 +4,7 @@ import { Check, X, ChevronDown, ChevronUp, FileCheck } from "lucide-react";
 import { SearchBar } from "../shared/SearchBar";
 import { SkeletonRow } from "../shared/Skeleton";
 import type { Review } from "../../types/models";
+import { useTranslation } from "react-i18next";
 
 type FilterType = "all" | "pending" | "approved";
 
@@ -34,6 +35,7 @@ function verdictBadge(verdict: Review["verdict"]) {
 }
 
 export function ReviewList() {
+  const { t } = useTranslation();
   const { reviews, loading, fetchReviews, approveReview, rejectReview } =
     useReviewStore();
   const [filter, setFilter] = useState<FilterType>("all");
@@ -63,16 +65,16 @@ export function ReviewList() {
     <div className="flex-1 flex flex-col">
       <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-200">Reviews</h2>
+          <h2 className="text-sm font-semibold text-zinc-200">{t("reviews.title")}</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {filtered.length} review{filtered.length !== 1 ? "s" : ""}
+            {filtered.length !== 1 ? t("reviews.count_plural", { count: filtered.length }) : t("reviews.count", { count: filtered.length })}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="Search reviews..."
+            placeholder={t("reviews.searchPlaceholder")}
           />
           <div className="flex gap-1">
           {(["all", "pending", "approved"] as FilterType[]).map((f) => (
@@ -103,7 +105,7 @@ export function ReviewList() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-zinc-500">
             <FileCheck className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-sm">No reviews found</p>
+            <p className="text-sm">{t("reviews.empty")}</p>
           </div>
         ) : (
           <div className="p-4 space-y-2">
@@ -135,7 +137,7 @@ export function ReviewList() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {review.isApproved ? (
                         <span className="text-[10px] text-green-500">
-                          Approved
+                          {t("reviews.approved")}
                         </span>
                       ) : (
                         <div className="flex gap-1">
@@ -173,7 +175,7 @@ export function ReviewList() {
                     <div className="px-3 pb-3 space-y-2 border-t border-zinc-800/50">
                       <div className="pt-2">
                         <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                          Summary
+                          {t("reviews.summary")}
                         </label>
                         <p className="text-xs text-zinc-300 mt-1">
                           {review.summary}
@@ -182,7 +184,7 @@ export function ReviewList() {
                       {review.issues && (
                         <div>
                           <label className="text-[10px] font-medium text-red-500 uppercase tracking-wider">
-                            Issues
+                            {t("reviews.issues")}
                           </label>
                           <p className="text-xs text-zinc-400 mt-1 whitespace-pre-wrap">
                             {review.issues}
@@ -192,7 +194,7 @@ export function ReviewList() {
                       {review.suggestions && (
                         <div>
                           <label className="text-[10px] font-medium text-blue-500 uppercase tracking-wider">
-                            Suggestions
+                            {t("reviews.suggestions")}
                           </label>
                           <p className="text-xs text-zinc-400 mt-1 whitespace-pre-wrap">
                             {review.suggestions}
@@ -202,7 +204,7 @@ export function ReviewList() {
                       {review.securityNotes && (
                         <div>
                           <label className="text-[10px] font-medium text-amber-500 uppercase tracking-wider">
-                            Security Notes
+                            {t("reviews.securityNotes")}
                           </label>
                           <p className="text-xs text-zinc-400 mt-1 whitespace-pre-wrap">
                             {review.securityNotes}

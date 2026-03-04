@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { X, XCircle, RotateCcw, Copy, Terminal } from "lucide-react";
 import type { DeploymentInfo } from "../../types/models";
 import * as api from "../../tauri";
+import { useTranslation } from "react-i18next";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-zinc-400 bg-zinc-400/10",
@@ -19,6 +20,7 @@ interface DeployDetailPanelProps {
 }
 
 export function DeployDetailPanel({ deployment, onClose, onRefresh }: DeployDetailPanelProps) {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<string | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
@@ -78,20 +80,20 @@ export function DeployDetailPanel({ deployment, onClose, onRefresh }: DeployDeta
 
         {/* Metadata */}
         <div className="grid grid-cols-2 gap-3">
-          <MetaField label="Version" value={deployment.version} />
-          <MetaField label="Method" value={deployment.deployMethod ?? "—"} />
-          <MetaField label="Port" value={deployment.port?.toString() ?? "—"} />
-          <MetaField label="Deployed By" value={deployment.deployedBy} />
-          <MetaField label="Created" value={new Date(deployment.createdAt).toLocaleString()} />
+          <MetaField label={t("deployDetail.version")} value={deployment.version} />
+          <MetaField label={t("deployDetail.method")} value={deployment.deployMethod ?? "—"} />
+          <MetaField label={t("deployDetail.port")} value={deployment.port?.toString() ?? "—"} />
+          <MetaField label={t("deployDetail.deployedBy")} value={deployment.deployedBy} />
+          <MetaField label={t("deployDetail.created")} value={new Date(deployment.createdAt).toLocaleString()} />
           <MetaField
-            label="Completed"
+            label={t("deployDetail.completed")}
             value={deployment.completedAt ? new Date(deployment.completedAt).toLocaleString() : "—"}
           />
           {deployment.commitHash && (
-            <MetaField label="Commit" value={deployment.commitHash.slice(0, 8)} />
+            <MetaField label={t("deployDetail.commit")} value={deployment.commitHash.slice(0, 8)} />
           )}
           {deployment.containerId && (
-            <MetaField label="Container" value={deployment.containerId.slice(0, 12)} />
+            <MetaField label={t("deployDetail.container")} value={deployment.containerId.slice(0, 12)} />
           )}
         </div>
 
@@ -103,7 +105,7 @@ export function DeployDetailPanel({ deployment, onClose, onRefresh }: DeployDeta
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600/20 text-red-400 hover:bg-red-600/30 text-xs font-medium transition-colors"
             >
               <XCircle className="w-3.5 h-3.5" />
-              Cancel
+              {t("deployDetail.cancel")}
             </button>
           )}
           {canRerun && (
@@ -112,7 +114,7 @@ export function DeployDetailPanel({ deployment, onClose, onRefresh }: DeployDeta
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-medium transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              Rerun
+              {t("deployDetail.rerun")}
             </button>
           )}
         </div>
@@ -122,13 +124,13 @@ export function DeployDetailPanel({ deployment, onClose, onRefresh }: DeployDeta
           <div className="flex items-center gap-2 mb-2">
             <Terminal className="w-3.5 h-3.5 text-zinc-500" />
             <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-              Logs
+              {t("deployDetail.logs")}
             </span>
             {logs && (
               <button
                 onClick={() => navigator.clipboard.writeText(logs)}
                 className="ml-auto p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
-                title="Copy logs"
+                title={t("deployDetail.copyLogs")}
               >
                 <Copy className="w-3 h-3" />
               </button>
@@ -136,13 +138,13 @@ export function DeployDetailPanel({ deployment, onClose, onRefresh }: DeployDeta
           </div>
           <div className="bg-zinc-950 border border-zinc-800 rounded-md p-3 max-h-[300px] overflow-y-auto">
             {loadingLogs ? (
-              <p className="text-xs text-zinc-500">Loading logs...</p>
+              <p className="text-xs text-zinc-500">{t("deployDetail.loadingLogs")}</p>
             ) : logs ? (
               <pre className="text-[11px] text-zinc-400 font-mono whitespace-pre-wrap break-all leading-relaxed">
                 {logs}
               </pre>
             ) : (
-              <p className="text-xs text-zinc-500">No logs available</p>
+              <p className="text-xs text-zinc-500">{t("deployDetail.noLogs")}</p>
             )}
           </div>
         </div>

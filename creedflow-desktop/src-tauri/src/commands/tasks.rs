@@ -1,4 +1,4 @@
-use crate::db::models::{AgentTask, TaskDependency};
+use crate::db::models::{AgentTask, PromptUsageRecord, TaskComment, TaskDependency};
 use crate::state::AppState;
 use rusqlite::params;
 use tauri::State;
@@ -208,4 +208,80 @@ pub async fn retry_task_with_revision(
         params![id, revision_prompt],
     ).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ─── Batch Operations ───────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn batch_retry_tasks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    for id in &ids {
+        db.conn.execute(
+            "UPDATE agentTask SET status = 'queued', retryCount = retryCount + 1, updatedAt = datetime('now')
+             WHERE id = ?1 AND status IN ('failed', 'needs_revision', 'cancelled')",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn batch_cancel_tasks(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    for id in &ids {
+        db.conn.execute(
+            "UPDATE agentTask SET status = 'cancelled', updatedAt = datetime('now')
+             WHERE id = ?1 AND status = 'queued'",
+            params![id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+// ─── Task Comments ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn add_task_comment(
+    state: State<'_, AppState>,
+    task_id: String,
+    content: String,
+    author: Option<String>,
+) -> Result<TaskComment, String> {
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let comment = TaskComment {
+        id: Uuid::new_v4().to_string(),
+        task_id,
+        content,
+        author: author.unwrap_or_else(|| "user".to_string()),
+        created_at: now,
+    };
+    let db = state.db.lock().await;
+    TaskComment::insert(&db.conn, &comment).map_err(|e| e.to_string())?;
+    Ok(comment)
+}
+
+#[tauri::command]
+pub async fn list_task_comments(
+    state: State<'_, AppState>,
+    task_id: String,
+) -> Result<Vec<TaskComment>, String> {
+    let db = state.db.lock().await;
+    TaskComment::all_for_task(&db.conn, &task_id).map_err(|e| e.to_string())
+}
+
+// ─── Task Prompt History ────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_task_prompt_history(
+    state: State<'_, AppState>,
+    task_id: String,
+) -> Result<Vec<PromptUsageRecord>, String> {
+    let db = state.db.lock().await;
+    PromptUsageRecord::for_task(&db.conn, &task_id).map_err(|e| e.to_string())
 }

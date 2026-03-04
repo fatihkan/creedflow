@@ -24,8 +24,62 @@ pub fn run() {
             let db = db::Database::open(&db::default_db_path())?;
             db.run_migrations()?;
 
+            let db_arc = Arc::new(Mutex::new(db));
+
+            // Spawn webhook server if enabled in settings
+            {
+                let db_guard = db_arc.blocking_lock();
+                let webhook_enabled: bool = db_guard.conn
+                    .query_row(
+                        "SELECT value FROM appSetting WHERE key = 'webhookEnabled'",
+                        [],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .map(|v| v == "true" || v == "1")
+                    .unwrap_or(false);
+
+                if webhook_enabled {
+                    let port: u16 = db_guard.conn
+                        .query_row(
+                            "SELECT value FROM appSetting WHERE key = 'webhookPort'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .ok()
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(8080);
+
+                    let api_key: Option<String> = db_guard.conn
+                        .query_row(
+                            "SELECT value FROM appSetting WHERE key = 'webhookApiKey'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .ok()
+                        .filter(|k| !k.is_empty());
+
+                    let github_secret: Option<String> = db_guard.conn
+                        .query_row(
+                            "SELECT value FROM appSetting WHERE key = 'webhookGithubSecret'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .ok()
+                        .filter(|k| !k.is_empty());
+
+                    let db_clone = db_arc.clone();
+                    drop(db_guard);
+
+                    tokio::spawn(async move {
+                        let server = services::webhook_server::WebhookServer::new(port, api_key, db_clone)
+                            .with_github_secret(github_secret);
+                        server.run().await;
+                    });
+                }
+            }
+
             let state = AppState {
-                db: Arc::new(Mutex::new(db)),
+                db: db_arc,
                 app_handle: app_handle.clone(),
             };
             app.manage(state);
@@ -40,6 +94,10 @@ pub fn run() {
             commands::projects::update_project,
             commands::projects::delete_project,
             commands::projects::export_project_docs,
+            commands::projects::get_project_time_stats,
+            commands::projects::export_project_zip,
+            commands::projects::list_project_templates,
+            commands::projects::create_project_from_template,
             // Tasks
             commands::tasks::list_tasks,
             commands::tasks::get_task,
@@ -52,6 +110,11 @@ pub fn run() {
             commands::tasks::list_archived_tasks,
             commands::tasks::retry_task_with_revision,
             commands::tasks::duplicate_task,
+            commands::tasks::batch_retry_tasks,
+            commands::tasks::batch_cancel_tasks,
+            commands::tasks::add_task_comment,
+            commands::tasks::list_task_comments,
+            commands::tasks::get_task_prompt_history,
             // Backends
             commands::backends::list_backends,
             commands::backends::check_backend,
@@ -59,6 +122,8 @@ pub fn run() {
             commands::backends::detect_dependencies,
             commands::backends::install_dependency,
             commands::backends::detect_package_manager_cmd,
+            commands::backends::compare_backends,
+            commands::backends::export_comparison,
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,
@@ -69,6 +134,7 @@ pub fn run() {
             commands::costs::get_cost_by_agent,
             commands::costs::get_cost_by_backend,
             commands::costs::get_cost_timeline,
+            commands::costs::get_task_statistics,
             // Reviews
             commands::reviews::list_reviews,
             commands::reviews::approve_review,
@@ -87,6 +153,9 @@ pub fn run() {
             // Publishing
             commands::publishing::list_channels,
             commands::publishing::list_publications,
+            commands::publishing::create_channel,
+            commands::publishing::update_channel,
+            commands::publishing::delete_channel,
             // Deploy
             commands::deploy::list_deployments,
             commands::deploy::create_deployment,
@@ -107,6 +176,8 @@ pub fn run() {
             commands::prompts::add_chain_step,
             commands::prompts::remove_chain_step,
             commands::prompts::reorder_chain_steps,
+            commands::prompts::update_chain_step,
+            commands::prompts::update_prompt_chain,
             // Prompt Effectiveness
             commands::prompts::get_prompt_effectiveness,
             // Prompt Import/Export
@@ -140,6 +211,11 @@ pub fn run() {
             commands::notifications::dismiss_notification,
             commands::notifications::get_backend_health_status,
             commands::notifications::get_mcp_health_status,
+            // MCP
+            commands::mcp::list_mcp_servers,
+            commands::mcp::create_mcp_server,
+            commands::mcp::update_mcp_server,
+            commands::mcp::delete_mcp_server,
             // Git
             commands::git::git_ensure_branch_structure,
             commands::git::git_setup_feature_branch,
@@ -151,6 +227,15 @@ pub fn run() {
             commands::git::git_log,
             commands::git::get_git_config,
             commands::git::set_git_config,
+            // Database Maintenance
+            commands::database::get_db_info,
+            commands::database::vacuum_database,
+            commands::database::backup_database,
+            commands::database::prune_old_logs,
+            commands::database::export_database_json,
+            commands::database::factory_reset_database,
+            // Updates
+            commands::updates::check_for_updates,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

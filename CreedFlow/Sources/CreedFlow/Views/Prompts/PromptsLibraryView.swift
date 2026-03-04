@@ -531,12 +531,14 @@ private struct PromptRow: View {
                         .foregroundStyle(prompt.isFavorite ? .yellow : .secondary)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel(prompt.isFavorite ? "Remove from favorites" : "Add to favorites")
                 .help("Toggle favorite")
 
                 Button { onEdit() } label: {
                     Image(systemName: "pencil")
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Edit prompt")
                 .help("Edit")
 
                 if prompt.source == .user {
@@ -544,6 +546,7 @@ private struct PromptRow: View {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityLabel("Delete prompt")
                     .help("Delete")
                 }
             }

@@ -15,6 +15,8 @@ import {
 import type { GeneratedAsset } from "../../types/models";
 import * as api from "../../tauri";
 import { useAssetStore } from "../../store/assetStore";
+import { FocusTrap } from "../shared/FocusTrap";
+import { useTranslation } from "react-i18next";
 
 const TYPE_ICONS: Record<string, React.FC<{ className?: string }>> = {
   image: Image,
@@ -30,6 +32,7 @@ interface AssetDetailSheetProps {
 }
 
 export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
+  const { t } = useTranslation();
   const [versions, setVersions] = useState<GeneratedAsset[]>([]);
   const [showVersions, setShowVersions] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -61,7 +64,8 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="asset-detail-title">
+      <FocusTrap>
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[520px] max-h-[80vh] flex flex-col shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800">
@@ -88,7 +92,7 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
           {asset.description && (
             <div>
               <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                Description
+                {t("assets.detail.description")}
               </label>
               <p className="text-sm text-zinc-300 mt-1">{asset.description}</p>
             </div>
@@ -96,11 +100,11 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
 
           {/* Metadata grid */}
           <div className="grid grid-cols-2 gap-3">
-            <MetaField label="Type" value={asset.assetType} />
-            <MetaField label="Status" value={asset.status} />
-            <MetaField label="Version" value={`v${asset.version}`} />
+            <MetaField label={t("assets.detail.type")} value={asset.assetType} />
+            <MetaField label={t("assets.detail.status")} value={asset.status} />
+            <MetaField label={t("assets.detail.version")} value={`v${asset.version}`} />
             <MetaField
-              label="Size"
+              label={t("assets.detail.size")}
               value={
                 asset.fileSize
                   ? asset.fileSize < 1024 * 1024
@@ -109,16 +113,16 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
                   : "—"
               }
             />
-            <MetaField label="Agent" value={asset.agentType} />
-            <MetaField label="MIME" value={asset.mimeType ?? "—"} />
-            <MetaField label="Created" value={new Date(asset.createdAt).toLocaleString()} />
-            <MetaField label="Updated" value={new Date(asset.updatedAt).toLocaleString()} />
+            <MetaField label={t("assets.detail.agent")} value={asset.agentType} />
+            <MetaField label={t("assets.detail.mime")} value={asset.mimeType ?? "—"} />
+            <MetaField label={t("assets.detail.created")} value={new Date(asset.createdAt).toLocaleString()} />
+            <MetaField label={t("assets.detail.updated")} value={new Date(asset.updatedAt).toLocaleString()} />
           </div>
 
           {/* File path */}
           <div>
             <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-              File Path
+              {t("assets.detail.filePath")}
             </label>
             <div className="flex items-center gap-2 mt-1">
               <code className="text-xs text-zinc-400 bg-zinc-800/60 px-2 py-1 rounded flex-1 truncate">
@@ -127,7 +131,7 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
               <button
                 onClick={copyPath}
                 className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
-                title="Copy path"
+                title={t("assets.detail.copyPath")}
               >
                 <Copy className="w-3.5 h-3.5" />
               </button>
@@ -155,7 +159,7 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
               >
                 <History className="w-3.5 h-3.5" />
                 <span>
-                  {showVersions ? "Hide" : "Show"} version history ({versions.length} versions)
+                  {showVersions ? t("assets.detail.hideVersions", { count: versions.length }) : t("assets.detail.showVersions", { count: versions.length })}
                 </span>
               </button>
               {showVersions && (
@@ -191,32 +195,32 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600/20 text-green-400 hover:bg-green-600/30 text-xs font-medium transition-colors"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
-                Approve
+                {t("assets.detail.approve")}
               </button>
               <button
                 onClick={handleReject}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600/20 text-red-400 hover:bg-red-600/30 text-xs font-medium transition-colors"
               >
                 <XCircle className="w-3.5 h-3.5" />
-                Reject
+                {t("assets.detail.reject")}
               </button>
             </>
           )}
           <div className="flex-1" />
           {confirmDelete ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-500">Delete this asset?</span>
+              <span className="text-xs text-zinc-500">{t("assets.detail.deleteConfirm")}</span>
               <button
                 onClick={handleDelete}
                 className="px-2 py-1 rounded text-xs bg-red-600 text-white hover:bg-red-500 transition-colors"
               >
-                Confirm
+                {t("assets.detail.confirm")}
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
                 className="px-2 py-1 rounded text-xs bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition-colors"
               >
-                Cancel
+                {t("assets.detail.cancel")}
               </button>
             </div>
           ) : (
@@ -230,6 +234,7 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
           )}
         </div>
       </div>
+      </FocusTrap>
     </div>
   );
 }

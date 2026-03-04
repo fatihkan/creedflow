@@ -7,6 +7,8 @@ import {
   FileText,
   Terminal,
   MessageSquare,
+  MessageCircle,
+  History,
 } from "lucide-react";
 import { useTaskStore } from "../../store/taskStore";
 import { StatusBadge } from "../shared/StatusBadge";
@@ -14,10 +16,12 @@ import { BackendBadge } from "../shared/BackendBadge";
 import { AgentTypeBadge } from "../shared/AgentTypeBadge";
 import { RevisionPromptSection } from "../tasks/RevisionPromptSection";
 import { TerminalOutput } from "../shared/TerminalOutput";
+import { TaskComments } from "../tasks/TaskComments";
+import { TaskPromptHistory } from "../tasks/TaskPromptHistory";
 import * as api from "../../tauri";
 import type { Review } from "../../types/models";
 
-type Tab = "info" | "output" | "reviews";
+type Tab = "info" | "output" | "reviews" | "comments" | "prompts";
 
 interface DetailPanelProps {
   onClose: () => void;
@@ -62,6 +66,8 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
     { id: "info", label: "Info", icon: FileText },
     { id: "output", label: "Output", icon: Terminal },
     { id: "reviews", label: "Reviews", icon: MessageSquare, count: reviews.length },
+    { id: "comments", label: "Comments", icon: MessageCircle },
+    { id: "prompts", label: "Prompts", icon: History },
   ];
 
   return (
@@ -204,6 +210,10 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
             )}
           </div>
         )}
+
+        {tab === "comments" && <TaskComments taskId={task.id} />}
+
+        {tab === "prompts" && <TaskPromptHistory taskId={task.id} />}
       </div>
     </div>
   );

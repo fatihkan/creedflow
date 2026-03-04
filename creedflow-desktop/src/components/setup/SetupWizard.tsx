@@ -13,20 +13,22 @@ import * as api from "../../tauri";
 import { useSettingsStore } from "../../store/settingsStore";
 import type { AppSettings, BackendInfo, DependencyStatus, DetectedEditor } from "../../types/models";
 import type { GitConfig } from "../../tauri";
+import { useTranslation } from "react-i18next";
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-const STEP_LABELS = [
-  "Welcome",
-  "Environment",
-  "Dependencies",
-  "Backends",
-  "Project Settings",
-  "Notifications",
-  "Complete",
+const STEP_KEYS = [
+  "setup.welcome",
+  "setup.environment",
+  "setup.dependencies",
+  "setup.backends",
+  "setup.projectSettings",
+  "setup.notifications",
+  "setup.complete",
 ];
 
 export function SetupWizard() {
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>(0);
   const { settings, fetchSettings, updateSettings } = useSettingsStore();
 
@@ -48,8 +50,8 @@ export function SetupWizard() {
       {/* Progress bar */}
       <div className="w-full max-w-2xl mb-8">
         <div className="flex items-center justify-between mb-2">
-          {STEP_LABELS.map((label, i) => (
-            <div key={label} className="flex items-center">
+          {STEP_KEYS.map((key, i) => (
+            <div key={key} className="flex items-center">
               <div
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
                   i < step
@@ -61,7 +63,7 @@ export function SetupWizard() {
               >
                 {i < step ? <Check className="w-3 h-3" /> : i + 1}
               </div>
-              {i < STEP_LABELS.length - 1 && (
+              {i < STEP_KEYS.length - 1 && (
                 <div
                   className={`w-6 h-0.5 mx-0.5 ${i < step ? "bg-brand-600" : "bg-zinc-800"}`}
                 />
@@ -70,7 +72,7 @@ export function SetupWizard() {
           ))}
         </div>
         <p className="text-xs text-zinc-500 text-center">
-          {STEP_LABELS[step]}
+          {t(STEP_KEYS[step])}
         </p>
       </div>
 
@@ -93,7 +95,7 @@ export function SetupWizard() {
               onClick={prev}
               className="flex items-center gap-1.5 px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200"
             >
-              <ArrowLeft className="w-4 h-4" /> Back
+              <ArrowLeft className="w-4 h-4" /> {t("setup.back")}
             </button>
           ) : (
             <div />
@@ -103,7 +105,7 @@ export function SetupWizard() {
               onClick={next}
               className="flex items-center gap-1.5 px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700"
             >
-              {step === 0 ? "Get Started" : "Next"}{" "}
+              {step === 0 ? t("setup.getStarted") : t("setup.next")}{" "}
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
@@ -111,7 +113,7 @@ export function SetupWizard() {
               onClick={finish}
               className="flex items-center gap-1.5 px-6 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700"
             >
-              <Zap className="w-4 h-4" /> Launch CreedFlow
+              <Zap className="w-4 h-4" /> {t("setup.launch")}
             </button>
           )}
         </div>
@@ -121,14 +123,14 @@ export function SetupWizard() {
 }
 
 function WelcomeStep() {
+  const { t } = useTranslation();
   return (
     <div className="text-center space-y-4">
       <h2 className="text-2xl font-bold text-zinc-100">
-        Welcome to CreedFlow
+        {t("setup.welcomeTitle")}
       </h2>
       <p className="text-sm text-zinc-400 max-w-sm mx-auto">
-        AI-powered orchestration platform that autonomously manages your
-        software projects. Let&apos;s set things up.
+        {t("setup.welcomeDescription")}
       </p>
       <div className="text-brand-400 text-4xl font-bold tracking-wider mt-6">
         CF
@@ -138,6 +140,7 @@ function WelcomeStep() {
 }
 
 function EnvironmentStep() {
+  const { t } = useTranslation();
   const [gitConfig, setGitConfig] = useState<GitConfig | null>(null);
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
@@ -188,7 +191,7 @@ function EnvironmentStep() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-zinc-500 text-sm justify-center py-8">
-        <Loader2 className="w-4 h-4 animate-spin" /> Detecting environment...
+        <Loader2 className="w-4 h-4 animate-spin" /> {t("setup.detecting")}
       </div>
     );
   }
@@ -196,12 +199,12 @@ function EnvironmentStep() {
   return (
     <div className="space-y-5">
       <h3 className="text-lg font-semibold text-zinc-200">
-        Environment Detection
+        {t("setup.envDetection")}
       </h3>
 
       {/* AI CLIs */}
       <div>
-        <p className="text-xs text-zinc-400 mb-2 font-medium">AI CLI Backends</p>
+        <p className="text-xs text-zinc-400 mb-2 font-medium">{t("setup.aiCliBackends")}</p>
         <div className="grid grid-cols-2 gap-1.5">
           {backends.map((b) => (
             <div key={b.backendType} className="flex items-center gap-2 py-1.5 px-3 rounded bg-zinc-800/30">
@@ -220,7 +223,7 @@ function EnvironmentStep() {
       {/* Git */}
       <div>
         <p className="text-xs text-zinc-400 mb-2 font-medium flex items-center gap-1.5">
-          <GitBranch className="w-3.5 h-3.5" /> Git Configuration
+          <GitBranch className="w-3.5 h-3.5" /> {t("setup.gitConfiguration")}
         </p>
         <div className="space-y-2 bg-zinc-800/30 rounded-lg p-3">
           <div className="flex items-center gap-2 text-xs">
@@ -259,7 +262,7 @@ function EnvironmentStep() {
               disabled={savingGit}
               className="text-[10px] px-3 py-1 bg-brand-600/20 text-brand-400 rounded hover:bg-brand-600/30 disabled:opacity-50"
             >
-              {savingGit ? "Saving..." : "Save Git Config"}
+              {savingGit ? t("setup.savingGit") : t("setup.saveGitConfig")}
             </button>
           )}
         </div>
@@ -268,7 +271,7 @@ function EnvironmentStep() {
       {/* Editor */}
       <div>
         <p className="text-xs text-zinc-400 mb-2 font-medium flex items-center gap-1.5">
-          <Monitor className="w-3.5 h-3.5" /> Code Editor
+          <Monitor className="w-3.5 h-3.5" /> {t("setup.codeEditor")}
         </p>
         {editors.length > 0 ? (
           <select
@@ -276,7 +279,7 @@ function EnvironmentStep() {
             onChange={(e) => handleEditorChange(e.target.value)}
             className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-xs text-zinc-300"
           >
-            <option value="">Auto-detect</option>
+            <option value="">{t("setup.autoDetect")}</option>
             {editors.map((e) => (
               <option key={e.command} value={e.command}>
                 {e.name} — {e.path}
@@ -284,7 +287,7 @@ function EnvironmentStep() {
             ))}
           </select>
         ) : (
-          <p className="text-xs text-zinc-600">No code editors detected.</p>
+          <p className="text-xs text-zinc-600">{t("setup.noEditorsDetected")}</p>
         )}
       </div>
     </div>
@@ -292,6 +295,7 @@ function EnvironmentStep() {
 }
 
 function DependenciesStep() {
+  const { t } = useTranslation();
   const [deps, setDeps] = useState<DependencyStatus[]>([]);
   const [installing, setInstalling] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -320,14 +324,14 @@ function DependenciesStep() {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-zinc-200">
-        System Dependencies
+        {t("setup.systemDependencies")}
       </h3>
       <p className="text-xs text-zinc-500">
-        CreedFlow needs these tools to orchestrate AI backends.
+        {t("setup.dependenciesDescription")}
       </p>
       {loading ? (
         <div className="flex items-center gap-2 text-zinc-500 text-sm">
-          <Loader2 className="w-4 h-4 animate-spin" /> Detecting...
+          <Loader2 className="w-4 h-4 animate-spin" /> {t("setup.detectingDeps")}
         </div>
       ) : (
         <div className="space-y-1">
@@ -360,7 +364,7 @@ function DependenciesStep() {
                   ) : (
                     <Download className="w-3 h-3" />
                   )}
-                  Install
+                  {t("setup.install")}
                 </button>
               )}
             </div>
@@ -378,6 +382,7 @@ function BackendsStep({
   settings: AppSettings;
   onUpdate: (s: AppSettings) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const backends = [
     { key: "claudeEnabled" as const, label: "Claude", cloud: true },
     { key: "codexEnabled" as const, label: "Codex", cloud: true },
@@ -394,9 +399,9 @@ function BackendsStep({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-zinc-200">AI Backends</h3>
+      <h3 className="text-lg font-semibold text-zinc-200">{t("setup.aiBackends")}</h3>
       <p className="text-xs text-zinc-500">
-        Enable the AI backends you want to use. Cloud backends are recommended.
+        {t("setup.backendsDescription")}
       </p>
       <div className="space-y-1">
         {backends.map(({ key, label, cloud }) => (
@@ -409,7 +414,7 @@ function BackendsStep({
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded ${cloud ? "bg-blue-500/20 text-blue-400" : "bg-zinc-700 text-zinc-400"}`}
               >
-                {cloud ? "Cloud" : "Local"}
+                {cloud ? t("setup.cloud") : t("setup.local")}
               </span>
             </div>
             <button
@@ -438,12 +443,13 @@ function ProjectSettingsStep({
   settings: AppSettings;
   onUpdate: (s: AppSettings) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-zinc-200">Project Settings</h3>
+      <h3 className="text-lg font-semibold text-zinc-200">{t("setup.projectSettings")}</h3>
       <div>
         <label className="block text-xs text-zinc-400 mb-1">
-          Projects Directory
+          {t("setup.projectsDir")}
         </label>
         <input
           type="text"
@@ -454,7 +460,7 @@ function ProjectSettingsStep({
       </div>
       <div>
         <label className="block text-xs text-zinc-400 mb-1">
-          Max Concurrency
+          {t("setup.maxConcurrency")}
         </label>
         <input
           type="number"
@@ -479,15 +485,16 @@ function NotificationsStep({
   settings: AppSettings;
   onUpdate: (s: AppSettings) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-zinc-200">Notifications</h3>
+      <h3 className="text-lg font-semibold text-zinc-200">{t("setup.notifications")}</h3>
       <p className="text-xs text-zinc-500">
-        Optional: Configure Telegram notifications for task milestones.
+        {t("setup.notificationsDescription")}
       </p>
       <div>
         <label className="block text-xs text-zinc-400 mb-1">
-          Telegram Bot Token
+          {t("setup.botToken")}
         </label>
         <input
           type="text"
@@ -504,7 +511,7 @@ function NotificationsStep({
       </div>
       <div>
         <label className="block text-xs text-zinc-400 mb-1">
-          Telegram Chat ID
+          {t("setup.chatId")}
         </label>
         <input
           type="text"
@@ -524,15 +531,15 @@ function NotificationsStep({
 }
 
 function CompleteStep() {
+  const { t } = useTranslation();
   return (
     <div className="text-center space-y-4">
       <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
         <Check className="w-8 h-8 text-green-400" />
       </div>
-      <h3 className="text-lg font-semibold text-zinc-200">All Set!</h3>
+      <h3 className="text-lg font-semibold text-zinc-200">{t("setup.allSet")}</h3>
       <p className="text-sm text-zinc-400 max-w-sm mx-auto">
-        CreedFlow is ready to orchestrate your projects. Create your first
-        project to get started.
+        {t("setup.completeDescription")}
       </p>
     </div>
   );

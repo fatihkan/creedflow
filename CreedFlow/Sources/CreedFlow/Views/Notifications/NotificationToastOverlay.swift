@@ -8,6 +8,7 @@ struct NotificationToastOverlay: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
             ForEach(viewModel.pendingToasts) { toast in
+                // accessibility: role=status for toast notifications
                 ToastCard(notification: toast) {
                     viewModel.removeToast(toast.id)
                 }
@@ -54,10 +55,12 @@ private struct ToastCard: View {
                     .foregroundStyle(.tertiary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss notification")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(width: 320)
+        .accessibilityElement(children: .combine)
         .background {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(.regularMaterial)

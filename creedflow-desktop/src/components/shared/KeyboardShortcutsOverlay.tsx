@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import { FocusTrap } from "./FocusTrap";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   open: boolean;
@@ -30,6 +32,7 @@ const SHORTCUT_GROUPS = [
 ];
 
 export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
+  const { t } = useTranslation();
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -48,15 +51,19 @@ export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shortcuts-title"
       onClick={onClose}
     >
+      <FocusTrap>
       <div
         className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg w-[400px] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
-            Keyboard Shortcuts
+          <h2 id="shortcuts-title" className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
+            {t("shortcuts.title")}
           </h2>
           <button
             onClick={onClose}
@@ -97,6 +104,7 @@ export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
           ))}
         </div>
       </div>
+      </FocusTrap>
     </div>
   );
 }

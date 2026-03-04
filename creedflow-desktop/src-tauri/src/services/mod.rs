@@ -12,3 +12,4 @@ pub mod publishing;
 pub mod thumbnail;
 pub mod notifications;
 pub mod health;
+pub mod webhook_server;

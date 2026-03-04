@@ -3,6 +3,8 @@ import SwiftUI
 struct GitGraphContentView: View {
     let graphData: GitGraphData
     let maxColumns: Int
+    var selectedCommitId: String? = nil
+    var onSelectCommit: ((GitCommit) -> Void)? = nil
 
     private let laneWidth: CGFloat = 24
     private let rowHeight: CGFloat = 36
@@ -32,6 +34,11 @@ struct GitGraphContentView: View {
                         Spacer(minLength: 0)
                     }
                     .frame(height: rowHeight)
+                    .background(selectedCommitId == row.commit.id ? Color.accentColor.opacity(0.08) : Color.clear)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onSelectCommit?(row.commit)
+                    }
                 }
             }
             .padding(.vertical, 4)

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { AgentTask } from "../types/models";
+import { useHistoryStore } from "./historyStore";
+import { useNotificationStore } from "./notificationStore";
 import * as api from "../tauri";
 
 interface TaskStore {
@@ -28,6 +30,8 @@ interface TaskStore {
   archiveSelected: () => Promise<void>;
   restoreSelected: () => Promise<void>;
   deleteSelected: () => Promise<void>;
+  batchRetry: () => Promise<void>;
+  batchCancel: () => Promise<void>;
 }
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
@@ -73,12 +77,28 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateTaskStatus: async (id, status) => {
-    await api.updateTaskStatus(id, status);
-    set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === id ? { ...t, status: status as AgentTask["status"] } : t,
-      ),
-    }));
+    const prevTask = get().tasks.find((t) => t.id === id);
+    const prevStatus = prevTask?.status;
+    await useHistoryStore.getState().push({
+      label: `Change task status to ${status}`,
+      execute: async () => {
+        await api.updateTaskStatus(id, status);
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id ? { ...t, status: status as AgentTask["status"] } : t,
+          ),
+        }));
+      },
+      undo: async () => {
+        if (!prevStatus) return;
+        await api.updateTaskStatus(id, prevStatus);
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id ? { ...t, status: prevStatus as AgentTask["status"] } : t,
+          ),
+        }));
+      },
+    });
   },
 
   updateTask: (task) => {
@@ -116,31 +136,116 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   archiveSelected: async () => {
     const ids = Array.from(get().selectedIds);
     if (ids.length === 0) return;
-    await api.archiveTasks(ids);
-    set((s) => ({
-      tasks: s.tasks.filter((t) => !s.selectedIds.has(t.id)),
-      selectedIds: new Set(),
-      selectionMode: false,
-    }));
+    const archivedTasks = get().tasks.filter((t) => ids.includes(t.id));
+    await useHistoryStore.getState().push({
+      label: `Archive ${ids.length} task(s)`,
+      execute: async () => {
+        await api.archiveTasks(ids);
+        set((s) => ({
+          tasks: s.tasks.filter((t) => !ids.includes(t.id)),
+          selectedIds: new Set(),
+          selectionMode: false,
+        }));
+      },
+      undo: async () => {
+        await api.restoreTasks(ids);
+        set((s) => ({
+          tasks: [...s.tasks, ...archivedTasks],
+        }));
+      },
+    });
   },
 
   restoreSelected: async () => {
     const ids = Array.from(get().selectedIds);
     if (ids.length === 0) return;
-    await api.restoreTasks(ids);
-    set((s) => ({
-      archivedTasks: s.archivedTasks.filter((t) => !s.selectedIds.has(t.id)),
-      selectedIds: new Set(),
-      selectionMode: false,
-    }));
+    const restoredTasks = get().archivedTasks.filter((t) => ids.includes(t.id));
+    await useHistoryStore.getState().push({
+      label: `Restore ${ids.length} task(s)`,
+      execute: async () => {
+        await api.restoreTasks(ids);
+        set((s) => ({
+          archivedTasks: s.archivedTasks.filter((t) => !ids.includes(t.id)),
+          selectedIds: new Set(),
+          selectionMode: false,
+        }));
+      },
+      undo: async () => {
+        await api.archiveTasks(ids);
+        set((s) => ({
+          archivedTasks: [...s.archivedTasks, ...restoredTasks],
+        }));
+      },
+    });
   },
 
   deleteSelected: async () => {
     const ids = Array.from(get().selectedIds);
     if (ids.length === 0) return;
-    await api.permanentlyDeleteTasks(ids);
+    const deletedTasks = get().archivedTasks.filter((t) => ids.includes(t.id));
+
+    // Soft-delete: remove from UI immediately
     set((s) => ({
       archivedTasks: s.archivedTasks.filter((t) => !s.selectedIds.has(t.id)),
+      selectedIds: new Set(),
+      selectionMode: false,
+    }));
+
+    // Grace period: show undo toast for 10s, then permanently delete
+    let cancelled = false;
+    useNotificationStore.getState().addUndoToast(
+      `Deleted ${ids.length} task(s)`,
+      () => {
+        cancelled = true;
+        // Restore tasks to archived list
+        set((s) => ({
+          archivedTasks: [...s.archivedTasks, ...deletedTasks],
+        }));
+      },
+    );
+
+    // Permanently delete after grace period
+    setTimeout(async () => {
+      if (!cancelled) {
+        try {
+          await api.permanentlyDeleteTasks(ids);
+        } catch (e) {
+          console.error("Failed to permanently delete tasks:", e);
+        }
+      }
+    }, 10500);
+  },
+
+  batchRetry: async () => {
+    const { selectedIds, tasks } = get();
+    const retryable = ["failed", "needs_revision", "cancelled"];
+    const ids = Array.from(selectedIds).filter((id) => {
+      const t = tasks.find((task) => task.id === id);
+      return t && retryable.includes(t.status);
+    });
+    if (ids.length === 0) return;
+    await api.batchRetryTasks(ids);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        ids.includes(t.id) ? { ...t, status: "queued" as const, retryCount: t.retryCount + 1 } : t,
+      ),
+      selectedIds: new Set(),
+      selectionMode: false,
+    }));
+  },
+
+  batchCancel: async () => {
+    const { selectedIds, tasks } = get();
+    const ids = Array.from(selectedIds).filter((id) => {
+      const t = tasks.find((task) => task.id === id);
+      return t && t.status === "queued";
+    });
+    if (ids.length === 0) return;
+    await api.batchCancelTasks(ids);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        ids.includes(t.id) ? { ...t, status: "cancelled" as const } : t,
+      ),
       selectedIds: new Set(),
       selectionMode: false,
     }));

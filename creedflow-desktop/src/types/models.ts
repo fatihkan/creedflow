@@ -10,6 +10,7 @@ export interface Project {
   projectType: ProjectType;
   telegramChatId: number | null;
   stagingPrNumber: number | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -173,6 +174,11 @@ export interface AppSettings {
   telegramChatId: string | null;
   hasCompletedSetup: boolean;
   agentBackendOverrides: AgentBackendOverrides | null;
+  webhookEnabled: boolean | null;
+  webhookPort: number | null;
+  webhookApiKey: string | null;
+  webhookGithubSecret: string | null;
+  language: string | null;
 }
 
 export interface GeneratedAsset {
@@ -202,9 +208,11 @@ export interface PublishingChannel {
   id: string;
   name: string;
   channelType: "medium" | "wordpress" | "twitter" | "linkedin" | "devTo";
+  credentialsJson: string;
   isEnabled: boolean;
   defaultTags: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Publication {
@@ -213,8 +221,14 @@ export interface Publication {
   projectId: string;
   channelId: string;
   status: "scheduled" | "publishing" | "published" | "failed";
+  externalId: string | null;
   publishedUrl: string | null;
+  scheduledAt: string | null;
+  publishedAt: string | null;
+  errorMessage: string | null;
+  exportFormat: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface DeploymentInfo {
@@ -275,6 +289,7 @@ export interface PromptVersion {
   id: string;
   promptId: string;
   version: number;
+  title: string;
   content: string;
   changeNote: string | null;
   createdAt: string;
@@ -332,6 +347,19 @@ export interface PromptEffectivenessStats {
   failCount: number;
   avgReviewScore: number | null;
   successRate: number;
+}
+
+// ─── MCP ────────────────────────────────────────────────────────────────────
+
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  arguments: string;
+  environmentVars: string;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── Chat ───────────────────────────────────────────────────────────────────
@@ -400,6 +428,8 @@ export interface AppNotification {
   isRead: boolean;
   isDismissed: boolean;
   createdAt: string;
+  actionLabel?: string;
+  actionId?: string;
 }
 
 export interface HealthEvent {
@@ -411,4 +441,93 @@ export interface HealthEvent {
   errorMessage: string | null;
   metadata: string | null;
   checkedAt: string;
+}
+
+// ─── Task Comments ──────────────────────────────────────────────────────────
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  content: string;
+  author: "user" | "system";
+  createdAt: string;
+}
+
+// ─── Project Time Stats ─────────────────────────────────────────────────────
+
+export interface ProjectTimeStats {
+  elapsedMs: number;
+  totalWorkMs: number;
+  idleMs: number;
+  agentBreakdown: AgentTimeStat[];
+}
+
+export interface AgentTimeStat {
+  agentType: string;
+  totalMs: number;
+  taskCount: number;
+}
+
+// ─── Project Templates ──────────────────────────────────────────────────────
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  techStack: string;
+  projectType: ProjectType;
+  features: TemplateFeature[];
+}
+
+export interface TemplateFeature {
+  name: string;
+  description: string;
+  tasks: TemplateTask[];
+}
+
+export interface TemplateTask {
+  agentType: AgentType;
+  title: string;
+  description: string;
+  priority: number;
+}
+
+// ─── Task Statistics ─────────────────────────────────────────────────────────
+
+export interface TaskStatistics {
+  byAgent: AgentTaskStats[];
+  dailyCompleted: DailyCount[];
+  totalTasks: number;
+  successRate: number;
+  avgDurationMs: number | null;
+}
+
+export interface AgentTaskStats {
+  agentType: string;
+  total: number;
+  passed: number;
+  failed: number;
+  needsRevision: number;
+  avgDurationMs: number | null;
+}
+
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
+// ─── Prompt Usage (for task prompt history) ─────────────────────────────────
+
+export interface PromptUsageRecord {
+  id: string;
+  promptId: string;
+  promptTitle: string | null;
+  projectId: string | null;
+  taskId: string | null;
+  chainId: string | null;
+  agentType: string | null;
+  outcome: string | null;
+  reviewScore: number | null;
+  usedAt: string;
 }

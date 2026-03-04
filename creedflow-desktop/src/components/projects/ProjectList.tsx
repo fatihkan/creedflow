@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Terminal, FolderOpen, Code2 } from "lucide-react";
+import { Plus, Trash2, Terminal, FolderOpen, Code2, FileText } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { NewProjectDialog } from "./NewProjectDialog";
+import { ProjectTemplateSelector } from "./ProjectTemplateSelector";
 import { SearchBar } from "../shared/SearchBar";
+import { FocusTrap } from "../shared/FocusTrap";
+import { useTranslation } from "react-i18next";
 import {
   openTerminal,
   openInFileManager,
@@ -15,7 +18,9 @@ import type { DetectedEditor } from "../../types/models";
 export function ProjectList() {
   const { projects, fetchProjects, selectProject, selectedProjectId, deleteProject } =
     useProjectStore();
+  const { t } = useTranslation();
   const [showNew, setShowNew] = useState(false);
+  const [showTemplate, setShowTemplate] = useState(false);
   const [search, setSearch] = useState("");
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
@@ -67,24 +72,31 @@ export function ProjectList() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-200">Projects</h2>
+          <h2 className="text-sm font-semibold text-zinc-200">{t("projects.title")}</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""}
-            {search && ` matching "${search}"`}
+            {filteredProjects.length !== 1 ? t("projects.count_plural", { count: filteredProjects.length }) : t("projects.count", { count: filteredProjects.length })}
+            {search && ` ${t("projects.matching", { search })}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="Search projects..."
+            placeholder={t("projects.searchPlaceholder")}
           />
+          <button
+            onClick={() => setShowTemplate(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-md transition-colors"
+            title={t("projects.newFromTemplate", "New from Template")}
+          >
+            <FileText className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => setShowNew(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs rounded-md transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            New Project
+            {t("projects.newProject")}
           </button>
         </div>
       </div>
@@ -93,7 +105,7 @@ export function ProjectList() {
       <div className="flex-1 overflow-y-auto p-2">
         {filteredProjects.length === 0 ? (
           <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
-            {search ? "No projects match your search" : "No projects yet. Create one to get started."}
+            {search ? t("projects.noMatch") : t("projects.empty")}
           </div>
         ) : (
           <div className="space-y-1">
@@ -135,6 +147,7 @@ export function ProjectList() {
                           onClick={(e) => handleOpenTerminal(e, project.directoryPath)}
                           className="p-1 text-zinc-600 hover:text-zinc-200"
                           title="Open in Terminal"
+                          aria-label={`Open ${project.name} in terminal`}
                         >
                           <Terminal className="w-3.5 h-3.5" />
                         </button>
@@ -142,6 +155,7 @@ export function ProjectList() {
                           onClick={(e) => handleOpenFileManager(e, project.directoryPath)}
                           className="p-1 text-zinc-600 hover:text-zinc-200"
                           title="Open in File Manager"
+                          aria-label={`Open ${project.name} in file manager`}
                         >
                           <FolderOpen className="w-3.5 h-3.5" />
                         </button>
@@ -162,6 +176,7 @@ export function ProjectList() {
                         deleteProject(project.id);
                       }}
                       className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label={`Delete ${project.name}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -179,6 +194,22 @@ export function ProjectList() {
       </div>
 
       {showNew && <NewProjectDialog onClose={() => setShowNew(false)} />}
+      {showTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-label="Project template selector">
+          <FocusTrap>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-[480px] max-h-[500px] overflow-y-auto">
+            <ProjectTemplateSelector
+              onCreated={(id) => {
+                setShowTemplate(false);
+                selectProject(id);
+                fetchProjects();
+              }}
+              onCancel={() => setShowTemplate(false)}
+            />
+          </div>
+          </FocusTrap>
+        </div>
+      )}
     </div>
   );
 }

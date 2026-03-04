@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { SidebarSection } from "./Sidebar";
 import { ProjectList } from "../projects/ProjectList";
 import { TaskBoard } from "../tasks/TaskBoard";
@@ -10,6 +11,8 @@ import { ReviewList } from "../reviews/ReviewList";
 import { GitGraphView } from "../git/GitGraphView";
 import { PromptsLibrary } from "../prompts/PromptsLibrary";
 import { ProjectAssetsView } from "../assets/ProjectAssetsView";
+import { PublishingView } from "../publishing/PublishingView";
+import { BackendComparisonView } from "../agents/BackendComparisonView";
 
 interface ContentAreaProps {
   section: SidebarSection;
@@ -26,6 +29,7 @@ export function ContentArea({
   showChatPanel,
   chatProjectId,
 }: ContentAreaProps) {
+  const { t } = useTranslation();
   switch (section) {
     case "projects":
       return <ProjectList />;
@@ -37,7 +41,7 @@ export function ContentArea({
           showChatPanel={showChatPanel && chatProjectId === selectedProjectId}
         />
       ) : (
-        <EmptyState message="Select a project to view tasks" />
+        <EmptyState message={t("content.selectProject")} />
       );
     case "archive":
       return <ArchivedTasksView />;
@@ -55,14 +59,18 @@ export function ContentArea({
       return selectedProjectId ? (
         <GitGraphView projectId={selectedProjectId} />
       ) : (
-        <EmptyState message="Select a project to view git history" />
+        <EmptyState message={t("content.selectGitProject")} />
       );
     case "prompts":
       return <PromptsLibrary />;
     case "assets":
       return <ProjectAssetsView />;
+    case "publishing":
+      return <PublishingView />;
+    case "compare":
+      return <BackendComparisonView />;
     default:
-      return <EmptyState message="Select a section" />;
+      return <EmptyState message={t("content.selectSection")} />;
   }
 }
 
