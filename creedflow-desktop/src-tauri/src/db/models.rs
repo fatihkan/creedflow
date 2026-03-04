@@ -1233,6 +1233,12 @@ pub struct AppSettings {
     pub telegram_chat_id: Option<String>,
     pub has_completed_setup: bool,
     pub agent_backend_overrides: Option<AgentBackendOverrides>,
+    #[serde(default)]
+    pub webhook_enabled: Option<bool>,
+    #[serde(default)]
+    pub webhook_port: Option<u16>,
+    #[serde(default)]
+    pub webhook_api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1276,6 +1282,9 @@ impl Default for AppSettings {
             telegram_chat_id: None,
             has_completed_setup: false,
             agent_backend_overrides: None,
+            webhook_enabled: None,
+            webhook_port: None,
+            webhook_api_key: None,
         }
     }
 }

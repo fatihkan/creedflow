@@ -35,6 +35,9 @@ public struct SettingsView: View {
     @AppStorage("preferredEditor") private var preferredEditor = ""
     @AppStorage("appearanceMode") private var appearanceMode = "system"
     @AppStorage("fontSizePreference") private var fontSizePreference = "normal"
+    @AppStorage("webhookServerEnabled") private var webhookEnabled = false
+    @AppStorage("webhookPort") private var webhookPort = "8080"
+    @AppStorage("webhookApiKey") private var webhookApiKey = ""
 
     // Admin API keys for real usage tracking
     @AppStorage("anthropicAdminAPIKey") private var anthropicAdminKey = ""
@@ -175,6 +178,23 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     Text("Used for \"Open in Editor\" buttons throughout the app")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Webhook Server") {
+                Toggle("Enable Webhook Server", isOn: $webhookEnabled)
+                if webhookEnabled {
+                    HStack {
+                        Text("Port")
+                        TextField("Port", text: $webhookPort)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                    }
+                    SecureField("API Key (optional)", text: $webhookApiKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Endpoints: GET /api/status, POST /api/tasks")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

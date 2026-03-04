@@ -167,6 +167,62 @@ function GeneralTab() {
         </select>
       </div>
 
+      {/* Webhook Server */}
+      <div>
+        <label className="block text-xs text-zinc-400 mb-2">Webhook Server</label>
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settings.webhookEnabled ?? false}
+              onChange={(e) =>
+                updateSettings({ ...settings, webhookEnabled: e.target.checked })
+              }
+              className="rounded border-zinc-600"
+            />
+            Enable webhook server
+          </label>
+          {settings.webhookEnabled && (
+            <>
+              <div>
+                <label className="block text-[10px] text-zinc-500 mb-1">Port</label>
+                <input
+                  type="number"
+                  min={1024}
+                  max={65535}
+                  value={settings.webhookPort ?? 8080}
+                  onChange={(e) =>
+                    updateSettings({
+                      ...settings,
+                      webhookPort: parseInt(e.target.value) || 8080,
+                    })
+                  }
+                  className="w-32 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-zinc-500 mb-1">API Key (optional)</label>
+                <input
+                  type="password"
+                  value={settings.webhookApiKey ?? ""}
+                  onChange={(e) =>
+                    updateSettings({
+                      ...settings,
+                      webhookApiKey: e.target.value || null,
+                    })
+                  }
+                  placeholder="Leave empty for no auth"
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300 placeholder:text-zinc-600"
+                />
+              </div>
+              <p className="text-[10px] text-zinc-600">
+                POST /api/tasks to create tasks via webhook. Requires app restart to take effect.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="pt-2">
         <button
           onClick={() => updateSettings({ ...settings, hasCompletedSetup: false })}

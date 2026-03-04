@@ -174,6 +174,9 @@ export interface AppSettings {
   telegramChatId: string | null;
   hasCompletedSetup: boolean;
   agentBackendOverrides: AgentBackendOverrides | null;
+  webhookEnabled: boolean | null;
+  webhookPort: number | null;
+  webhookApiKey: string | null;
 }
 
 export interface GeneratedAsset {

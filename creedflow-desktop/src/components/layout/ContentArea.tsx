@@ -11,6 +11,7 @@ import { GitGraphView } from "../git/GitGraphView";
 import { PromptsLibrary } from "../prompts/PromptsLibrary";
 import { ProjectAssetsView } from "../assets/ProjectAssetsView";
 import { PublishingView } from "../publishing/PublishingView";
+import { BackendComparisonView } from "../agents/BackendComparisonView";
 
 interface ContentAreaProps {
   section: SidebarSection;
@@ -64,6 +65,8 @@ export function ContentArea({
       return <ProjectAssetsView />;
     case "publishing":
       return <PublishingView />;
+    case "compare":
+      return <BackendComparisonView />;
     default:
       return <EmptyState message="Select a section" />;
   }

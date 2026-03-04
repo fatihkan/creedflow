@@ -101,6 +101,9 @@ struct SidebarView: View {
                         Image(systemName: "cpu")
                     }
                     .tag(SidebarSection.agents)
+
+                    Label("Compare", systemImage: "arrow.triangle.branch")
+                        .tag(SidebarSection.compareBackends)
                 }
 
                 // Usage section hidden — revisit with correct API approach

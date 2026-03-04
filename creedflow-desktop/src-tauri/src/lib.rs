@@ -24,8 +24,52 @@ pub fn run() {
             let db = db::Database::open(&db::default_db_path())?;
             db.run_migrations()?;
 
+            let db_arc = Arc::new(Mutex::new(db));
+
+            // Spawn webhook server if enabled in settings
+            {
+                let db_guard = db_arc.blocking_lock();
+                let webhook_enabled: bool = db_guard.conn
+                    .query_row(
+                        "SELECT value FROM appSetting WHERE key = 'webhookEnabled'",
+                        [],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .map(|v| v == "true" || v == "1")
+                    .unwrap_or(false);
+
+                if webhook_enabled {
+                    let port: u16 = db_guard.conn
+                        .query_row(
+                            "SELECT value FROM appSetting WHERE key = 'webhookPort'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .ok()
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(8080);
+
+                    let api_key: Option<String> = db_guard.conn
+                        .query_row(
+                            "SELECT value FROM appSetting WHERE key = 'webhookApiKey'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .ok()
+                        .filter(|k| !k.is_empty());
+
+                    let db_clone = db_arc.clone();
+                    drop(db_guard);
+
+                    tokio::spawn(async move {
+                        let server = services::webhook_server::WebhookServer::new(port, api_key, db_clone);
+                        server.run().await;
+                    });
+                }
+            }
+
             let state = AppState {
-                db: Arc::new(Mutex::new(db)),
+                db: db_arc,
                 app_handle: app_handle.clone(),
             };
             app.manage(state);
@@ -68,6 +112,7 @@ pub fn run() {
             commands::backends::detect_dependencies,
             commands::backends::install_dependency,
             commands::backends::detect_package_manager_cmd,
+            commands::backends::compare_backends,
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,

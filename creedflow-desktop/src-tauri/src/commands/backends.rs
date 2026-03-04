@@ -391,6 +391,97 @@ pub async fn install_dependency(name: String) -> Result<String, String> {
     }
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComparisonResult {
+    pub backend_type: String,
+    pub output: String,
+    pub duration_ms: u64,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn compare_backends(prompt: String, backend_types: Vec<String>) -> Result<Vec<ComparisonResult>, String> {
+    use tokio::process::Command;
+    use std::time::Instant;
+
+    let mut handles = Vec::new();
+    for bt in backend_types {
+        let prompt = prompt.clone();
+        handles.push(tokio::spawn(async move {
+            let start = Instant::now();
+            let cli = match bt.as_str() {
+                "claude" => "claude",
+                "codex" => "codex",
+                "gemini" => "gemini",
+                "opencode" => "opencode",
+                "openclaw" => "openclaw",
+                _ => return ComparisonResult {
+                    backend_type: bt,
+                    output: String::new(),
+                    duration_ms: 0,
+                    error: Some("Unknown backend".into()),
+                },
+            };
+
+            let args: Vec<String> = match bt.as_str() {
+                "claude" => vec!["-p".into(), prompt.clone(), "--output-format".into(), "text".into()],
+                "codex" => vec!["exec".into(), prompt.clone(), "--full-auto".into()],
+                "gemini" => vec!["-p".into(), prompt.clone(), "-y".into(), "-o".into(), "text".into()],
+                "opencode" => vec!["run".into(), prompt.clone(), "-q".into()],
+                "openclaw" => vec!["agent".into(), "--message".into(), prompt.clone(), "--format".into(), "text".into()],
+                _ => vec![prompt.clone()],
+            };
+
+            match Command::new(cli)
+                .args(&args)
+                .env("PATH", std::env::var("PATH").unwrap_or_default())
+                .output()
+                .await
+            {
+                Ok(output) => {
+                    let elapsed = start.elapsed().as_millis() as u64;
+                    if output.status.success() {
+                        ComparisonResult {
+                            backend_type: bt,
+                            output: String::from_utf8_lossy(&output.stdout).to_string(),
+                            duration_ms: elapsed,
+                            error: None,
+                        }
+                    } else {
+                        ComparisonResult {
+                            backend_type: bt,
+                            output: String::from_utf8_lossy(&output.stdout).to_string(),
+                            duration_ms: elapsed,
+                            error: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+                        }
+                    }
+                }
+                Err(e) => ComparisonResult {
+                    backend_type: bt,
+                    output: String::new(),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    error: Some(e.to_string()),
+                },
+            }
+        }));
+    }
+
+    let mut results = Vec::new();
+    for handle in handles {
+        match handle.await {
+            Ok(result) => results.push(result),
+            Err(e) => results.push(ComparisonResult {
+                backend_type: "unknown".into(),
+                output: String::new(),
+                duration_ms: 0,
+                error: Some(e.to_string()),
+            }),
+        }
+    }
+    Ok(results)
+}
+
 async fn get_version(name: &str) -> Result<String, String> {
     use tokio::process::Command;
 

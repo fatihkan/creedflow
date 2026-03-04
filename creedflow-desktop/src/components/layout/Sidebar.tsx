@@ -10,6 +10,7 @@ import {
   BookOpen,
   Archive,
   GitBranch,
+  GitCompareArrows,
   Package,
   Github,
   ChevronDown,
@@ -36,7 +37,8 @@ export type SidebarSection =
   | "archive"
   | "gitHistory"
   | "assets"
-  | "publishing";
+  | "publishing"
+  | "compare";
 
 interface SidebarProps {
   selected: SidebarSection;
@@ -188,6 +190,7 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
           <div className="px-2 space-y-0.5 mb-1">
             <NavItem id="agents" label="Agents" icon={Bot} selected={selected} onSelect={onSelect} />
             <NavItem id="reviews" label="Reviews" icon={FileCheck} selected={selected} onSelect={onSelect} badge={pendingReviewCount > 0 ? pendingReviewCount : undefined} badgeColor="bg-amber-500/20 text-amber-400" />
+            <NavItem id="compare" label="Compare" icon={GitCompareArrows} selected={selected} onSelect={onSelect} />
           </div>
         )}
 

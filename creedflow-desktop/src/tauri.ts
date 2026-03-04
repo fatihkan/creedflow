@@ -146,6 +146,16 @@ export const checkBackend = (backendType: string) =>
 export const toggleBackend = (backendType: string, enabled: boolean) =>
   invoke<void>("toggle_backend", { backendType, enabled });
 
+export interface ComparisonResult {
+  backendType: string;
+  output: string;
+  durationMs: number;
+  error: string | null;
+}
+
+export const compareBackends = (prompt: string, backendTypes: string[]) =>
+  invoke<ComparisonResult[]>("compare_backends", { prompt, backendTypes });
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 export const getSettings = () => invoke<AppSettings>("get_settings");
