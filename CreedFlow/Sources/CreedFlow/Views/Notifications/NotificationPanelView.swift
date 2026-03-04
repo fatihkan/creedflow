@@ -9,16 +9,27 @@ struct NotificationPanelView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Notifications")
+                Text(L("notifications.title"))
                     .font(.headline)
                 Spacer()
                 if viewModel.unreadCount > 0 {
-                    Button("Mark All Read") {
+                    Button(L("notifications.markAllRead")) {
                         viewModel.markAllRead()
                     }
                     .font(.caption)
                     .buttonStyle(.plain)
                     .foregroundStyle(.blue)
+                }
+                if !viewModel.recentNotifications.isEmpty {
+                    Button {
+                        viewModel.clearAll()
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red.opacity(0.7))
+                    .help(L("notifications.clearAll"))
                 }
             }
             .padding(.horizontal, 16)
@@ -32,7 +43,7 @@ struct NotificationPanelView: View {
                     Image(systemName: "bell.slash")
                         .font(.system(size: 28))
                         .foregroundStyle(.tertiary)
-                    Text("No notifications")
+                    Text(L("notifications.empty"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -44,7 +55,7 @@ struct NotificationPanelView: View {
                             NotificationRow(
                                 notification: notification,
                                 onRead: { viewModel.markRead(notification.id) },
-                                onDismiss: { viewModel.dismiss(notification.id) }
+                                onDelete: { viewModel.deleteOne(notification.id) }
                             )
                             Divider()
                                 .padding(.leading, 44)
@@ -62,8 +73,7 @@ struct NotificationPanelView: View {
 private struct NotificationRow: View {
     let notification: AppNotification
     let onRead: () -> Void
-    let onDismiss: () -> Void
-    @State private var offset: CGFloat = 0
+    let onDelete: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -97,34 +107,21 @@ private struct NotificationRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
+
+            Button {
+                onDelete()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(L("notifications.delete"))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(notification.isRead ? Color.clear : Color.blue.opacity(0.04))
         .contentShape(Rectangle())
-        .offset(x: offset)
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    if value.translation.width < 0 {
-                        offset = value.translation.width
-                    }
-                }
-                .onEnded { value in
-                    if value.translation.width < -80 {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            offset = -400
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            onDismiss()
-                        }
-                    } else {
-                        withAnimation(.spring(response: 0.3)) {
-                            offset = 0
-                        }
-                    }
-                }
-        )
         .onTapGesture {
             if !notification.isRead {
                 onRead()

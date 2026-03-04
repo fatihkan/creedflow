@@ -301,6 +301,8 @@
     "close": "Bildirimleri kapat",
     "empty": "Henüz bildirim yok",
     "dismiss": "Bildirimi kapat",
+    "delete": "Bildirimi sil",
+    "clearAll": "Tüm bildirimleri temizle",
     "categories": {
       "backendHealth": "Backend",
       "mcpHealth": "MCP",
@@ -515,6 +517,7 @@
     "backendsDescription": "Kullanmak istediğiniz yapay zeka backendlerini etkinleştirin. Bulut backendleri önerilir.",
     "cloud": "Bulut",
     "local": "Yerel",
+    "notInstalled": "Yüklü değil",
     "projectsDir": "Proje Dizini",
     "maxConcurrency": "Maks Eşzamanlılık",
     "notificationsDescription": "İsteğe bağlı: Görev kilometre taşları için Telegram bildirimlerini yapılandırın.",

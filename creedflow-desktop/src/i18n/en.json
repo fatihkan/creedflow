@@ -301,6 +301,8 @@
     "close": "Close notifications",
     "empty": "No notifications yet",
     "dismiss": "Dismiss notification",
+    "delete": "Delete notification",
+    "clearAll": "Clear all notifications",
     "categories": {
       "backendHealth": "Backend",
       "mcpHealth": "MCP",
@@ -515,6 +517,7 @@
     "backendsDescription": "Enable the AI backends you want to use. Cloud backends are recommended.",
     "cloud": "Cloud",
     "local": "Local",
+    "notInstalled": "Not installed",
     "projectsDir": "Projects Directory",
     "maxConcurrency": "Max Concurrency",
     "notificationsDescription": "Optional: Configure Telegram notifications for task milestones.",

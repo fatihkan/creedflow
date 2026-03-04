@@ -8,6 +8,7 @@ import {
   X,
   CheckCheck,
   Bell,
+  Trash2,
 } from "lucide-react";
 import type { AppNotification, NotificationSeverity, NotificationCategory } from "../../types/models";
 import { FocusTrap } from "../shared/FocusTrap";
@@ -55,7 +56,8 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
   const markRead = useNotificationStore((s) => s.markRead);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
-  const dismiss = useNotificationStore((s) => s.dismiss);
+  const deleteNotification = useNotificationStore((s) => s.deleteNotification);
+  const clearAll = useNotificationStore((s) => s.clearAll);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   useEffect(() => {
@@ -87,6 +89,16 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
               <CheckCheck className="w-4 h-4" />
             </button>
           )}
+          {notifications.length > 0 && (
+            <button
+              onClick={clearAll}
+              className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800"
+              title={t("notifications.clearAll")}
+              aria-label={t("notifications.clearAll")}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
@@ -111,7 +123,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
                 key={notif.id}
                 notification={notif}
                 onRead={() => markRead(notif.id)}
-                onDismiss={() => dismiss(notif.id)}
+                onDelete={() => deleteNotification(notif.id)}
               />
             ))}
           </div>
@@ -125,11 +137,11 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
 function NotificationRow({
   notification,
   onRead,
-  onDismiss,
+  onDelete,
 }: {
   notification: AppNotification;
   onRead: () => void;
-  onDismiss: () => void;
+  onDelete: () => void;
 }) {
   const { t } = useTranslation();
   const Icon = SEVERITY_ICON[notification.severity] || Info;
@@ -169,11 +181,11 @@ function NotificationRow({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onDismiss();
+          onDelete();
         }}
-        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-600 hover:text-zinc-400 transition-opacity"
-        title={t("notifications.dismiss")}
-        aria-label={t("notifications.dismiss")}
+        className="p-0.5 rounded text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0"
+        title={t("notifications.delete")}
+        aria-label={t("notifications.delete")}
       >
         <X className="w-3.5 h-3.5" />
       </button>

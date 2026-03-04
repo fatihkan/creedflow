@@ -121,6 +121,13 @@
 "assets.title" = "Varlıklar";
 "assets.searchPlaceholder" = "Varlık ara...";
 
+/* Notifications */
+"notifications.title" = "Bildirimler";
+"notifications.markAllRead" = "Tümünü Okundu İşaretle";
+"notifications.clearAll" = "Tümünü Temizle";
+"notifications.delete" = "Bildirimi sil";
+"notifications.empty" = "Bildirim yok";
+
 /* Common */
 "common.cancel" = "İptal";
 "common.save" = "Kaydet";

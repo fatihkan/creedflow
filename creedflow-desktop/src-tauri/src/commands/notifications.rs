@@ -51,6 +51,25 @@ pub async fn dismiss_notification(
 }
 
 #[tauri::command]
+pub async fn delete_notification(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    AppNotification::delete_one(&db.conn, &id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn clear_all_notifications(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    AppNotification::clear_all(&db.conn)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_backend_health_status(
     state: State<'_, AppState>,
 ) -> Result<Vec<HealthEvent>, String> {

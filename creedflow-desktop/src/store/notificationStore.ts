@@ -16,6 +16,8 @@ interface NotificationStore {
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   dismiss: (id: string) => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
   addToast: (notification: AppNotification) => void;
   addUndoToast: (label: string, undoFn: () => void) => void;
   removeToast: (id: string) => void;
@@ -64,6 +66,21 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       notifications: s.notifications.filter((n) => n.id !== id),
       toasts: s.toasts.filter((t) => t.id !== id),
     }));
+  },
+
+  deleteNotification: async (id) => {
+    await api.deleteNotification(id);
+    set((s) => ({
+      notifications: s.notifications.filter((n) => n.id !== id),
+      unreadCount: s.notifications.find((n) => n.id === id && !n.isRead)
+        ? Math.max(0, s.unreadCount - 1)
+        : s.unreadCount,
+    }));
+  },
+
+  clearAll: async () => {
+    await api.clearAllNotifications();
+    set({ notifications: [], unreadCount: 0 });
   },
 
   addToast: (notification) => {

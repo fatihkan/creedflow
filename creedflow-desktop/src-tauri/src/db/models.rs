@@ -1148,6 +1148,16 @@ impl AppNotification {
         Ok(())
     }
 
+    pub fn delete_one(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute("DELETE FROM appNotification WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn clear_all(conn: &Connection) -> rusqlite::Result<()> {
+        conn.execute_batch("DELETE FROM appNotification")?;
+        Ok(())
+    }
+
     pub fn prune_old(conn: &Connection, days: i32) -> rusqlite::Result<()> {
         conn.execute(
             "DELETE FROM appNotification WHERE createdAt < datetime('now', ?1)",

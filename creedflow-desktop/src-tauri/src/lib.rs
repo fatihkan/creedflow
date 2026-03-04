@@ -209,6 +209,8 @@ pub fn run() {
             commands::notifications::mark_notification_read,
             commands::notifications::mark_all_notifications_read,
             commands::notifications::dismiss_notification,
+            commands::notifications::delete_notification,
+            commands::notifications::clear_all_notifications,
             commands::notifications::get_backend_health_status,
             commands::notifications::get_mcp_health_status,
             // MCP

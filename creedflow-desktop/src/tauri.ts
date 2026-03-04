@@ -499,6 +499,12 @@ export const markAllNotificationsRead = () =>
 export const dismissNotification = (id: string) =>
   invoke<void>("dismiss_notification", { id });
 
+export const deleteNotification = (id: string) =>
+  invoke<void>("delete_notification", { id });
+
+export const clearAllNotifications = () =>
+  invoke<void>("clear_all_notifications");
+
 export const getBackendHealthStatus = () =>
   invoke<HealthEvent[]>("get_backend_health_status");
 
