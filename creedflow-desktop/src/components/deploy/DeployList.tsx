@@ -6,6 +6,8 @@ import { SkeletonRow } from "../shared/Skeleton";
 import * as api from "../../tauri";
 import type { DeploymentInfo } from "../../types/models";
 import { DeployDetailPanel } from "./DeployDetailPanel";
+import { FocusTrap } from "../shared/FocusTrap";
+import { useTranslation } from "react-i18next";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-zinc-600",
@@ -20,6 +22,7 @@ const ENVIRONMENTS = ["all", "development", "staging", "production"] as const;
 const STATUSES = ["all", "pending", "in_progress", "success", "failed", "rolled_back", "cancelled"] as const;
 
 export function DeployList() {
+  const { t } = useTranslation();
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId);
   const [deployments, setDeployments] = useState<DeploymentInfo[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -103,7 +106,7 @@ export function DeployList() {
   if (!selectedProjectId) {
     return (
       <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
-        Select a project to view deployments
+        {t("deploy.selectProject")}
       </div>
     );
   }
@@ -114,23 +117,23 @@ export function DeployList() {
       <div className="flex-1 flex flex-col">
         <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-200">Deployments</h2>
+            <h2 className="text-sm font-semibold text-zinc-200">{t("deploy.title")}</h2>
             <p className="text-xs text-zinc-500 mt-0.5">
-              {filtered.length} of {deployments.length} deployment{deployments.length !== 1 ? "s" : ""}
+              {deployments.length !== 1 ? t("deploy.count_plural", { filtered: filtered.length, total: deployments.length }) : t("deploy.count", { filtered: filtered.length, total: deployments.length })}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <SearchBar
               value={search}
               onChange={setSearch}
-              placeholder="Search deploys..."
+              placeholder={t("deploy.searchPlaceholder")}
             />
             <button
               onClick={() => setShowNewDeploy(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-700 text-white rounded-md transition-colors"
             >
               <Plus className="w-3 h-3" />
-              New Deploy
+              {t("deploy.newDeploy")}
             </button>
             {selectionMode && selectedIds.size > 0 && (
               <button
@@ -138,7 +141,7 @@ export function DeployList() {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600/20 text-red-400 rounded-md hover:bg-red-600/30"
               >
                 <Trash2 className="w-3 h-3" />
-                Delete ({selectedIds.size})
+                {t("deploy.delete", { count: selectedIds.size })}
               </button>
             )}
             <button
@@ -152,7 +155,7 @@ export function DeployList() {
                   : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
               }`}
             >
-              {selectionMode ? "Cancel" : "Select"}
+              {selectionMode ? t("deploy.cancel") : t("deploy.select")}
             </button>
           </div>
         </div>
@@ -203,7 +206,7 @@ export function DeployList() {
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500">
               <Rocket className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">No deployments found</p>
+              <p className="text-sm">{t("deploy.noDeployments")}</p>
             </div>
           ) : (
             <div className="p-4 space-y-2">
@@ -278,23 +281,24 @@ export function DeployList() {
 
       {/* New deployment dialog */}
       {showNewDeploy && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="new-deploy-title">
+          <FocusTrap>
           <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-5 w-[380px] space-y-4">
-            <h3 className="text-sm font-semibold text-zinc-200">New Deployment</h3>
+            <h3 id="new-deploy-title" className="text-sm font-semibold text-zinc-200">{t("deploy.newDeployDialog.title")}</h3>
             <div>
-              <label className="text-xs text-zinc-400 block mb-1">Environment</label>
+              <label className="text-xs text-zinc-400 block mb-1">{t("deploy.newDeployDialog.environment")}</label>
               <select
                 value={newEnv}
                 onChange={(e) => setNewEnv(e.target.value)}
                 className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
               >
-                <option value="development">Development</option>
-                <option value="staging">Staging</option>
-                <option value="production">Production</option>
+                <option value="development">{t("deploy.environments.development")}</option>
+                <option value="staging">{t("deploy.environments.staging")}</option>
+                <option value="production">{t("deploy.environments.production")}</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-zinc-400 block mb-1">Version</label>
+              <label className="text-xs text-zinc-400 block mb-1">{t("deploy.newDeployDialog.version")}</label>
               <input
                 type="text"
                 value={newVersion}
@@ -303,15 +307,15 @@ export function DeployList() {
               />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 block mb-1">Deploy Method</label>
+              <label className="text-xs text-zinc-400 block mb-1">{t("deploy.newDeployDialog.deployMethod")}</label>
               <select
                 value={newMethod}
                 onChange={(e) => setNewMethod(e.target.value)}
                 className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
               >
-                <option value="docker">Docker</option>
-                <option value="docker_compose">Docker Compose</option>
-                <option value="direct">Direct Process</option>
+                <option value="docker">{t("deploy.methods.docker")}</option>
+                <option value="docker_compose">{t("deploy.methods.docker_compose")}</option>
+                <option value="direct">{t("deploy.methods.direct")}</option>
               </select>
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -319,17 +323,18 @@ export function DeployList() {
                 onClick={() => setShowNewDeploy(false)}
                 className="px-4 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
               >
-                Cancel
+                {t("deploy.newDeployDialog.cancel")}
               </button>
               <button
                 onClick={handleNewDeploy}
                 disabled={deploying}
                 className="px-4 py-1.5 text-xs bg-brand-600 text-white rounded-md hover:bg-brand-700 disabled:opacity-50"
               >
-                {deploying ? "Deploying..." : "Deploy"}
+                {deploying ? t("deploy.newDeployDialog.deploying") : t("deploy.newDeployDialog.deploy")}
               </button>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>

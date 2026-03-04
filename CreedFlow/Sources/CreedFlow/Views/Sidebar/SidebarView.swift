@@ -20,28 +20,25 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             List(selection: $selectedSection) {
-                Section("Workspace") {
-                    Label("Projects", systemImage: "folder.fill")
+                Section(L("sidebar.workspace")) {
+                    Label(L("sidebar.projects"), systemImage: "folder.fill")
                         .tag(SidebarSection.projects)
 
                     Label {
-                        Text("Tasks")
+                        Text(L("sidebar.tasks"))
                     } icon: {
                         Image(systemName: "checklist")
                     }
                     .badge(activeTaskCount > 0 ? activeTaskCount : 0)
                     .tag(SidebarSection.tasks)
 
-                    // Label("Automations", systemImage: "gearshape.2")
-                    //     .tag(SidebarSection.automationFlows)
-
-                    Label("Archive", systemImage: "archivebox")
+                    Label(L("sidebar.archive"), systemImage: "archivebox")
                         .badge(archivedTaskCount > 0 ? archivedTaskCount : 0)
                         .tag(SidebarSection.archive)
                 }
 
                 if !projects.isEmpty {
-                    Section("Recent") {
+                    Section(L("sidebar.recent")) {
                         ForEach(projects.prefix(5)) { project in
                             Label {
                                 Text(project.name)
@@ -66,12 +63,12 @@ struct SidebarView: View {
                     }
                 }
 
-                Section("Pipeline") {
-                    Label("Git History", systemImage: "arrow.triangle.branch")
+                Section(L("sidebar.pipeline")) {
+                    Label(L("sidebar.gitHistory"), systemImage: "arrow.triangle.branch")
                         .tag(SidebarSection.gitGraph)
 
                     Label {
-                        Text("Deployments")
+                        Text(L("sidebar.deployments"))
                     } icon: {
                         Image(systemName: "arrow.up.circle")
                     }
@@ -79,10 +76,10 @@ struct SidebarView: View {
                     .tag(SidebarSection.deploys)
                 }
 
-                Section("Monitor") {
+                Section(L("sidebar.monitor")) {
                     Label {
                         HStack {
-                            Text("Agents")
+                            Text(L("sidebar.agents"))
                             Spacer()
                             if let orchestrator, orchestrator.isRunning {
                                 HStack(spacing: 4) {
@@ -102,18 +99,18 @@ struct SidebarView: View {
                     }
                     .tag(SidebarSection.agents)
 
-                    Label("Compare", systemImage: "arrow.triangle.branch")
+                    Label(L("sidebar.compare"), systemImage: "arrow.triangle.branch")
                         .tag(SidebarSection.compareBackends)
                 }
 
                 // Usage section hidden — revisit with correct API approach
                 // Section("Usage") { ... }
 
-                Section("Library") {
-                    Label("Prompts", systemImage: "text.book.closed")
+                Section(L("sidebar.library")) {
+                    Label(L("sidebar.prompts"), systemImage: "text.book.closed")
                         .tag(SidebarSection.prompts)
 
-                    Label("Assets", systemImage: "photo.on.rectangle.angled")
+                    Label(L("sidebar.assets"), systemImage: "photo.on.rectangle.angled")
                         .tag(SidebarSection.assets)
                 }
             }
@@ -280,7 +277,7 @@ struct SidebarView: View {
                     .foregroundStyle(isRunning ? Color.forgeDanger : Color.forgeSuccess)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(isRunning ? "Running" : "Start Orchestrator")
+                    Text(isRunning ? L("sidebar.running") : L("sidebar.startOrchestrator"))
                         .font(.system(size: 12, weight: .medium))
                     if isRunning, let orchestrator, orchestrator.activeRunners.count > 0 {
                         Text("\(orchestrator.activeRunners.count) active tasks")

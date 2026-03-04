@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "CreedFlow",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -25,6 +26,8 @@ let package = Package(
             path: "Sources/CreedFlow",
             resources: [
                 .copy("Resources/AppIcon-preview.png"),
+                .process("Resources/en.lproj"),
+                .process("Resources/tr.lproj"),
             ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

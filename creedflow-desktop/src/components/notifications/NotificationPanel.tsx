@@ -10,6 +10,8 @@ import {
   Bell,
 } from "lucide-react";
 import type { AppNotification, NotificationSeverity, NotificationCategory } from "../../types/models";
+import { FocusTrap } from "../shared/FocusTrap";
+import { useTranslation } from "react-i18next";
 
 const SEVERITY_ICON: Record<NotificationSeverity, typeof Info> = {
   success: CheckCircle,
@@ -48,6 +50,7 @@ interface NotificationPanelProps {
 }
 
 export function NotificationPanel({ onClose }: NotificationPanelProps) {
+  const { t } = useTranslation();
   const notifications = useNotificationStore((s) => s.notifications);
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
   const markRead = useNotificationStore((s) => s.markRead);
@@ -60,12 +63,13 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   }, [fetchNotifications]);
 
   return (
+    <FocusTrap>
     <div className="w-[360px] max-h-[480px] bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-label="Notifications">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-zinc-800">
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-zinc-400" />
-          <h3 className="text-sm font-semibold text-zinc-200">Notifications</h3>
+          <h3 className="text-sm font-semibold text-zinc-200">{t("notifications.title")}</h3>
           {unreadCount > 0 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-600/20 text-brand-400">
               {unreadCount}
@@ -77,8 +81,8 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
             <button
               onClick={markAllRead}
               className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-              title="Mark all read"
-              aria-label="Mark all notifications as read"
+              title={t("notifications.markAllRead")}
+              aria-label={t("notifications.markAllRead")}
             >
               <CheckCheck className="w-4 h-4" />
             </button>
@@ -86,7 +90,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           <button
             onClick={onClose}
             className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-            aria-label="Close notifications"
+            aria-label={t("notifications.close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -98,7 +102,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-zinc-600">
             <Bell className="w-6 h-6 mb-2" />
-            <p className="text-xs">No notifications yet</p>
+            <p className="text-xs">{t("notifications.empty")}</p>
           </div>
         ) : (
           <div className="divide-y divide-zinc-800/50">
@@ -114,6 +118,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
         )}
       </div>
     </div>
+    </FocusTrap>
   );
 }
 
@@ -126,6 +131,7 @@ function NotificationRow({
   onRead: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation();
   const Icon = SEVERITY_ICON[notification.severity] || Info;
   const iconColor = SEVERITY_COLOR[notification.severity] || "text-zinc-400";
   const catLabel = CATEGORY_LABEL[notification.category] || notification.category;
@@ -166,8 +172,8 @@ function NotificationRow({
           onDismiss();
         }}
         className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-600 hover:text-zinc-400 transition-opacity"
-        title="Dismiss"
-        aria-label="Dismiss notification"
+        title={t("notifications.dismiss")}
+        aria-label={t("notifications.dismiss")}
       >
         <X className="w-3.5 h-3.5" />
       </button>

@@ -4,6 +4,7 @@ import { GitCommitRow, type LaneData } from "./GitCommitRow";
 import { GitCommitDetail } from "./GitCommitDetail";
 import { SearchBar } from "../shared/SearchBar";
 import { RefreshCw, GitBranch, Filter } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const LANE_COLORS = [
   "#6366f1", "#22c55e", "#3b82f6", "#f59e0b",
@@ -15,6 +16,7 @@ interface GitGraphViewProps {
 }
 
 export function GitGraphView({ projectId }: GitGraphViewProps) {
+  const { t } = useTranslation();
   const [commits, setCommits] = useState<GitLogEntry[]>([]);
   const [currentBranch, setCurrentBranch] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -163,7 +165,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
           <div className="flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-zinc-400" />
-            <h2 className="text-sm font-medium text-zinc-200">Git History</h2>
+            <h2 className="text-sm font-medium text-zinc-200">{t("git.title")}</h2>
             {currentBranch && (
               <span className="text-xs bg-brand-600/20 text-brand-400 px-2 py-0.5 rounded">
                 {currentBranch}
@@ -174,7 +176,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
             <SearchBar
               value={search}
               onChange={setSearch}
-              placeholder="Search commits..."
+              placeholder={t("git.searchPlaceholder")}
             />
 
             {/* Branch filter */}
@@ -186,7 +188,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
                   onChange={(e) => setBranchFilter(e.target.value)}
                   className="text-xs bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1"
                 >
-                  <option value="all">All branches</option>
+                  <option value="all">{t("git.allBranches")}</option>
                   {branches.map((b) => (
                     <option key={b} value={b}>{b}</option>
                   ))}
@@ -199,16 +201,16 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
               onChange={(e) => setCount(Number(e.target.value))}
               className="text-xs bg-zinc-800 text-zinc-300 border border-zinc-700 rounded px-2 py-1"
             >
-              <option value={25}>25 commits</option>
-              <option value={50}>50 commits</option>
-              <option value={100}>100 commits</option>
-              <option value={200}>200 commits</option>
+              <option value={25}>{t("git.commits", { count: 25 })}</option>
+              <option value={50}>{t("git.commits", { count: 50 })}</option>
+              <option value={100}>{t("git.commits", { count: 100 })}</option>
+              <option value={200}>{t("git.commits", { count: 200 })}</option>
             </select>
             <button
               onClick={fetchData}
               disabled={loading}
               className="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-50"
-              aria-label="Refresh git history"
+              aria-label={t("git.refresh")}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </button>
@@ -222,7 +224,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
           </div>
         ) : filteredCommits.length === 0 && !loading ? (
           <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
-            {search ? "No commits matching search" : "No commits found"}
+            {search ? t("git.noCommitsSearch") : t("git.noCommits")}
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
@@ -230,11 +232,11 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
               <thead className="sticky top-0 bg-zinc-900/95 backdrop-blur">
                 <tr className="border-b border-zinc-800 text-zinc-500 text-left">
                   <th className="px-0 py-2 font-medium w-[60px]"></th>
-                  <th className="px-4 py-2 font-medium w-[72px]">Hash</th>
-                  <th className="px-4 py-2 font-medium">Message</th>
-                  <th className="px-4 py-2 font-medium w-[140px]">Branches</th>
-                  <th className="px-4 py-2 font-medium w-[120px]">Author</th>
-                  <th className="px-4 py-2 font-medium w-[140px]">Date</th>
+                  <th className="px-4 py-2 font-medium w-[72px]">{t("git.hash")}</th>
+                  <th className="px-4 py-2 font-medium">{t("git.message")}</th>
+                  <th className="px-4 py-2 font-medium w-[140px]">{t("git.branches")}</th>
+                  <th className="px-4 py-2 font-medium w-[120px]">{t("git.author")}</th>
+                  <th className="px-4 py-2 font-medium w-[140px]">{t("git.date")}</th>
                 </tr>
               </thead>
               <tbody>

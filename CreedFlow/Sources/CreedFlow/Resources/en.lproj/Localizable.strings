@@ -1,0 +1,132 @@
+/* Sidebar */
+"sidebar.workspace" = "Workspace";
+"sidebar.projects" = "Projects";
+"sidebar.tasks" = "Tasks";
+"sidebar.archive" = "Archive";
+"sidebar.recent" = "Recent";
+"sidebar.pipeline" = "Pipeline";
+"sidebar.gitHistory" = "Git History";
+"sidebar.deployments" = "Deployments";
+"sidebar.publishing" = "Publishing";
+"sidebar.monitor" = "Monitor";
+"sidebar.agents" = "Agents";
+"sidebar.reviews" = "Reviews";
+"sidebar.compare" = "Compare";
+"sidebar.library" = "Library";
+"sidebar.prompts" = "Prompts";
+"sidebar.assets" = "Assets";
+"sidebar.settings" = "Settings";
+"sidebar.running" = "Running";
+"sidebar.startOrchestrator" = "Start Orchestrator";
+
+/* Projects */
+"projects.title" = "Projects";
+"projects.newProject" = "New Project";
+"projects.searchPlaceholder" = "Search projects...";
+"projects.empty" = "No projects yet. Create one to get started.";
+
+/* New Project */
+"newProject.title" = "New Project";
+"newProject.name" = "Name";
+"newProject.namePlaceholder" = "My Awesome Project";
+"newProject.description" = "Description";
+"newProject.descriptionPlaceholder" = "Describe what this project should do...";
+"newProject.techStack" = "Tech Stack";
+"newProject.techStackPlaceholder" = "React, Node.js, PostgreSQL";
+"newProject.projectType" = "Project Type";
+"newProject.cancel" = "Cancel";
+"newProject.create" = "Create Project";
+
+/* Tasks */
+"tasks.title" = "Task Board";
+"tasks.searchPlaceholder" = "Search tasks...";
+"tasks.queued" = "Queued";
+"tasks.inProgress" = "In Progress";
+"tasks.passed" = "Passed";
+"tasks.failed" = "Failed";
+"tasks.needsRevision" = "Needs Revision";
+"tasks.cancelled" = "Cancelled";
+
+/* Agents */
+"agents.title" = "Agents";
+"agents.searchPlaceholder" = "Search agents...";
+
+/* Deploy */
+"deploy.title" = "Deployments";
+"deploy.newDeploy" = "New Deploy";
+"deploy.environment" = "Environment";
+"deploy.version" = "Version";
+"deploy.method" = "Deploy Method";
+"deploy.cancel" = "Cancel";
+"deploy.deploy" = "Deploy";
+
+/* Settings */
+"settings.title" = "Settings";
+"settings.general" = "General";
+"settings.aiClis" = "AI CLIs";
+"settings.git" = "Git & Tools";
+"settings.telegram" = "Telegram";
+"settings.database" = "Database";
+"settings.mcp" = "MCP";
+"settings.appearance" = "Appearance";
+"settings.theme" = "Theme";
+"settings.system" = "System";
+"settings.light" = "Light";
+"settings.dark" = "Dark";
+"settings.language" = "Language";
+"settings.textSize" = "Text Size";
+"settings.small" = "Small";
+"settings.normal" = "Normal";
+"settings.large" = "Large";
+"settings.xl" = "X-Large";
+"settings.concurrency" = "Concurrency";
+"settings.projectsDir" = "Projects Directory";
+"settings.baseDirectory" = "Base directory";
+"settings.maxParallel" = "Max Parallel Agents";
+"settings.codeEditor" = "Code Editor";
+"settings.preferredEditor" = "Preferred Editor";
+"settings.webhookServer" = "Webhook Server";
+"settings.enableWebhook" = "Enable Webhook Server";
+"settings.setup" = "Setup";
+"settings.rerunSetup" = "Re-run Setup Wizard";
+
+/* Setup */
+"setup.welcomeTitle" = "Welcome to CreedFlow";
+"setup.welcomeDescription" = "AI-powered orchestration platform that autonomously manages your software projects. Let's set things up.";
+"setup.getStarted" = "Get Started";
+"setup.next" = "Next";
+"setup.back" = "Back";
+"setup.launch" = "Launch CreedFlow";
+"setup.allSet" = "All Set!";
+"setup.completeDescription" = "CreedFlow is ready to orchestrate your projects. Create your first project to get started.";
+
+/* Git */
+"git.title" = "Git History";
+"git.searchPlaceholder" = "Search commits...";
+
+/* Reviews */
+"reviews.title" = "Reviews";
+"reviews.searchPlaceholder" = "Search reviews...";
+"reviews.approve" = "Approve";
+"reviews.reject" = "Reject";
+
+/* Compare */
+"compare.title" = "Compare Backends";
+
+/* Prompts */
+"prompts.title" = "Prompts Library";
+"prompts.newPrompt" = "New Prompt";
+
+/* Assets */
+"assets.title" = "Assets";
+"assets.searchPlaceholder" = "Search assets...";
+
+/* Common */
+"common.cancel" = "Cancel";
+"common.save" = "Save";
+"common.delete" = "Delete";
+"common.edit" = "Edit";
+"common.close" = "Close";
+"common.loading" = "Loading...";
+"common.browse" = "Browse";
+"common.none" = "None";

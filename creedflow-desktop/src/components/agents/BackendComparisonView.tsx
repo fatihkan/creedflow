@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { Play, Loader2, Clock, AlertCircle } from "lucide-react";
+import { Play, Loader2, Clock, AlertCircle, Download } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
 import * as api from "../../tauri";
 import type { BackendInfo } from "../../types/models";
 import type { ComparisonResult } from "../../tauri";
+import { useTranslation } from "react-i18next";
 
 export function BackendComparisonView() {
+  const { t } = useTranslation();
   const [backends, setBackends] = useState<BackendInfo[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [prompt, setPrompt] = useState("");
@@ -42,6 +45,21 @@ export function BackendComparisonView() {
     }
   };
 
+  const handleExport = async () => {
+    if (results.length === 0) return;
+    try {
+      const path = await save({
+        defaultPath: "comparison-results.json",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (path) {
+        await api.exportComparison(results, path);
+      }
+    } catch (e) {
+      console.error("Export failed:", e);
+    }
+  };
+
   const BADGE_COLORS: Record<string, string> = {
     claude: "bg-purple-500/20 text-purple-400",
     codex: "bg-green-500/20 text-green-400",
@@ -57,20 +75,20 @@ export function BackendComparisonView() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-zinc-800">
-        <h2 className="text-sm font-semibold text-zinc-200">Compare Backends</h2>
+        <h2 className="text-sm font-semibold text-zinc-200">{t("compare.title")}</h2>
         <p className="text-[10px] text-zinc-500 mt-0.5">
-          Run the same prompt across multiple AI backends side-by-side
+          {t("compare.description")}
         </p>
       </div>
 
       <div className="p-4 space-y-4 border-b border-zinc-800">
         {/* Prompt */}
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">Prompt</label>
+          <label className="block text-xs text-zinc-400 mb-1">{t("compare.prompt")}</label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Enter a prompt to compare across backends..."
+            placeholder={t("compare.promptPlaceholder")}
             rows={3}
             className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300 placeholder:text-zinc-600 resize-none"
           />
@@ -78,7 +96,7 @@ export function BackendComparisonView() {
 
         {/* Backend selection */}
         <div>
-          <label className="block text-xs text-zinc-400 mb-2">Backends (select 2+)</label>
+          <label className="block text-xs text-zinc-400 mb-2">{t("compare.backends")}</label>
           <div className="flex flex-wrap gap-2">
             {backends.map((b) => (
               <button
@@ -96,24 +114,37 @@ export function BackendComparisonView() {
           </div>
         </div>
 
-        {/* Run button */}
-        <button
-          onClick={runComparison}
-          disabled={running || !prompt.trim() || selected.size < 2}
-          className="flex items-center gap-2 px-4 py-2 text-xs bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {running ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Running...
-            </>
-          ) : (
-            <>
-              <Play className="w-3.5 h-3.5" />
-              Run Comparison
-            </>
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={runComparison}
+            disabled={running || !prompt.trim() || selected.size < 2}
+            className="flex items-center gap-2 px-4 py-2 text-xs bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {running ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {t("compare.running")}
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5" />
+                {t("compare.run")}
+              </>
+            )}
+          </button>
+
+          {results.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 rounded hover:bg-zinc-700"
+              aria-label="Export comparison results as JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {t("compare.exportJson")}
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Results */}
@@ -161,7 +192,7 @@ export function BackendComparisonView() {
 
         {results.length === 0 && !running && (
           <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs h-full">
-            Enter a prompt and select backends to compare
+            {t("compare.emptyState", "Enter a prompt and select backends to compare")}
           </div>
         )}
       </div>

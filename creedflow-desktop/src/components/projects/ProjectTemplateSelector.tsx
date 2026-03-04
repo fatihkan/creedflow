@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import * as api from "../../tauri";
 import type { ProjectTemplate } from "../../types/models";
+import { useTranslation } from "react-i18next";
 
 interface ProjectTemplateSelectorProps {
   onCreated: (projectId: string) => void;
@@ -18,6 +19,7 @@ const templateIcons: Record<string, string> = {
 };
 
 export function ProjectTemplateSelector({ onCreated, onCancel }: ProjectTemplateSelectorProps) {
+  const { t } = useTranslation();
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [selected, setSelected] = useState<ProjectTemplate | null>(null);
   const [name, setName] = useState("");
@@ -51,7 +53,7 @@ export function ProjectTemplateSelector({ onCreated, onCancel }: ProjectTemplate
           className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200"
         >
           <ArrowLeft className="w-3 h-3" />
-          Back to Templates
+          {t("templates.backToTemplates")}
         </button>
 
         <div className="flex items-center gap-3">
@@ -64,7 +66,7 @@ export function ProjectTemplateSelector({ onCreated, onCancel }: ProjectTemplate
 
         <input
           type="text"
-          placeholder="Project name..."
+          placeholder={t("templates.projectName")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-brand-500"
@@ -72,8 +74,8 @@ export function ProjectTemplateSelector({ onCreated, onCancel }: ProjectTemplate
         />
 
         <p className="text-xs text-zinc-500">
-          Creates {selected.features.length} features with {totalTasks} tasks.
-          Tech: <span className="font-mono text-zinc-400">{selected.techStack}</span>
+          {t("templates.createInfo", { features: selected.features.length, tasks: totalTasks })}
+          {" "}{t("templates.tech")} <span className="font-mono text-zinc-400">{selected.techStack}</span>
         </p>
 
         {error && (
@@ -85,7 +87,7 @@ export function ProjectTemplateSelector({ onCreated, onCancel }: ProjectTemplate
             onClick={onCancel}
             className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
           >
-            Cancel
+            {t("templates.cancel")}
           </button>
           <button
             onClick={handleCreate}
@@ -93,7 +95,7 @@ export function ProjectTemplateSelector({ onCreated, onCancel }: ProjectTemplate
             className="px-3 py-1.5 text-xs bg-brand-600 text-white rounded-md hover:bg-brand-500 disabled:opacity-50 flex items-center gap-1.5"
           >
             {creating && <Loader2 className="w-3 h-3 animate-spin" />}
-            Create Project
+            {t("templates.createProject")}
           </button>
         </div>
       </div>
@@ -103,9 +105,9 @@ export function ProjectTemplateSelector({ onCreated, onCancel }: ProjectTemplate
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-200">New from Template</h3>
+        <h3 className="text-sm font-semibold text-zinc-200">{t("templates.title")}</h3>
         <button onClick={onCancel} className="text-xs text-zinc-500 hover:text-zinc-300">
-          Cancel
+          {t("templates.cancel")}
         </button>
       </div>
       <div className="grid grid-cols-2 gap-2">

@@ -6,6 +6,7 @@ import { PromptVersionHistory } from "./PromptVersionHistory";
 import { Plus, Search, Star, BookOpen } from "lucide-react";
 import { PromptChainList } from "./PromptChainList";
 import { PromptEffectivenessDashboard } from "./PromptEffectivenessDashboard";
+import { useTranslation } from "react-i18next";
 
 const CATEGORIES = [
   "All",
@@ -22,6 +23,7 @@ const CATEGORIES = [
 export function PromptsLibrary() {
   const { prompts, loading, filter, fetchPrompts, setFilter, filteredPrompts, deletePrompt, toggleFavorite } =
     usePromptStore();
+  const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
   const [tab, setTab] = useState<"library" | "chains" | "effectiveness">("library");
   const [historyPrompt, setHistoryPrompt] = useState<{ id: string; title: string } | null>(null);
@@ -38,7 +40,7 @@ export function PromptsLibrary() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
         <div className="flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-zinc-400" />
-          <h2 className="text-sm font-medium text-zinc-200">Prompts Library</h2>
+          <h2 className="text-sm font-medium text-zinc-200">{t("prompts.title")}</h2>
           <span className="text-xs text-zinc-500">({prompts.length})</span>
         </div>
         <button
@@ -46,7 +48,7 @@ export function PromptsLibrary() {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
-          New Prompt
+          {t("prompts.newPrompt")}
         </button>
       </div>
 
@@ -78,7 +80,7 @@ export function PromptsLibrary() {
                 type="text"
                 value={filter.search}
                 onChange={(e) => setFilter({ search: e.target.value })}
-                placeholder="Search prompts..."
+                placeholder={t("prompts.searchPlaceholder")}
                 className="w-full pl-7 pr-3 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-brand-500"
               />
             </div>
@@ -111,7 +113,9 @@ export function PromptsLibrary() {
                   ? "bg-amber-900/30 text-amber-400"
                   : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"
               }`}
-              title="Show favorites only"
+              title={t("prompts.showFavorites")}
+              aria-label={filter.favoritesOnly ? "Show all prompts" : "Show favorites only"}
+              aria-pressed={filter.favoritesOnly}
             >
               <Star className="w-3.5 h-3.5" />
             </button>
@@ -121,16 +125,16 @@ export function PromptsLibrary() {
           <div className="flex-1 overflow-y-auto p-4">
             {loading ? (
               <div className="flex items-center justify-center h-32 text-zinc-500 text-sm">
-                Loading...
+                {t("prompts.loading")}
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-zinc-500 text-sm">
-                <p>No prompts found</p>
+                <p>{t("prompts.noPrompts")}</p>
                 <button
                   onClick={() => setShowCreate(true)}
                   className="mt-2 text-xs text-brand-400 hover:underline"
                 >
-                  Create your first prompt
+                  {t("prompts.createFirst")}
                 </button>
               </div>
             ) : (

@@ -9,7 +9,9 @@ import {
   Download,
   Loader2,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useSettingsStore } from "../../store/settingsStore";
 import { BackendSettings } from "./BackendSettings";
 import { AgentPreferences } from "./AgentPreferences";
@@ -20,6 +22,7 @@ import * as api from "../../tauri";
 import { useFontStore } from "../../store/fontStore";
 import type { DependencyStatus, DetectedEditor } from "../../types/models";
 import type { GitConfig } from "../../tauri";
+import { useTranslation } from "react-i18next";
 
 type Tab = "general" | "backends" | "git" | "telegram" | "database" | "mcp";
 
@@ -85,6 +88,13 @@ function GeneralTab() {
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
   const fontSize = useFontStore((s) => s.size);
   const setFontSize = useFontStore((s) => s.setSize);
+  const { t, i18n } = useTranslation();
+
+  const handleLanguageChange = (lng: string) => {
+    i18n.changeLanguage(lng);
+    localStorage.setItem("creedflow-language", lng);
+    updateSettings({ ...settings!, language: lng });
+  };
 
   useEffect(() => {
     api.detectEditors().then(setEditors).catch(console.error);
@@ -109,7 +119,7 @@ function GeneralTab() {
       <div>
         <label className="block text-xs text-zinc-400 mb-2">Text Size</label>
         <div className="flex gap-1">
-          {(["normal", "large", "xl"] as const).map((s) => (
+          {(["small", "normal", "large"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setFontSize(s)}
@@ -119,10 +129,22 @@ function GeneralTab() {
                   : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
               }`}
             >
-              {s === "normal" ? "Normal" : s === "large" ? "Large" : "X-Large"}
+              {s === "small" ? "Small" : s === "normal" ? "Normal" : "Large"}
             </button>
           ))}
         </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-zinc-400 mb-2">{t("settings.general.language")}</label>
+        <select
+          value={i18n.language}
+          onChange={(e) => handleLanguageChange(e.target.value)}
+          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300"
+        >
+          <option value="en">English</option>
+          <option value="tr">Türkçe</option>
+        </select>
       </div>
 
       <div>
@@ -215,8 +237,23 @@ function GeneralTab() {
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300 placeholder:text-zinc-600"
                 />
               </div>
+              <div>
+                <label className="block text-[10px] text-zinc-500 mb-1">GitHub Webhook Secret (optional)</label>
+                <input
+                  type="password"
+                  value={settings.webhookGithubSecret ?? ""}
+                  onChange={(e) =>
+                    updateSettings({
+                      ...settings,
+                      webhookGithubSecret: e.target.value || null,
+                    })
+                  }
+                  placeholder="Used for X-Hub-Signature-256 validation"
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300 placeholder:text-zinc-600"
+                />
+              </div>
               <p className="text-[10px] text-zinc-600">
-                POST /api/tasks to create tasks via webhook. Requires app restart to take effect.
+                POST /api/tasks to create tasks via webhook. POST /api/webhooks/github for GitHub events. Requires app restart to take effect.
               </p>
             </>
           )}
@@ -465,6 +502,7 @@ function DatabaseTab() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     api.getDbInfo()
@@ -567,9 +605,82 @@ function DatabaseTab() {
           >
             Prune Logs (&gt; 30 days)
           </button>
+          <button
+            onClick={async () => {
+              try {
+                const path = await save({
+                  defaultPath: "creedflow-export.json",
+                  filters: [{ name: "JSON", extensions: ["json"] }],
+                });
+                if (path) {
+                  setWorking(true);
+                  await api.exportDatabaseJson(path);
+                  setResult("Database exported to JSON");
+                  setWorking(false);
+                }
+              } catch (e) {
+                setResult(`Export error: ${e}`);
+                setWorking(false);
+              }
+            }}
+            disabled={working}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-50"
+          >
+            <Download className="w-3 h-3" />
+            Export JSON
+          </button>
         </div>
         {result && (
           <p className="text-[10px] text-zinc-500 mt-2">{result}</p>
+        )}
+      </section>
+
+      <section>
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+          Danger Zone
+        </h3>
+        {!confirmReset ? (
+          <button
+            onClick={() => setConfirmReset(true)}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-red-900/30 border border-red-800/50 text-red-400 rounded hover:bg-red-900/50"
+          >
+            <AlertTriangle className="w-3 h-3" />
+            Factory Reset
+          </button>
+        ) : (
+          <div className="p-3 bg-red-950/50 border border-red-800/50 rounded-lg space-y-2">
+            <p className="text-xs text-red-300 font-medium">
+              This will permanently delete all projects, tasks, reviews, and data. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  setWorking(true);
+                  try {
+                    await api.factoryResetDatabase();
+                    setResult("Factory reset complete. All data cleared.");
+                    const info = await api.getDbInfo();
+                    setDbInfo(info);
+                  } catch (e) {
+                    setResult(`Reset error: ${e}`);
+                  } finally {
+                    setWorking(false);
+                    setConfirmReset(false);
+                  }
+                }}
+                disabled={working}
+                className="px-4 py-1.5 text-xs bg-red-700 text-white rounded hover:bg-red-600 disabled:opacity-50"
+              >
+                {working ? "Resetting..." : "Confirm Reset"}
+              </button>
+              <button
+                onClick={() => setConfirmReset(false)}
+                className="px-4 py-1.5 text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 rounded hover:bg-zinc-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
       </section>
     </div>

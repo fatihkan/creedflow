@@ -104,6 +104,7 @@ struct TaskBoardView: View {
                         }
                         .buttonStyle(.plain)
                         .help(showChatPanel ? "Close AI Chat" : "Open AI Chat")
+                        .accessibilityLabel(showChatPanel ? "Close AI Chat" : "Open AI Chat")
                     }
 
                     HStack(spacing: 4) {
@@ -574,6 +575,7 @@ struct KanbanColumnView: View {
                                             .font(.system(size: 16))
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityLabel(archiveSelection.contains(task.id) ? "Deselect task for archive" : "Select task for archive")
                                 }
 
                                 TaskCardView(

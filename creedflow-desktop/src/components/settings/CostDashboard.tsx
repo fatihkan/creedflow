@@ -4,10 +4,12 @@ import * as api from "../../tauri";
 import type { CostBreakdown } from "../../tauri";
 import type { TaskStatistics } from "../../types/models";
 import { DollarSign, Cpu, Server, Calendar, BarChart3, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type Tab = "overview" | "agents" | "backends" | "timeline" | "tasks" | "performance";
 
 export function CostDashboard() {
+  const { t } = useTranslation();
   const { summary, fetchSummary } = useCostStore();
   const [tab, setTab] = useState<Tab>("overview");
   const [byAgent, setByAgent] = useState<CostBreakdown[]>([]);
@@ -26,27 +28,27 @@ export function CostDashboard() {
   return (
     <div className="flex-1 flex flex-col">
       <div className="px-4 py-3 border-b border-zinc-800">
-        <h2 className="text-sm font-semibold text-zinc-200">Cost Dashboard</h2>
+        <h2 className="text-sm font-semibold text-zinc-200">{t("costs.title")}</h2>
       </div>
 
       {/* KPI cards */}
       <div className="p-4">
         <div className="grid grid-cols-3 gap-4">
-          <KpiCard label="Total Cost" value={`$${summary?.totalCost.toFixed(2) ?? "0.00"}`} />
-          <KpiCard label="Tasks Tracked" value={String(summary?.totalTasks ?? 0)} />
-          <KpiCard label="Total Tokens" value={summary?.totalTokens?.toLocaleString() ?? "0"} />
+          <KpiCard label={t("costs.totalCost")} value={`$${summary?.totalCost.toFixed(2) ?? "0.00"}`} />
+          <KpiCard label={t("costs.tasksTracked")} value={String(summary?.totalTasks ?? 0)} />
+          <KpiCard label={t("costs.totalTokens")} value={summary?.totalTokens?.toLocaleString() ?? "0"} />
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex border-b border-zinc-800 px-4 overflow-x-auto">
         {([
-          { id: "overview" as Tab, label: "Overview", icon: DollarSign },
-          { id: "agents" as Tab, label: "By Agent", icon: Cpu },
-          { id: "backends" as Tab, label: "By Backend", icon: Server },
-          { id: "timeline" as Tab, label: "Timeline", icon: Calendar },
-          { id: "tasks" as Tab, label: "Tasks", icon: BarChart3 },
-          { id: "performance" as Tab, label: "Performance", icon: Zap },
+          { id: "overview" as Tab, label: t("costs.tabs.overview"), icon: DollarSign },
+          { id: "agents" as Tab, label: t("costs.tabs.byAgent"), icon: Cpu },
+          { id: "backends" as Tab, label: t("costs.tabs.byBackend"), icon: Server },
+          { id: "timeline" as Tab, label: t("costs.tabs.timeline"), icon: Calendar },
+          { id: "tasks" as Tab, label: t("costs.tabs.tasks"), icon: BarChart3 },
+          { id: "performance" as Tab, label: t("costs.tabs.performance"), icon: Zap },
         ]).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -67,19 +69,19 @@ export function CostDashboard() {
       <div className="flex-1 overflow-y-auto p-4">
         {tab === "overview" && (
           <div className="grid grid-cols-2 gap-4">
-            <BreakdownTable title="Top Agents" data={byAgent.slice(0, 5)} />
-            <BreakdownTable title="Top Backends" data={byBackend.slice(0, 5)} />
+            <BreakdownTable title={t("costs.topAgents")} data={byAgent.slice(0, 5)} />
+            <BreakdownTable title={t("costs.topBackends")} data={byBackend.slice(0, 5)} />
           </div>
         )}
 
-        {tab === "agents" && <BreakdownTable title="Cost by Agent" data={byAgent} />}
-        {tab === "backends" && <BreakdownTable title="Cost by Backend" data={byBackend} />}
+        {tab === "agents" && <BreakdownTable title={t("costs.costByAgent")} data={byAgent} />}
+        {tab === "backends" && <BreakdownTable title={t("costs.costByBackend")} data={byBackend} />}
 
         {tab === "timeline" && (
           <div className="space-y-3">
-            <h3 className="text-xs font-medium text-zinc-400">Last 30 Days</h3>
+            <h3 className="text-xs font-medium text-zinc-400">{t("costs.last30Days")}</h3>
             {timeline.length === 0 ? (
-              <p className="text-xs text-zinc-500">No cost data in the last 30 days</p>
+              <p className="text-xs text-zinc-500">{t("costs.noCostData")}</p>
             ) : (
               <div className="space-y-1">
                 <div className="flex items-end gap-1 h-32">
@@ -126,12 +128,12 @@ export function CostDashboard() {
 
         {tab === "tasks" && taskStats && <TasksTab stats={taskStats} />}
         {tab === "tasks" && !taskStats && (
-          <p className="text-xs text-zinc-500">Loading task statistics...</p>
+          <p className="text-xs text-zinc-500">{t("costs.loadingStats")}</p>
         )}
 
         {tab === "performance" && taskStats && <PerformanceTab stats={taskStats} />}
         {tab === "performance" && !taskStats && (
-          <p className="text-xs text-zinc-500">Loading performance data...</p>
+          <p className="text-xs text-zinc-500">{t("costs.loadingPerformance")}</p>
         )}
       </div>
     </div>

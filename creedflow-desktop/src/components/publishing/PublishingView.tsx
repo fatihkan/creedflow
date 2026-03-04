@@ -12,6 +12,8 @@ import {
 import type { PublishingChannel, Publication } from "../../types/models";
 import * as api from "../../tauri";
 import { useErrorToast } from "../../hooks/useErrorToast";
+import { FocusTrap } from "../shared/FocusTrap";
+import { useTranslation } from "react-i18next";
 
 type ChannelType = "medium" | "wordpress" | "twitter" | "linkedin" | "devTo";
 
@@ -43,6 +45,7 @@ function getTypeInfo(type: string) {
 }
 
 export function PublishingView() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<"channels" | "publications">("channels");
   const [channels, setChannels] = useState<PublishingChannel[]>([]);
   const [publications, setPublications] = useState<Publication[]>([]);
@@ -113,7 +116,7 @@ export function PublishingView() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
         <div className="flex items-center gap-2">
           <Radio className="w-4 h-4 text-zinc-400" />
-          <h2 className="text-sm font-medium text-zinc-200">Publishing</h2>
+          <h2 className="text-sm font-medium text-zinc-200">{t("publishing.title")}</h2>
         </div>
         {tab === "channels" && (
           <button
@@ -124,7 +127,7 @@ export function PublishingView() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Channel
+            {t("publishing.addChannel")}
           </button>
         )}
       </div>
@@ -155,9 +158,9 @@ export function PublishingView() {
           {channels.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-zinc-500">
               <Radio className="w-8 h-8 mb-2 opacity-40" />
-              <p className="text-sm">No publishing channels configured</p>
+              <p className="text-sm">{t("publishing.noChannels")}</p>
               <p className="text-xs mt-1 text-zinc-600">
-                Add a channel to publish content to external platforms
+                {t("publishing.noChannelsDescription")}
               </p>
             </div>
           ) : (
@@ -183,6 +186,7 @@ export function PublishingView() {
                     onClick={() => handleToggle(channel)}
                     className="text-zinc-400 hover:text-zinc-200 transition-colors"
                     title={channel.isEnabled ? "Disable" : "Enable"}
+                    aria-label={channel.isEnabled ? `Disable ${channel.name}` : `Enable ${channel.name}`}
                   >
                     {channel.isEnabled ? (
                       <ToggleRight className="w-5 h-5 text-green-400" />
@@ -193,12 +197,14 @@ export function PublishingView() {
                   <button
                     onClick={() => handleEdit(channel)}
                     className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors"
+                    aria-label={`Edit ${channel.name}`}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => handleDelete(channel.id)}
                     className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400 transition-colors"
+                    aria-label={`Delete ${channel.name}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -211,9 +217,9 @@ export function PublishingView() {
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {publications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-zinc-500">
-              <p className="text-sm">No publications yet</p>
+              <p className="text-sm">{t("publishing.noPublications")}</p>
               <p className="text-xs mt-1 text-zinc-600">
-                Publications appear when content is published through channels
+                {t("publishing.noPublicationsDescription")}
               </p>
             </div>
           ) : (
@@ -279,6 +285,7 @@ function ChannelFormModal({
   onClose: () => void;
   onSaved: (channel: PublishingChannel) => void;
 }) {
+  const { t } = useTranslation();
   const isEditing = channel !== null;
   const [name, setName] = useState(channel?.name ?? "");
   const [channelType, setChannelType] = useState<ChannelType>(
@@ -323,13 +330,14 @@ function ChannelFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="channel-form-title">
+      <FocusTrap>
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[440px] p-5 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-zinc-200">
-            {isEditing ? "Edit Channel" : "Add Publishing Channel"}
+          <h3 id="channel-form-title" className="text-sm font-semibold text-zinc-200">
+            {isEditing ? t("publishing.channelForm.editTitle") : t("publishing.channelForm.addTitle")}
           </h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300" aria-label="Close dialog">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -337,7 +345,7 @@ function ChannelFormModal({
         <div className="space-y-3">
           <input
             type="text"
-            placeholder="Channel name"
+            placeholder={t("publishing.channelForm.namePlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-brand-500"
@@ -362,7 +370,7 @@ function ChannelFormModal({
           {fields.length > 0 && (
             <div className="space-y-2">
               <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                Credentials
+                {t("publishing.channelForm.credentials")}
               </p>
               {fields.map((f) => (
                 <div key={f.key}>
@@ -383,7 +391,7 @@ function ChannelFormModal({
 
           <input
             type="text"
-            placeholder="Default tags (comma-separated)"
+            placeholder={t("publishing.channelForm.tagsPlaceholder")}
             value={defaultTags}
             onChange={(e) => setDefaultTags(e.target.value)}
             className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-brand-500"
@@ -395,17 +403,18 @@ function ChannelFormModal({
             onClick={onClose}
             className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
           >
-            Cancel
+            {t("publishing.channelForm.cancel")}
           </button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || saving}
             className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded disabled:opacity-50 transition-colors"
           >
-            {saving ? "Saving..." : isEditing ? "Update" : "Create"}
+            {saving ? t("publishing.channelForm.saving") : isEditing ? t("publishing.channelForm.update") : t("publishing.channelForm.create")}
           </button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   );
 }

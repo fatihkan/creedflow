@@ -391,7 +391,7 @@ pub async fn install_dependency(name: String) -> Result<String, String> {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ComparisonResult {
     pub backend_type: String,
@@ -480,6 +480,15 @@ pub async fn compare_backends(prompt: String, backend_types: Vec<String>) -> Res
         }
     }
     Ok(results)
+}
+
+#[tauri::command]
+pub async fn export_comparison(results: Vec<ComparisonResult>, dest_path: String) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(&results)
+        .map_err(|e| format!("Failed to serialize results: {}", e))?;
+    std::fs::write(&dest_path, json)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    Ok(())
 }
 
 async fn get_version(name: &str) -> Result<String, String> {

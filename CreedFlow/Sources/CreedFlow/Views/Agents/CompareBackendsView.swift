@@ -47,6 +47,14 @@ struct CompareBackendsView: View {
 
                     Spacer()
 
+                    if hasRun, let runner, !runner.isRunning, !runner.results.isEmpty {
+                        Button {
+                            exportResults()
+                        } label: {
+                            Label("Export", systemImage: "square.and.arrow.up")
+                        }
+                    }
+
                     Button {
                         Task { await runComparison() }
                     } label: {
@@ -138,5 +146,34 @@ struct CompareBackendsView: View {
         runner = r
         hasRun = true
         await r.compare(prompt: prompt, backends: Array(selectedBackends))
+    }
+
+    private func exportResults() {
+        guard let runner, !runner.results.isEmpty else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "comparison-results.json"
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let exportData = runner.results.map { result -> [String: Any] in
+            var dict: [String: Any] = [
+                "backendType": result.backendType.rawValue,
+                "durationMs": result.durationMs,
+                "output": result.output,
+            ]
+            if let error = result.error {
+                dict["error"] = error
+            }
+            return dict
+        }
+
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: exportData, options: [.prettyPrinted, .sortedKeys])
+            try jsonData.write(to: url)
+        } catch {
+            print("Failed to export comparison results: \(error)")
+        }
     }
 }

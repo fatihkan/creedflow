@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { SidebarSection } from "./Sidebar";
 import { ProjectList } from "../projects/ProjectList";
 import { TaskBoard } from "../tasks/TaskBoard";
@@ -28,6 +29,7 @@ export function ContentArea({
   showChatPanel,
   chatProjectId,
 }: ContentAreaProps) {
+  const { t } = useTranslation();
   switch (section) {
     case "projects":
       return <ProjectList />;
@@ -39,7 +41,7 @@ export function ContentArea({
           showChatPanel={showChatPanel && chatProjectId === selectedProjectId}
         />
       ) : (
-        <EmptyState message="Select a project to view tasks" />
+        <EmptyState message={t("content.selectProject")} />
       );
     case "archive":
       return <ArchivedTasksView />;
@@ -57,7 +59,7 @@ export function ContentArea({
       return selectedProjectId ? (
         <GitGraphView projectId={selectedProjectId} />
       ) : (
-        <EmptyState message="Select a project to view git history" />
+        <EmptyState message={t("content.selectGitProject")} />
       );
     case "prompts":
       return <PromptsLibrary />;
@@ -68,7 +70,7 @@ export function ContentArea({
     case "compare":
       return <BackendComparisonView />;
     default:
-      return <EmptyState message="Select a section" />;
+      return <EmptyState message={t("content.selectSection")} />;
   }
 }
 

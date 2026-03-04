@@ -19,6 +19,7 @@ import { useHistoryStore } from "./store/historyStore";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import * as api from "./tauri";
 import type { UpdateInfo } from "./tauri";
+import "./i18n";
 
 type DetailMode = "none" | "task" | "project";
 

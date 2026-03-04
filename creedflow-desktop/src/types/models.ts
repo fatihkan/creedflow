@@ -177,6 +177,8 @@ export interface AppSettings {
   webhookEnabled: boolean | null;
   webhookPort: number | null;
   webhookApiKey: string | null;
+  webhookGithubSecret: string | null;
+  language: string | null;
 }
 
 export interface GeneratedAsset {
@@ -426,6 +428,8 @@ export interface AppNotification {
   isRead: boolean;
   isDismissed: boolean;
   createdAt: string;
+  actionLabel?: string;
+  actionId?: string;
 }
 
 export interface HealthEvent {

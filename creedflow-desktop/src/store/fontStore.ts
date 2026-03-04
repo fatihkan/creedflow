@@ -1,11 +1,11 @@
 import { create } from "zustand";
 
-type FontSize = "normal" | "large" | "xl";
+type FontSize = "small" | "normal" | "large";
 
 const SCALE_MAP: Record<FontSize, number> = {
+  small: 0.9,
   normal: 1.0,
   large: 1.15,
-  xl: 1.3,
 };
 
 interface FontStore {

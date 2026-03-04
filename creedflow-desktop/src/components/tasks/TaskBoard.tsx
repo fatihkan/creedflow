@@ -5,6 +5,7 @@ import { Archive, RotateCcw, XCircle, MessageCircle, CheckSquare, Square } from 
 import { SearchBar } from "../shared/SearchBar";
 import { SkeletonCard } from "../shared/Skeleton";
 import type { AgentTask, TaskStatus } from "../../types/models";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   projectId: string;
@@ -50,6 +51,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
     batchCancel,
   } = useTaskStore();
 
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -111,10 +113,10 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
     <div className="flex-1 flex flex-col">
       <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-200">Task Board</h2>
+          <h2 className="text-sm font-semibold text-zinc-200">{t("tasks.title")}</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}
-            {search && ` matching "${search}"`}
+            {filteredTasks.length} {filteredTasks.length !== 1 ? t("tasks.count_plural", { count: filteredTasks.length }).split(" ").slice(1).join(" ") : t("tasks.count", { count: filteredTasks.length }).split(" ").slice(1).join(" ")}
+            {search && ` ${t("tasks.matching", { search })}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -135,7 +137,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
               title="Toggle project chat"
             >
               <MessageCircle className="w-3.5 h-3.5" />
-              Chat
+              {t("tasks.chat")}
             </button>
           )}
           <button
@@ -147,9 +149,9 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                 ? "bg-zinc-700 text-zinc-200"
                 : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
             }`}
-            aria-label={selectionMode ? "Cancel selection" : "Enter selection mode"}
+            aria-label={selectionMode ? t("tasks.cancel") : t("tasks.select")}
           >
-            {selectionMode ? "Cancel" : "Select"}
+            {selectionMode ? t("tasks.cancel") : t("tasks.select")}
           </button>
         </div>
       </div>
@@ -158,33 +160,36 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
       {selectionMode && selectedIds.size > 0 && (
         <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900/60 flex items-center gap-2">
           <span className="text-xs text-zinc-400 mr-2">
-            {selectedIds.size} selected
+            {t("tasks.selected", { count: selectedIds.size })}
           </span>
           {hasRetryable && (
             <button
               onClick={batchRetry}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600/20 text-blue-400 rounded-md hover:bg-blue-600/30"
+              aria-label={`Re-queue ${selectedIds.size} selected tasks`}
             >
               <RotateCcw className="w-3 h-3" />
-              Re-queue
+              {t("tasks.requeue")}
             </button>
           )}
           {hasCancellable && (
             <button
               onClick={batchCancel}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600/20 text-red-400 rounded-md hover:bg-red-600/30"
+              aria-label={`Cancel ${selectedIds.size} selected tasks`}
             >
               <XCircle className="w-3 h-3" />
-              Cancel
+              {t("tasks.cancel")}
             </button>
           )}
           {hasArchivable && (
             <button
               onClick={archiveSelected}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-700 text-zinc-200 rounded-md hover:bg-zinc-600"
+              aria-label={`Archive ${selectedIds.size} selected tasks`}
             >
               <Archive className="w-3 h-3" />
-              Archive
+              {t("tasks.archive")}
             </button>
           )}
         </div>

@@ -13,6 +13,7 @@ import {
 import type { MCPServerConfig } from "../../types/models";
 import * as api from "../../tauri";
 import { useErrorToast } from "../../hooks/useErrorToast";
+import { FocusTrap } from "../shared/FocusTrap";
 
 interface MCPTemplate {
   name: string;
@@ -269,6 +270,7 @@ export function MCPSettings() {
                     <button
                       onClick={() => handleToggle(server)}
                       title={server.isEnabled ? "Disable" : "Enable"}
+                      aria-label={server.isEnabled ? `Disable ${server.name}` : `Enable ${server.name}`}
                     >
                       {server.isEnabled ? (
                         <ToggleRight className="w-5 h-5 text-green-400" />
@@ -282,12 +284,14 @@ export function MCPSettings() {
                         setShowForm(true);
                       }}
                       className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors"
+                      aria-label={`Edit ${server.name}`}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(server.id)}
                       className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400 transition-colors"
+                      aria-label={`Delete ${server.name}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -386,13 +390,14 @@ function MCPServerFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="mcp-form-title">
+      <FocusTrap>
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[440px] p-5 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-zinc-200">
+          <h3 id="mcp-form-title" className="text-sm font-semibold text-zinc-200">
             {isEditing ? "Edit MCP Server" : "Add MCP Server"}
           </h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300" aria-label="Close dialog">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -458,6 +463,7 @@ function MCPServerFormModal({
           </button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   );
 }

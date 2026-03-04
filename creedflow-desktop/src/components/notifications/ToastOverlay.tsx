@@ -5,8 +5,10 @@ import {
   XCircle,
   Info,
   X,
+  Undo2,
 } from "lucide-react";
 import type { NotificationSeverity } from "../../types/models";
+import { useTranslation } from "react-i18next";
 
 const SEVERITY_CONFIG: Record<
   NotificationSeverity,
@@ -39,8 +41,10 @@ const SEVERITY_CONFIG: Record<
 };
 
 export function ToastOverlay() {
+  const { t } = useTranslation();
   const toasts = useNotificationStore((s) => s.toasts);
   const removeToast = useNotificationStore((s) => s.removeToast);
+  const triggerAction = useNotificationStore((s) => s.triggerAction);
 
   if (toasts.length === 0) return null;
 
@@ -63,11 +67,21 @@ export function ToastOverlay() {
               <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2">
                 {toast.message}
               </p>
+              {toast.actionLabel && toast.actionId && (
+                <button
+                  onClick={() => triggerAction(toast.actionId!)}
+                  className="mt-1.5 flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-blue-600/30 text-blue-300 rounded hover:bg-blue-600/50 transition-colors"
+                  aria-label={toast.actionLabel}
+                >
+                  <Undo2 className="w-3 h-3" />
+                  {toast.actionLabel}
+                </button>
+              )}
             </div>
             <button
               onClick={() => removeToast(toast.id)}
               className="text-zinc-500 hover:text-zinc-300 flex-shrink-0"
-              aria-label="Dismiss notification"
+              aria-label={t("toast.dismiss")}
             >
               <X className="w-3.5 h-3.5" />
             </button>

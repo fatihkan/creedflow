@@ -58,11 +58,21 @@ pub fn run() {
                         .ok()
                         .filter(|k| !k.is_empty());
 
+                    let github_secret: Option<String> = db_guard.conn
+                        .query_row(
+                            "SELECT value FROM appSetting WHERE key = 'webhookGithubSecret'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .ok()
+                        .filter(|k| !k.is_empty());
+
                     let db_clone = db_arc.clone();
                     drop(db_guard);
 
                     tokio::spawn(async move {
-                        let server = services::webhook_server::WebhookServer::new(port, api_key, db_clone);
+                        let server = services::webhook_server::WebhookServer::new(port, api_key, db_clone)
+                            .with_github_secret(github_secret);
                         server.run().await;
                     });
                 }
@@ -113,6 +123,7 @@ pub fn run() {
             commands::backends::install_dependency,
             commands::backends::detect_package_manager_cmd,
             commands::backends::compare_backends,
+            commands::backends::export_comparison,
             // Settings
             commands::settings::get_settings,
             commands::settings::update_settings,
@@ -221,6 +232,8 @@ pub fn run() {
             commands::database::vacuum_database,
             commands::database::backup_database,
             commands::database::prune_old_logs,
+            commands::database::export_database_json,
+            commands::database::factory_reset_database,
             // Updates
             commands::updates::check_for_updates,
         ])

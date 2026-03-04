@@ -1239,6 +1239,10 @@ pub struct AppSettings {
     pub webhook_port: Option<u16>,
     #[serde(default)]
     pub webhook_api_key: Option<String>,
+    #[serde(default)]
+    pub webhook_github_secret: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1285,6 +1289,8 @@ impl Default for AppSettings {
             webhook_enabled: None,
             webhook_port: None,
             webhook_api_key: None,
+            webhook_github_secret: None,
+            language: None,
         }
     }
 }

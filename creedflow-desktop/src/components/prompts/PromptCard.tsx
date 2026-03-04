@@ -30,6 +30,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
             onClick={handleCopy}
             className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
             title="Copy content"
+            aria-label={`Copy ${prompt.title} content`}
           >
             {copied ? (
               <Check className="w-3 h-3 text-green-400" />
@@ -42,6 +43,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
               onClick={onShowHistory}
               className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
               title="Version history"
+              aria-label={`View ${prompt.title} version history`}
             >
               <Clock className="w-3 h-3" />
             </button>
@@ -50,6 +52,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
             onClick={onToggleFavorite}
             className="p-1 rounded hover:bg-zinc-700"
             title="Toggle favorite"
+            aria-label={prompt.isFavorite ? `Remove ${prompt.title} from favorites` : `Add ${prompt.title} to favorites`}
           >
             <Star
               className={`w-3 h-3 ${
@@ -64,6 +67,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
               onClick={onDelete}
               className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400"
               title="Delete"
+              aria-label={`Delete ${prompt.title}`}
             >
               <Trash2 className="w-3 h-3" />
             </button>

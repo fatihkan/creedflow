@@ -156,6 +156,9 @@ export interface ComparisonResult {
 export const compareBackends = (prompt: string, backendTypes: string[]) =>
   invoke<ComparisonResult[]>("compare_backends", { prompt, backendTypes });
 
+export const exportComparison = (results: ComparisonResult[], destPath: string) =>
+  invoke<void>("export_comparison", { results, destPath });
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 export const getSettings = () => invoke<AppSettings>("get_settings");
@@ -584,6 +587,12 @@ export const backupDatabase = (destPath: string) =>
   invoke<void>("backup_database", { destPath });
 export const pruneOldLogs = (olderThanDays: number) =>
   invoke<number>("prune_old_logs", { olderThanDays });
+
+export const exportDatabaseJson = (destPath: string) =>
+  invoke<void>("export_database_json", { destPath });
+
+export const factoryResetDatabase = () =>
+  invoke<void>("factory_reset_database");
 
 // ─── Updates ────────────────────────────────────────────────────────────────
 

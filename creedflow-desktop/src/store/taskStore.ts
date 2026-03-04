@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { AgentTask } from "../types/models";
 import { useHistoryStore } from "./historyStore";
+import { useNotificationStore } from "./notificationStore";
 import * as api from "../tauri";
 
 interface TaskStore {
@@ -181,12 +182,38 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   deleteSelected: async () => {
     const ids = Array.from(get().selectedIds);
     if (ids.length === 0) return;
-    await api.permanentlyDeleteTasks(ids);
+    const deletedTasks = get().archivedTasks.filter((t) => ids.includes(t.id));
+
+    // Soft-delete: remove from UI immediately
     set((s) => ({
       archivedTasks: s.archivedTasks.filter((t) => !s.selectedIds.has(t.id)),
       selectedIds: new Set(),
       selectionMode: false,
     }));
+
+    // Grace period: show undo toast for 10s, then permanently delete
+    let cancelled = false;
+    useNotificationStore.getState().addUndoToast(
+      `Deleted ${ids.length} task(s)`,
+      () => {
+        cancelled = true;
+        // Restore tasks to archived list
+        set((s) => ({
+          archivedTasks: [...s.archivedTasks, ...deletedTasks],
+        }));
+      },
+    );
+
+    // Permanently delete after grace period
+    setTimeout(async () => {
+      if (!cancelled) {
+        try {
+          await api.permanentlyDeleteTasks(ids);
+        } catch (e) {
+          console.error("Failed to permanently delete tasks:", e);
+        }
+      }
+    }, 10500);
   },
 
   batchRetry: async () => {

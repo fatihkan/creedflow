@@ -5,6 +5,7 @@ import { useChatStore } from "../../store/chatStore";
 import { ChatMessage } from "./ChatMessage";
 import { StreamingMessage } from "./StreamingMessage";
 import { TaskProposalCard } from "./TaskProposalCard";
+import { useTranslation } from "react-i18next";
 
 const IMAGE_EXTENSIONS = new Set([
   "png", "jpg", "jpeg", "gif", "webp", "heic", "tiff", "bmp", "svg",
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
+  const { t } = useTranslation();
   const {
     messages,
     isStreaming,
@@ -114,7 +116,7 @@ export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
           <MessageCircle className="w-4 h-4 text-amber-400" />
           <div>
             <div className="text-sm font-semibold text-zinc-200">
-              Project Chat
+              {t("chat.title")}
             </div>
             <div className="text-[10px] text-zinc-500">{projectName}</div>
           </div>
@@ -133,11 +135,10 @@ export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
           <div className="flex flex-col items-center justify-center h-full px-6 text-center">
             <MessageCircle className="w-10 h-10 text-zinc-700 mb-3" />
             <div className="text-sm font-medium text-zinc-400 mb-1">
-              Start a conversation
+              {t("chat.startConversation")}
             </div>
             <div className="text-xs text-zinc-600 max-w-[240px]">
-              Describe what you want to build and CreedFlow will propose tasks
-              and features for your project.
+              {t("chat.description")}
             </div>
           </div>
         ) : (
@@ -201,7 +202,7 @@ export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
           <button
             onClick={handleAttach}
             className="flex-shrink-0 p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-zinc-300"
-            title="Attach files or images"
+            title={t("chat.attachFiles")}
           >
             <Paperclip className="w-4 h-4" />
           </button>
@@ -210,7 +211,7 @@ export function ProjectChatPanel({ projectId, projectName, onClose }: Props) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe what you want to build..."
+            placeholder={t("chat.placeholder")}
             rows={1}
             className="flex-1 resize-none bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors"
             style={{ maxHeight: "120px" }}

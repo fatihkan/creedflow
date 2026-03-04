@@ -4,6 +4,7 @@ import type { PromptVersion, PromptVersionDiff } from "../../types/models";
 import * as api from "../../tauri";
 import { PromptDiffViewer } from "./PromptDiffViewer";
 import { useErrorToast } from "../../hooks/useErrorToast";
+import { FocusTrap } from "../shared/FocusTrap";
 
 interface Props {
   promptId: string;
@@ -59,20 +60,21 @@ export function PromptVersionHistory({ promptId, promptTitle, onClose }: Props) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="version-history-title">
+      <FocusTrap>
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[640px] max-h-[80vh] flex flex-col shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-zinc-400" />
-            <h3 className="text-sm font-semibold text-zinc-200">
+            <h3 id="version-history-title" className="text-sm font-semibold text-zinc-200">
               Version History
             </h3>
             <span className="text-xs text-zinc-500 truncate max-w-[200px]">
               {promptTitle}
             </span>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300" aria-label="Close version history">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -141,6 +143,7 @@ export function PromptVersionHistory({ promptId, promptTitle, onClose }: Props) 
           )}
         </div>
       </div>
+      </FocusTrap>
     </div>
   );
 }

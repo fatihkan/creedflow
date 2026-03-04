@@ -4,12 +4,12 @@ import os
 private let logger = Logger(subsystem: "com.creedflow", category: "BackendComparison")
 
 /// Result of running a prompt against a single backend.
-struct BackendComparisonResult: Identifiable, Sendable {
-    let id = UUID()
-    let backendType: CLIBackendType
-    let output: String
-    let durationMs: Int
-    let error: String?
+package struct BackendComparisonResult: Identifiable, Sendable {
+    package let id = UUID()
+    package let backendType: CLIBackendType
+    package let output: String
+    package let durationMs: Int
+    package let error: String?
 }
 
 /// Fans out the same prompt to multiple backends concurrently and collects results.
@@ -19,7 +19,7 @@ package class BackendComparisonRunner {
     package private(set) var isRunning = false
     package private(set) var results: [BackendComparisonResult] = []
 
-    package init(backendRouter: BackendRouter) {
+    init(backendRouter: BackendRouter) {
         self.backendRouter = backendRouter
     }
 
@@ -58,7 +58,7 @@ package class BackendComparisonRunner {
                                 outputLines.append(text)
                             case .result(let result):
                                 outputLines.append(result.output ?? "")
-                            case .toolUse, .system:
+                            case .toolUse, .system, .error:
                                 break
                             }
                         }

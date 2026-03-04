@@ -71,28 +71,29 @@ public struct SettingsView: View {
     @State private var gitNameField = ""
     @State private var gitEmailField = ""
     @State private var isConfiguringGit = false
+    @State private var showingFactoryResetConfirm = false
 
     public init() {}
 
     public var body: some View {
         TabView {
             generalTab
-                .tabItem { Label("General", systemImage: "gear") }
+                .tabItem { Label(L("settings.general"), systemImage: "gear") }
 
             aiCLIsTab
-                .tabItem { Label("AI CLIs", systemImage: "brain") }
+                .tabItem { Label(L("settings.aiClis"), systemImage: "brain") }
 
             gitAndToolsTab
-                .tabItem { Label("Git & Tools", systemImage: "arrow.triangle.branch") }
+                .tabItem { Label(L("settings.git"), systemImage: "arrow.triangle.branch") }
 
             telegramTab
-                .tabItem { Label("Telegram", systemImage: "paperplane") }
+                .tabItem { Label(L("settings.telegram"), systemImage: "paperplane") }
 
             databaseTab
-                .tabItem { Label("Database", systemImage: "cylinder") }
+                .tabItem { Label(L("settings.database"), systemImage: "cylinder") }
 
             MCPSettingsView(appDatabase: appDatabase)
-                .tabItem { Label("MCP", systemImage: "server.rack") }
+                .tabItem { Label(L("settings.mcp"), systemImage: "server.rack") }
         }
         .frame(width: 600, height: 640)
         .task {
@@ -121,35 +122,44 @@ public struct SettingsView: View {
 
     private var generalTab: some View {
         Form {
-            Section("Appearance") {
-                Picker("Theme", selection: $appearanceMode) {
-                    Label("System", systemImage: "laptopcomputer").tag("system")
-                    Label("Light", systemImage: "sun.max").tag("light")
-                    Label("Dark", systemImage: "moon").tag("dark")
+            Section(L("settings.appearance")) {
+                Picker(L("settings.theme"), selection: $appearanceMode) {
+                    Label(L("settings.system"), systemImage: "laptopcomputer").tag("system")
+                    Label(L("settings.light"), systemImage: "sun.max").tag("light")
+                    Label(L("settings.dark"), systemImage: "moon").tag("dark")
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: appearanceMode) { _, newValue in
                     applyAppearance(newValue)
                 }
 
-                Picker("Text Size", selection: $fontSizePreference) {
-                    Text("Small").tag("small")
-                    Text("Normal").tag("normal")
-                    Text("Large").tag("large")
-                    Text("X-Large").tag("xl")
+                Picker(L("settings.textSize"), selection: $fontSizePreference) {
+                    Text(L("settings.small")).tag("small")
+                    Text(L("settings.normal")).tag("normal")
+                    Text(L("settings.large")).tag("large")
+                    Text(L("settings.xl")).tag("xl")
                 }
                 .pickerStyle(.segmented)
+
+                Picker(L("settings.language"), selection: Binding(
+                    get: { LocalizationService.shared.language },
+                    set: { LocalizationService.shared.language = $0 }
+                )) {
+                    ForEach(LocalizationService.shared.availableLanguages, id: \.code) { lang in
+                        Text(lang.name).tag(lang.code)
+                    }
+                }
             }
 
-            Section("Concurrency") {
-                Stepper("Max Parallel Agents: \(maxConcurrency)", value: $maxConcurrency, in: 1...8)
+            Section(L("settings.concurrency")) {
+                Stepper("\(L("settings.maxParallel")): \(maxConcurrency)", value: $maxConcurrency, in: 1...8)
             }
 
-            Section("Projects Directory") {
+            Section(L("settings.projectsDir")) {
                 HStack {
-                    TextField("Base directory", text: $projectsBaseDir)
+                    TextField(L("settings.baseDirectory"), text: $projectsBaseDir)
                         .textFieldStyle(.roundedBorder)
-                    Button("Browse") {
+                    Button(L("common.browse")) {
                         let panel = NSOpenPanel()
                         panel.canChooseDirectories = true
                         panel.canChooseFiles = false
@@ -165,9 +175,9 @@ public struct SettingsView: View {
 
             // Budget section hidden for now
 
-            Section("Code Editor") {
-                Picker("Preferred Editor", selection: $preferredEditor) {
-                    Text("None").tag("")
+            Section(L("settings.codeEditor")) {
+                Picker(L("settings.preferredEditor"), selection: $preferredEditor) {
+                    Text(L("common.none")).tag("")
                     ForEach(detectedEditors, id: \.command) { editor in
                         Text("\(editor.name) (\(editor.command))").tag(editor.command)
                     }
@@ -183,8 +193,8 @@ public struct SettingsView: View {
                 }
             }
 
-            Section("Webhook Server") {
-                Toggle("Enable Webhook Server", isOn: $webhookEnabled)
+            Section(L("settings.webhookServer")) {
+                Toggle(L("settings.enableWebhook"), isOn: $webhookEnabled)
                 if webhookEnabled {
                     HStack {
                         Text("Port")
@@ -200,8 +210,8 @@ public struct SettingsView: View {
                 }
             }
 
-            Section("Setup") {
-                Button("Re-run Setup Wizard") {
+            Section(L("settings.setup")) {
+                Button(L("settings.rerunSetup")) {
                     hasCompletedSetup = false
                 }
                 Text("Reset and walk through the initial setup wizard again")
@@ -571,12 +581,41 @@ public struct SettingsView: View {
                     }
                     .help("Save a copy of the database to a file")
 
+                    Button("Export as JSON...") {
+                        let panel = NSSavePanel()
+                        panel.nameFieldStringValue = "creedflow-export.json"
+                        panel.title = "Export Database as JSON"
+                        panel.allowedContentTypes = [.json]
+                        guard panel.runModal() == .OK, let url = panel.url else { return }
+                        Task {
+                            try? await service.exportAsJSON(to: url)
+                        }
+                    }
+                    .help("Export all database tables as a JSON file")
+
                     Button("Prune Old Logs (> 30 days)") {
                         Task {
                             _ = try? await service.pruneLogs(olderThanDays: 30)
                         }
                     }
                     .help("Delete agent logs older than 30 days")
+                }
+
+                Section("Danger Zone") {
+                    Button("Factory Reset", role: .destructive) {
+                        showingFactoryResetConfirm = true
+                    }
+                    .help("Delete all projects, tasks, and data. This cannot be undone.")
+                    .alert("Factory Reset", isPresented: $showingFactoryResetConfirm) {
+                        Button("Cancel", role: .cancel) {}
+                        Button("Reset Everything", role: .destructive) {
+                            Task {
+                                try? await service.factoryReset()
+                            }
+                        }
+                    } message: {
+                        Text("This will permanently delete all projects, tasks, reviews, and data. This cannot be undone.")
+                    }
                 }
 
                 if let result = service.lastResult {
