@@ -15,6 +15,7 @@ import { useSettingsStore } from "./store/settingsStore";
 import { useNotificationStore } from "./store/notificationStore";
 import { useThemeStore } from "./store/themeStore";
 import { useFontStore } from "./store/fontStore";
+import { useHistoryStore } from "./store/historyStore";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import * as api from "./tauri";
 import type { UpdateInfo } from "./tauri";
@@ -109,6 +110,18 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === "?") {
         e.preventDefault();
         setShowShortcuts((v) => !v);
+        return;
+      }
+      // Cmd+Z — undo, Cmd+Shift+Z — redo
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+        e.preventDefault();
+        if (e.shiftKey) {
+          useHistoryStore.getState().redo();
+        } else {
+          useHistoryStore.getState().undo();
+        }
         return;
       }
       if (e.metaKey || e.ctrlKey) {

@@ -17,6 +17,7 @@ struct TaskDetailView: View {
     @State private var comments: [TaskComment] = []
     @State private var newCommentText: String = ""
     @State private var promptHistory: [PromptUsageWithTitle] = []
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         VStack(spacing: 0) {
@@ -433,6 +434,7 @@ struct TaskDetailView: View {
     private func retryTask() async {
         guard let db = appDatabase else { return }
         let revision = revisionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousStatus = task?.status
         do {
             try await db.dbQueue.write { dbConn in
                 guard var t = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
@@ -446,6 +448,7 @@ struct TaskDetailView: View {
                 try t.update(dbConn)
             }
             revisionText = ""
+            registerStatusUndo(from: .queued, to: previousStatus, actionName: "Retry Task")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -453,6 +456,7 @@ struct TaskDetailView: View {
 
     private func cancelTask() async {
         guard let db = appDatabase else { return }
+        let previousStatus = task?.status
         do {
             try await db.dbQueue.write { dbConn in
                 guard var t = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
@@ -461,9 +465,26 @@ struct TaskDetailView: View {
                 t.completedAt = Date()
                 try t.update(dbConn)
             }
+            registerStatusUndo(from: .cancelled, to: previousStatus, actionName: "Cancel Task")
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func registerStatusUndo(from newStatus: AgentTask.Status, to previousStatus: AgentTask.Status?, actionName: String) {
+        guard let undoManager, let previousStatus, let db = appDatabase else { return }
+        let tid = taskId
+        undoManager.registerUndo(withTarget: UndoTarget.shared) { _ in
+            Task {
+                try? await db.dbQueue.write { dbConn in
+                    guard var t = try AgentTask.fetchOne(dbConn, id: tid) else { return }
+                    t.status = previousStatus
+                    t.updatedAt = Date()
+                    try t.update(dbConn)
+                }
+            }
+        }
+        undoManager.setActionName(actionName)
     }
 }
 
@@ -606,4 +627,11 @@ struct PromptUsageWithTitle: Codable, FetchableRecord {
     var reviewScore: Double?
     var usedAt: Date
     var promptTitle: String?
+}
+
+// MARK: - Undo Helper
+
+/// Singleton target for `UndoManager.registerUndo(withTarget:)` — the undo closure captures all needed state.
+private final class UndoTarget: NSObject {
+    static let shared = UndoTarget()
 }

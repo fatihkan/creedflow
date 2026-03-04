@@ -17,6 +17,9 @@ struct PromptEditSheet: View {
     @State private var showDiffSheet = false
     @State private var diffOldVersion: PromptVersion?
     @State private var diffNewVersion: PromptVersion?
+    @State private var previousContent: String = ""
+    @State private var previousTitle: String = ""
+    @Environment(\.undoManager) private var undoManager
 
     init(appDatabase: AppDatabase?, existing: Prompt? = nil) {
         self.appDatabase = appDatabase
@@ -172,6 +175,8 @@ struct PromptEditSheet: View {
                 title = existing.title
                 content = existing.content
                 category = existing.category
+                previousTitle = existing.title
+                previousContent = existing.content
                 loadTags()
                 loadVersionHistory()
             }
@@ -218,6 +223,8 @@ struct PromptEditSheet: View {
 
     private func save() {
         guard let db = appDatabase else { return }
+        let savedPreviousTitle = previousTitle
+        let savedPreviousContent = previousContent
         try? db.dbQueue.write { dbConn in
             if var prompt = existing {
                 // Snapshot current version before editing
@@ -244,6 +251,22 @@ struct PromptEditSheet: View {
                 for tag in parsedTags {
                     try PromptTag(promptId: prompt.id, tag: tag).insert(dbConn)
                 }
+
+                // Register undo: revert prompt to previous title/content
+                if let undoManager {
+                    let promptId = prompt.id
+                    undoManager.registerUndo(withTarget: PromptUndoTarget.shared) { _ in
+                        try? db.dbQueue.write { dbConn in
+                            guard var p = try Prompt.fetchOne(dbConn, id: promptId) else { return }
+                            p.title = savedPreviousTitle
+                            p.content = savedPreviousContent
+                            p.version += 1
+                            p.updatedAt = Date()
+                            try p.update(dbConn)
+                        }
+                    }
+                    undoManager.setActionName("Edit Prompt")
+                }
             } else {
                 var prompt = Prompt(
                     title: title,
@@ -261,4 +284,8 @@ struct PromptEditSheet: View {
         }
         dismiss()
     }
+}
+
+private final class PromptUndoTarget: NSObject {
+    static let shared = PromptUndoTarget()
 }

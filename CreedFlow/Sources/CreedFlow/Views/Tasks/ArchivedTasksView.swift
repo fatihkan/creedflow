@@ -13,6 +13,7 @@ struct ArchivedTasksView: View {
     @State private var selection: Set<UUID> = []
     @State private var isSelectionMode = false
     @State private var searchText = ""
+    @Environment(\.undoManager) private var undoManager
 
     private var filteredTasks: [(task: AgentTask, projectName: String)] {
         guard !searchText.isEmpty else { return archivedTasks }
@@ -320,6 +321,17 @@ struct ArchivedTasksView: View {
                 .filter(ids.contains(Column("id")))
                 .updateAll(dbConn, Column("archivedAt").set(to: nil as Date?), Column("updatedAt").set(to: Date()))
         }
+        // Register undo: re-archive the restored tasks
+        if let undoManager {
+            undoManager.registerUndo(withTarget: UndoTarget.shared) { [ids] _ in
+                try? db.dbQueue.write { dbConn in
+                    try AgentTask
+                        .filter(ids.contains(Column("id")))
+                        .updateAll(dbConn, Column("archivedAt").set(to: Date()), Column("updatedAt").set(to: Date()))
+                }
+            }
+            undoManager.setActionName("Restore \(ids.count) Task\(ids.count == 1 ? "" : "s")")
+        }
         selection.removeAll()
         isSelectionMode = false
     }
@@ -362,4 +374,8 @@ struct ArchivedTasksView: View {
         selection.removeAll()
         isSelectionMode = false
     }
+}
+
+private final class UndoTarget: NSObject {
+    static let shared = UndoTarget()
 }

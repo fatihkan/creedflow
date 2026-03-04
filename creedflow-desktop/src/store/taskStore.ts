@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AgentTask } from "../types/models";
+import { useHistoryStore } from "./historyStore";
 import * as api from "../tauri";
 
 interface TaskStore {
@@ -75,12 +76,28 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   updateTaskStatus: async (id, status) => {
-    await api.updateTaskStatus(id, status);
-    set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === id ? { ...t, status: status as AgentTask["status"] } : t,
-      ),
-    }));
+    const prevTask = get().tasks.find((t) => t.id === id);
+    const prevStatus = prevTask?.status;
+    await useHistoryStore.getState().push({
+      label: `Change task status to ${status}`,
+      execute: async () => {
+        await api.updateTaskStatus(id, status);
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id ? { ...t, status: status as AgentTask["status"] } : t,
+          ),
+        }));
+      },
+      undo: async () => {
+        if (!prevStatus) return;
+        await api.updateTaskStatus(id, prevStatus);
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === id ? { ...t, status: prevStatus as AgentTask["status"] } : t,
+          ),
+        }));
+      },
+    });
   },
 
   updateTask: (task) => {
@@ -118,23 +135,47 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   archiveSelected: async () => {
     const ids = Array.from(get().selectedIds);
     if (ids.length === 0) return;
-    await api.archiveTasks(ids);
-    set((s) => ({
-      tasks: s.tasks.filter((t) => !s.selectedIds.has(t.id)),
-      selectedIds: new Set(),
-      selectionMode: false,
-    }));
+    const archivedTasks = get().tasks.filter((t) => ids.includes(t.id));
+    await useHistoryStore.getState().push({
+      label: `Archive ${ids.length} task(s)`,
+      execute: async () => {
+        await api.archiveTasks(ids);
+        set((s) => ({
+          tasks: s.tasks.filter((t) => !ids.includes(t.id)),
+          selectedIds: new Set(),
+          selectionMode: false,
+        }));
+      },
+      undo: async () => {
+        await api.restoreTasks(ids);
+        set((s) => ({
+          tasks: [...s.tasks, ...archivedTasks],
+        }));
+      },
+    });
   },
 
   restoreSelected: async () => {
     const ids = Array.from(get().selectedIds);
     if (ids.length === 0) return;
-    await api.restoreTasks(ids);
-    set((s) => ({
-      archivedTasks: s.archivedTasks.filter((t) => !s.selectedIds.has(t.id)),
-      selectedIds: new Set(),
-      selectionMode: false,
-    }));
+    const restoredTasks = get().archivedTasks.filter((t) => ids.includes(t.id));
+    await useHistoryStore.getState().push({
+      label: `Restore ${ids.length} task(s)`,
+      execute: async () => {
+        await api.restoreTasks(ids);
+        set((s) => ({
+          archivedTasks: s.archivedTasks.filter((t) => !ids.includes(t.id)),
+          selectedIds: new Set(),
+          selectionMode: false,
+        }));
+      },
+      undo: async () => {
+        await api.archiveTasks(ids);
+        set((s) => ({
+          archivedTasks: [...s.archivedTasks, ...restoredTasks],
+        }));
+      },
+    });
   },
 
   deleteSelected: async () => {
