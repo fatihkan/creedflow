@@ -1,18 +1,19 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   Link2,
   Plus,
   Trash2,
   ChevronDown,
   ChevronRight,
-  GripVertical,
   Pencil,
 } from "lucide-react";
 import type { PromptChainWithSteps, PromptChainStep } from "../../types/models";
 import * as api from "../../tauri";
 import { usePromptStore } from "../../store/promptStore";
-import { FocusTrap } from "../shared/FocusTrap";
+import { ChainStepRow } from "./ChainStepRow";
+import { ChainFormDialog } from "./ChainFormDialog";
 import { useTranslation } from "react-i18next";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 export function PromptChainList() {
   const { t } = useTranslation();
@@ -31,7 +32,7 @@ export function PromptChainList() {
       const data = await api.listPromptChains();
       setChains(data);
     } catch (e) {
-      console.error("Failed to fetch chains:", e);
+      showErrorToast("Failed to fetch chains", e);
     }
     setLoading(false);
   };
@@ -146,7 +147,7 @@ export function PromptChainList() {
                     setEditingChain(chain);
                   }}
                   className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors"
-                  title="Edit chain"
+                  title={t("prompts.chains.editTitle")}
                   aria-label={`Edit ${chain.name}`}
                 >
                   <Pencil className="w-3.5 h-3.5" />
@@ -166,7 +167,7 @@ export function PromptChainList() {
               {isExpanded && (
                 <div className="border-t border-zinc-800 px-4 py-3 space-y-2">
                   {chain.steps.map((step, i) => (
-                    <StepRow
+                    <ChainStepRow
                       key={step.id}
                       step={step}
                       index={i}
@@ -223,142 +224,3 @@ export function PromptChainList() {
   );
 }
 
-function StepRow({
-  step,
-  index,
-  promptTitle,
-  onRemove,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  isDragging,
-  onTransitionNoteBlur,
-}: {
-  step: PromptChainStep;
-  index: number;
-  promptTitle: string;
-  onRemove: () => void;
-  onDragStart: () => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: () => void;
-  isDragging: boolean;
-  onTransitionNoteBlur: (value: string) => void;
-}) {
-  const [note, setNote] = useState(step.transitionNote ?? "");
-  const noteRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className={`flex items-center gap-2 px-3 py-2 bg-zinc-800/40 rounded-md cursor-grab active:cursor-grabbing transition-opacity ${
-        isDragging ? "opacity-50" : ""
-      }`}
-    >
-      <GripVertical className="w-3 h-3 text-zinc-600 flex-shrink-0" />
-      <span className="text-[10px] text-zinc-500 w-5 flex-shrink-0">
-        {index + 1}.
-      </span>
-      <span className="text-xs text-zinc-300 flex-1 truncate">{promptTitle}</span>
-      <input
-        ref={noteRef}
-        type="text"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        onBlur={() => onTransitionNoteBlur(note)}
-        placeholder="transition note..."
-        className="w-[140px] px-2 py-0.5 text-[10px] bg-zinc-900 border border-zinc-700/50 rounded text-zinc-400 placeholder:text-zinc-600 focus:outline-none focus:border-brand-500"
-      />
-      <button
-        onClick={onRemove}
-        className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0"
-        aria-label="Remove step"
-      >
-        <Trash2 className="w-3 h-3" />
-      </button>
-    </div>
-  );
-}
-
-function ChainFormDialog({
-  chain,
-  onClose,
-  onSaved,
-}: {
-  chain: PromptChainWithSteps | null;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const { t } = useTranslation();
-  const isEditing = chain !== null;
-  const [name, setName] = useState(chain?.name ?? "");
-  const [description, setDescription] = useState(chain?.description ?? "");
-  const [category, setCategory] = useState(chain?.category ?? "general");
-
-  const handleSubmit = async () => {
-    if (isEditing) {
-      await api.updatePromptChain(chain.id, name, description, category);
-    } else {
-      await api.createPromptChain(name, description, category);
-    }
-    onSaved();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="chain-form-title">
-      <FocusTrap>
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[400px] p-5 shadow-2xl">
-        <h3 id="chain-form-title" className="text-sm font-semibold text-zinc-200 mb-4">
-          {isEditing ? t("prompts.chains.editChain") : t("prompts.chains.newChainTitle")}
-        </h3>
-        <div className="space-y-3">
-          <input
-            type="text"
-            placeholder={t("prompts.chains.chainName")}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-brand-500"
-          />
-          <textarea
-            placeholder={t("prompts.chains.descriptionPlaceholder")}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-brand-500 resize-none"
-          />
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-300 focus:outline-none focus:border-brand-500"
-          >
-            <option value="general">General</option>
-            <option value="coding">Coding</option>
-            <option value="review">Review</option>
-            <option value="testing">Testing</option>
-            <option value="analysis">Analysis</option>
-            <option value="content">Content</option>
-            <option value="devops">DevOps</option>
-          </select>
-        </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-          >
-            {t("prompts.chains.cancel")}
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!name.trim()}
-            className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded disabled:opacity-50 transition-colors"
-          >
-            {isEditing ? t("prompts.chains.update") : t("prompts.chains.create")}
-          </button>
-        </div>
-      </div>
-      </FocusTrap>
-    </div>
-  );
-}

@@ -5,6 +5,7 @@ import * as api from "../../tauri";
 import type { BackendInfo } from "../../types/models";
 import type { ComparisonResult } from "../../tauri";
 import { useTranslation } from "react-i18next";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 export function BackendComparisonView() {
   const { t } = useTranslation();
@@ -19,7 +20,7 @@ export function BackendComparisonView() {
       setBackends(list.filter((b) => b.isEnabled && b.isAvailable));
       const enabled = list.filter((b) => b.isEnabled && b.isAvailable).map((b) => b.backendType);
       setSelected(new Set(enabled.slice(0, 3)));
-    }).catch(console.error);
+    }).catch((e) => showErrorToast("Failed to list backends", e));
   }, []);
 
   const toggleBackend = (type: string) => {
@@ -39,7 +40,7 @@ export function BackendComparisonView() {
       const res = await api.compareBackends(prompt, Array.from(selected));
       setResults(res);
     } catch (e) {
-      console.error(e);
+      showErrorToast("Failed to run comparison", e);
     } finally {
       setRunning(false);
     }
@@ -56,7 +57,7 @@ export function BackendComparisonView() {
         await api.exportComparison(results, path);
       }
     } catch (e) {
-      console.error("Export failed:", e);
+      showErrorToast("Failed to export comparison", e);
     }
   };
 
@@ -164,7 +165,7 @@ export function BackendComparisonView() {
                   <div className="flex items-center gap-2 text-[10px] text-zinc-500">
                     {r.error ? (
                       <span className="flex items-center gap-1 text-red-400">
-                        <AlertCircle className="w-3 h-3" /> Error
+                        <AlertCircle className="w-3 h-3" /> {t("compare.error")}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">

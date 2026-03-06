@@ -7,41 +7,34 @@ import {
   ExternalLink,
   ToggleLeft,
   ToggleRight,
-  X,
 } from "lucide-react";
 import type { PublishingChannel, Publication } from "../../types/models";
 import * as api from "../../tauri";
 import { useErrorToast } from "../../hooks/useErrorToast";
-import { FocusTrap } from "../shared/FocusTrap";
+import { ChannelFormModal } from "./ChannelFormModal";
 import { useTranslation } from "react-i18next";
 
-type ChannelType = "medium" | "wordpress" | "twitter" | "linkedin" | "devTo";
+const CHANNEL_TYPE_COLORS: Record<string, string> = {
+  medium: "bg-green-500/20 text-green-400",
+  wordpress: "bg-blue-500/20 text-blue-400",
+  twitter: "bg-sky-500/20 text-sky-400",
+  linkedin: "bg-indigo-500/20 text-indigo-400",
+  devTo: "bg-zinc-500/20 text-zinc-300",
+};
 
-const CHANNEL_TYPES: { value: ChannelType; label: string; color: string }[] = [
-  { value: "medium", label: "Medium", color: "bg-green-500/20 text-green-400" },
-  { value: "wordpress", label: "WordPress", color: "bg-blue-500/20 text-blue-400" },
-  { value: "twitter", label: "Twitter", color: "bg-sky-500/20 text-sky-400" },
-  { value: "linkedin", label: "LinkedIn", color: "bg-indigo-500/20 text-indigo-400" },
-  { value: "devTo", label: "Dev.to", color: "bg-zinc-500/20 text-zinc-300" },
-];
-
-const CREDENTIAL_FIELDS: Record<ChannelType, { key: string; label: string; type: string }[]> = {
-  medium: [{ key: "integrationToken", label: "Integration Token", type: "password" }],
-  wordpress: [
-    { key: "url", label: "Site URL", type: "text" },
-    { key: "username", label: "Username", type: "text" },
-    { key: "appPassword", label: "Application Password", type: "password" },
-  ],
-  twitter: [
-    { key: "apiKey", label: "API Key", type: "password" },
-    { key: "apiSecret", label: "API Secret", type: "password" },
-  ],
-  linkedin: [{ key: "accessToken", label: "Access Token", type: "password" }],
-  devTo: [{ key: "apiKey", label: "API Key", type: "password" }],
+const CHANNEL_TYPE_LABELS: Record<string, string> = {
+  medium: "Medium",
+  wordpress: "WordPress",
+  twitter: "Twitter",
+  linkedin: "LinkedIn",
+  devTo: "Dev.to",
 };
 
 function getTypeInfo(type: string) {
-  return CHANNEL_TYPES.find((t) => t.value === type) ?? CHANNEL_TYPES[0];
+  return {
+    color: CHANNEL_TYPE_COLORS[type] ?? "bg-zinc-500/20 text-zinc-300",
+    label: CHANNEL_TYPE_LABELS[type] ?? type,
+  };
 }
 
 export function PublishingView() {
@@ -151,7 +144,7 @@ export function PublishingView() {
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
-          Loading...
+          {t("publishing.loading")}
         </div>
       ) : tab === "channels" ? (
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -185,7 +178,7 @@ export function PublishingView() {
                   <button
                     onClick={() => handleToggle(channel)}
                     className="text-zinc-400 hover:text-zinc-200 transition-colors"
-                    title={channel.isEnabled ? "Disable" : "Enable"}
+                    title={channel.isEnabled ? t("publishing.disable") : t("publishing.enable")}
                     aria-label={channel.isEnabled ? `Disable ${channel.name}` : `Enable ${channel.name}`}
                   >
                     {channel.isEnabled ? (
@@ -276,145 +269,3 @@ export function PublishingView() {
   );
 }
 
-function ChannelFormModal({
-  channel,
-  onClose,
-  onSaved,
-}: {
-  channel: PublishingChannel | null;
-  onClose: () => void;
-  onSaved: (channel: PublishingChannel) => void;
-}) {
-  const { t } = useTranslation();
-  const isEditing = channel !== null;
-  const [name, setName] = useState(channel?.name ?? "");
-  const [channelType, setChannelType] = useState<ChannelType>(
-    (channel?.channelType as ChannelType) ?? "medium",
-  );
-  const [credentials, setCredentials] = useState<Record<string, string>>(() => {
-    if (channel?.credentialsJson) {
-      try {
-        return JSON.parse(channel.credentialsJson);
-      } catch {
-        return {};
-      }
-    }
-    return {};
-  });
-  const [defaultTags, setDefaultTags] = useState(channel?.defaultTags ?? "");
-  const [saving, setSaving] = useState(false);
-  const withError = useErrorToast();
-
-  const fields = CREDENTIAL_FIELDS[channelType] ?? [];
-
-  const handleSave = async () => {
-    setSaving(true);
-    await withError(async () => {
-      const credJson = JSON.stringify(credentials);
-      let result: PublishingChannel;
-      if (isEditing) {
-        result = await api.updateChannel(
-          channel.id,
-          name,
-          channelType,
-          credJson,
-          defaultTags,
-          channel.isEnabled,
-        );
-      } else {
-        result = await api.createChannel(name, channelType, credJson, defaultTags);
-      }
-      onSaved(result);
-    });
-    setSaving(false);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="channel-form-title">
-      <FocusTrap>
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-[440px] p-5 shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 id="channel-form-title" className="text-sm font-semibold text-zinc-200">
-            {isEditing ? t("publishing.channelForm.editTitle") : t("publishing.channelForm.addTitle")}
-          </h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300" aria-label="Close dialog">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <input
-            type="text"
-            placeholder={t("publishing.channelForm.namePlaceholder")}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-brand-500"
-          />
-
-          <select
-            value={channelType}
-            onChange={(e) => {
-              setChannelType(e.target.value as ChannelType);
-              setCredentials({});
-            }}
-            className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-300 focus:outline-none focus:border-brand-500"
-          >
-            {CHANNEL_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Dynamic credential fields */}
-          {fields.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                {t("publishing.channelForm.credentials")}
-              </p>
-              {fields.map((f) => (
-                <div key={f.key}>
-                  <label className="text-[11px] text-zinc-400 mb-1 block">{f.label}</label>
-                  <input
-                    type={f.type}
-                    value={credentials[f.key] ?? ""}
-                    onChange={(e) =>
-                      setCredentials((prev) => ({ ...prev, [f.key]: e.target.value }))
-                    }
-                    placeholder={f.label}
-                    className="w-full px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-brand-500 font-mono"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <input
-            type="text"
-            placeholder={t("publishing.channelForm.tagsPlaceholder")}
-            value={defaultTags}
-            onChange={(e) => setDefaultTags(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-brand-500"
-          />
-        </div>
-
-        <div className="flex justify-end gap-2 mt-4">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-          >
-            {t("publishing.channelForm.cancel")}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!name.trim() || saving}
-            className="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded disabled:opacity-50 transition-colors"
-          >
-            {saving ? t("publishing.channelForm.saving") : isEditing ? t("publishing.channelForm.update") : t("publishing.channelForm.create")}
-          </button>
-        </div>
-      </div>
-      </FocusTrap>
-    </div>
-  );
-}
