@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegui/nicegui/main/tauri/src-tauri/tauri.conf.json",
   "productName": "CreedFlow",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "identifier": "com.creedflow.desktop",
   "build": {
     "frontendDist": "../dist",
