@@ -8,6 +8,7 @@ import { SetupWizard } from "./components/setup/SetupWizard";
 import { ToastOverlay } from "./components/notifications/ToastOverlay";
 import { KeyboardShortcutsOverlay } from "./components/shared/KeyboardShortcutsOverlay";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
+import { SectionErrorBoundary } from "./components/shared/SectionErrorBoundary";
 import { UpdateBanner } from "./components/shared/UpdateBanner";
 import { useProjectStore } from "./store/projectStore";
 import { useTaskStore } from "./store/taskStore";
@@ -285,14 +286,18 @@ function App() {
 
           {/* Right: Detail panels */}
           {detailMode === "task" && (
-            <DetailPanel onClose={closeDetail} />
+            <SectionErrorBoundary section="detail-panel">
+              <DetailPanel onClose={closeDetail} />
+            </SectionErrorBoundary>
           )}
           {detailMode === "project" && selectedProjectId && (
-            <ProjectDetailPanel
-              projectId={selectedProjectId}
-              onClose={closeDetail}
-              onViewTasks={handleViewTasks}
-            />
+            <SectionErrorBoundary section="project-detail">
+              <ProjectDetailPanel
+                projectId={selectedProjectId}
+                onClose={closeDetail}
+                onViewTasks={handleViewTasks}
+              />
+            </SectionErrorBoundary>
           )}
         </div>
         </div>
