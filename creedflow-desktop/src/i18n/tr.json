@@ -460,7 +460,9 @@
       "byBackend": "Backende Göre",
       "timeline": "Zaman Çizelgesi",
       "tasks": "Görevler",
-      "performance": "Performans"
+      "performance": "Performans",
+      "efficiency": "Verimlilik",
+      "budgets": "Bütçeler"
     },
     "topAgents": "En Çok Kullanan Ajanlar",
     "topBackends": "En Çok Kullanan Backendler",
@@ -506,6 +508,30 @@
       "avgResponseTime": "Ort. Yanıt Süresi",
       "successRate": "Başarı Oranı",
       "costPerToken": "Token Başına Maliyet"
+    },
+    "efficiency": {
+      "noData": "Skor Verisi Yok",
+      "noDataHint": "Backend skorları görevler tamamlandıktan sonra her 5 dakikada hesaplanır",
+      "tasks": "görev"
+    },
+    "budget": {
+      "title": "Maliyet Bütçeleri",
+      "add": "Bütçe Ekle",
+      "noBudgets": "Bütçe Yok",
+      "noBudgetsHint": "AI harcamalarını takip ve sınırlamak için bütçe oluşturun",
+      "edit": "Düzenle",
+      "delete": "Sil",
+      "acknowledge": "Kapat",
+      "saveFailed": "Bütçe kaydedilemedi",
+      "deleteFailed": "Bütçe silinemedi",
+      "newBudget": "Yeni Bütçe",
+      "editBudget": "Bütçeyi Düzenle",
+      "scope": "Kapsam",
+      "period": "Dönem",
+      "limit": "Limit",
+      "warnAt": "Uyarı seviyesi",
+      "criticalAt": "Kritik seviye",
+      "pauseOnExceed": "Aşıldığında görevleri duraklat"
     }
   },
   "settings": {

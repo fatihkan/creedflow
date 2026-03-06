@@ -50,6 +50,8 @@ final class Orchestrator {
     let notificationService: NotificationService
     let backendHealthMonitor: BackendHealthMonitor
     let mcpHealthMonitor: MCPHealthMonitor
+    let backendScoringService: BackendScoringService
+    let budgetMonitorService: BudgetMonitorService
 
     /// Agent types that require at least one creative MCP service to be configured
     private static let creativeAgentTypes: Set<AgentTask.AgentType> = [
@@ -103,11 +105,14 @@ final class Orchestrator {
         self.notificationService = NotificationService(dbQueue: dbQueue)
         self.backendHealthMonitor = BackendHealthMonitor(dbQueue: dbQueue, notificationService: self.notificationService)
         self.mcpHealthMonitor = MCPHealthMonitor(dbQueue: dbQueue, notificationService: self.notificationService)
+        self.backendScoringService = BackendScoringService(dbQueue: dbQueue)
+        self.budgetMonitorService = BudgetMonitorService(dbQueue: dbQueue, notificationService: self.notificationService)
 
         // Register backends (done after init to avoid capturing self before init completes)
         // All three are registered; BackendRouter checks isEnabled + isAvailable before selection.
         let pm = self.processManager
         let claudeResolvedPath = resolvedPath
+        let scoring = self.backendScoringService
         Task {
             await router.register(ClaudeBackend(processManager: pm, claudePath: claudeResolvedPath))
             await router.register(CodexBackend())
@@ -118,6 +123,7 @@ final class Orchestrator {
             await router.register(LMStudioBackend())
             await router.register(LlamaCppBackend())
             await router.register(MLXBackend())
+            await router.setScoringService(scoring)
         }
     }
 
@@ -151,6 +157,10 @@ final class Orchestrator {
         await backendHealthMonitor.start()
         await mcpHealthMonitor.start()
 
+        // Start scoring and budget services
+        await backendScoringService.start()
+        await budgetMonitorService.start()
+
         // Prune old notifications
         await notificationService.pruneOld()
 
@@ -170,6 +180,8 @@ final class Orchestrator {
         await publishingService.stopScheduledPublishing()
         await backendHealthMonitor.stop()
         await mcpHealthMonitor.stop()
+        await backendScoringService.stop()
+        await budgetMonitorService.stop()
         // Cancel all backends
         for backend in await backendRouter.allBackends {
             await backend.cancelAll()
@@ -235,6 +247,19 @@ final class Orchestrator {
                     }
                     continue
                 }
+            }
+
+            // Budget-aware dispatch: defer tasks when spending caps are exceeded
+            let projectId = task.projectId
+            if await budgetMonitorService.shouldPauseForBudget(projectId: projectId) {
+                await scheduler.release(task: task)
+                do {
+                    try await taskQueue.deferTask(task)
+                    logger.info("Task \(task.id) deferred — budget exceeded for project \(projectId)")
+                } catch {
+                    logger.error("Failed to defer task \(task.id) (budget exceeded): \(error.localizedDescription)")
+                }
+                continue
             }
 
             let effectivePrefs = preferencesStore.preferences(for: task.agentType)

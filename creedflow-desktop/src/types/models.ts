@@ -531,3 +531,53 @@ export interface PromptUsageRecord {
   reviewScore: number | null;
   usedAt: string;
 }
+
+// ─── Backend Scoring & Cost Budgets ──────────────────────────────────────────
+
+export interface BackendScore {
+  id: string;
+  backendType: string;
+  costEfficiency: number;
+  speed: number;
+  reliability: number;
+  quality: number;
+  compositeScore: number;
+  sampleSize: number;
+  updatedAt: string;
+}
+
+export type BudgetScope = "global" | "project";
+export type BudgetPeriod = "daily" | "weekly" | "monthly";
+export type ThresholdType = "warn" | "critical" | "exceeded";
+
+export interface CostBudget {
+  id: string;
+  scope: BudgetScope;
+  projectId: string | null;
+  period: BudgetPeriod;
+  limitUsd: number;
+  warnThreshold: number;
+  criticalThreshold: number;
+  pauseOnExceed: boolean;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetAlert {
+  id: string;
+  budgetId: string;
+  thresholdType: ThresholdType;
+  currentSpend: number;
+  limitUsd: number;
+  percentage: number;
+  acknowledgedAt: string | null;
+  createdAt: string;
+}
+
+export interface BudgetUtilization {
+  budget: CostBudget;
+  currentSpend: number;
+  percentage: number;
+  alerts: BudgetAlert[];
+}

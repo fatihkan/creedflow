@@ -460,7 +460,9 @@
       "byBackend": "By Backend",
       "timeline": "Timeline",
       "tasks": "Tasks",
-      "performance": "Performance"
+      "performance": "Performance",
+      "efficiency": "Efficiency",
+      "budgets": "Budgets"
     },
     "topAgents": "Top Agents",
     "topBackends": "Top Backends",
@@ -506,6 +508,30 @@
       "avgResponseTime": "Avg Response Time",
       "successRate": "Success Rate",
       "costPerToken": "Cost per Token"
+    },
+    "efficiency": {
+      "noData": "No Score Data",
+      "noDataHint": "Backend scores are computed every 5 minutes after tasks complete",
+      "tasks": "tasks"
+    },
+    "budget": {
+      "title": "Cost Budgets",
+      "add": "Add Budget",
+      "noBudgets": "No Budgets",
+      "noBudgetsHint": "Create a budget to track and limit AI spending",
+      "edit": "Edit",
+      "delete": "Delete",
+      "acknowledge": "Dismiss",
+      "saveFailed": "Failed to save budget",
+      "deleteFailed": "Failed to delete budget",
+      "newBudget": "New Budget",
+      "editBudget": "Edit Budget",
+      "scope": "Scope",
+      "period": "Period",
+      "limit": "Limit",
+      "warnAt": "Warn at",
+      "criticalAt": "Critical at",
+      "pauseOnExceed": "Pause tasks when exceeded"
     }
   },
   "settings": {

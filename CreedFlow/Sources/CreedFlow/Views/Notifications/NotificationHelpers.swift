@@ -32,6 +32,7 @@ extension AppNotification.Category {
         case .rateLimit: return "Rate Limit"
         case .task: return "Task"
         case .deploy: return "Deploy"
+        case .budget: return "Budget"
         case .system: return "System"
         }
     }
@@ -43,6 +44,7 @@ extension AppNotification.Category {
         case .rateLimit: return .orange
         case .task: return .blue
         case .deploy: return .green
+        case .budget: return .yellow
         case .system: return .gray
         }
     }

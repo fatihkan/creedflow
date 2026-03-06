@@ -1,14 +1,18 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../../store/settingsStore";
+import { useCostStore } from "../../store/costStore";
+import { BackendScoreBadge } from "./BackendScoreBadge";
 
 export function BackendSettings() {
   const { t } = useTranslation();
   const { backends, fetchBackends, toggleBackend } = useSettingsStore();
+  const { scores, fetchScores } = useCostStore();
 
   useEffect(() => {
     fetchBackends();
-  }, [fetchBackends]);
+    fetchScores();
+  }, [fetchBackends, fetchScores]);
 
   return (
     <section>
@@ -31,6 +35,9 @@ export function BackendSettings() {
                   <span className="text-sm text-zinc-200">
                     {backend.displayName}
                   </span>
+                  <BackendScoreBadge
+                    score={scores.find((s) => s.backendType === backend.backendType)}
+                  />
                   {backend.isLocal && (
                     <span className="text-[10px] bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded">
                       {t("settings.backends.local")}

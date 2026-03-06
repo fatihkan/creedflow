@@ -970,6 +970,7 @@ pub enum NotificationCategory {
     RateLimit,
     Task,
     Deploy,
+    Budget,
     System,
 }
 
@@ -981,6 +982,7 @@ impl NotificationCategory {
             Self::RateLimit => "rateLimit",
             Self::Task => "task",
             Self::Deploy => "deploy",
+            Self::Budget => "budget",
             Self::System => "system",
         }
     }
@@ -991,6 +993,7 @@ impl NotificationCategory {
             "rateLimit" | "rate_limit" => Self::RateLimit,
             "task" => Self::Task,
             "deploy" => Self::Deploy,
+            "budget" => Self::Budget,
             _ => Self::System,
         }
     }
@@ -1523,4 +1526,214 @@ pub struct TemplateTask {
     pub title: String,
     pub description: String,
     pub priority: i32,
+}
+
+// ─── Backend Scoring & Cost Budgets ──────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendScore {
+    pub id: String,
+    pub backend_type: String,
+    pub cost_efficiency: f64,
+    pub speed: f64,
+    pub reliability: f64,
+    pub quality: f64,
+    pub composite_score: f64,
+    pub sample_size: i32,
+    pub updated_at: String,
+}
+
+impl BackendScore {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            backend_type: row.get("backendType")?,
+            cost_efficiency: row.get("costEfficiency")?,
+            speed: row.get("speed")?,
+            reliability: row.get("reliability")?,
+            quality: row.get("quality")?,
+            composite_score: row.get("compositeScore")?,
+            sample_size: row.get("sampleSize")?,
+            updated_at: row.get("updatedAt")?,
+        })
+    }
+
+    pub fn all(conn: &Connection) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM backendScore ORDER BY compositeScore DESC")?;
+        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn by_type(conn: &Connection, backend_type: &str) -> rusqlite::Result<Option<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM backendScore WHERE backendType = ?1")?;
+        let mut rows = stmt.query_map([backend_type], |row| Self::from_row(row))?;
+        match rows.next() {
+            Some(Ok(score)) => Ok(Some(score)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
+        }
+    }
+
+    pub fn upsert(conn: &Connection, score: &BackendScore) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO backendScore (id, backendType, costEfficiency, speed, reliability, quality, compositeScore, sampleSize, updatedAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             ON CONFLICT(backendType) DO UPDATE SET
+                costEfficiency = excluded.costEfficiency,
+                speed = excluded.speed,
+                reliability = excluded.reliability,
+                quality = excluded.quality,
+                compositeScore = excluded.compositeScore,
+                sampleSize = excluded.sampleSize,
+                updatedAt = excluded.updatedAt",
+            params![
+                score.id, score.backend_type, score.cost_efficiency, score.speed,
+                score.reliability, score.quality, score.composite_score,
+                score.sample_size, score.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CostBudget {
+    pub id: String,
+    pub scope: String,
+    pub project_id: Option<String>,
+    pub period: String,
+    pub limit_usd: f64,
+    pub warn_threshold: f64,
+    pub critical_threshold: f64,
+    pub pause_on_exceed: bool,
+    pub is_enabled: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl CostBudget {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            scope: row.get("scope")?,
+            project_id: row.get("projectId")?,
+            period: row.get("period")?,
+            limit_usd: row.get("limitUsd")?,
+            warn_threshold: row.get("warnThreshold")?,
+            critical_threshold: row.get("criticalThreshold")?,
+            pause_on_exceed: row.get::<_, i32>("pauseOnExceed")? != 0,
+            is_enabled: row.get::<_, i32>("isEnabled")? != 0,
+            created_at: row.get("createdAt")?,
+            updated_at: row.get("updatedAt")?,
+        })
+    }
+
+    pub fn all_enabled(conn: &Connection) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM costBudget WHERE isEnabled = 1 ORDER BY createdAt DESC")?;
+        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn all(conn: &Connection) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM costBudget ORDER BY createdAt DESC")?;
+        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn insert(conn: &Connection, budget: &CostBudget) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO costBudget (id, scope, projectId, period, limitUsd, warnThreshold, criticalThreshold, pauseOnExceed, isEnabled, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                budget.id, budget.scope, budget.project_id, budget.period,
+                budget.limit_usd, budget.warn_threshold, budget.critical_threshold,
+                budget.pause_on_exceed as i32, budget.is_enabled as i32,
+                budget.created_at, budget.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn update(conn: &Connection, budget: &CostBudget) -> rusqlite::Result<()> {
+        conn.execute(
+            "UPDATE costBudget SET scope = ?2, projectId = ?3, period = ?4, limitUsd = ?5,
+             warnThreshold = ?6, criticalThreshold = ?7, pauseOnExceed = ?8, isEnabled = ?9,
+             updatedAt = ?10 WHERE id = ?1",
+            params![
+                budget.id, budget.scope, budget.project_id, budget.period,
+                budget.limit_usd, budget.warn_threshold, budget.critical_threshold,
+                budget.pause_on_exceed as i32, budget.is_enabled as i32,
+                budget.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute("DELETE FROM costBudget WHERE id = ?1", [id])?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BudgetAlert {
+    pub id: String,
+    pub budget_id: String,
+    pub threshold_type: String,
+    pub current_spend: f64,
+    pub limit_usd: f64,
+    pub percentage: f64,
+    pub acknowledged_at: Option<String>,
+    pub created_at: String,
+}
+
+impl BudgetAlert {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            budget_id: row.get("budgetId")?,
+            threshold_type: row.get("thresholdType")?,
+            current_spend: row.get("currentSpend")?,
+            limit_usd: row.get("limitUsd")?,
+            percentage: row.get("percentage")?,
+            acknowledged_at: row.get("acknowledgedAt")?,
+            created_at: row.get("createdAt")?,
+        })
+    }
+
+    pub fn by_budget(conn: &Connection, budget_id: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM budgetAlert WHERE budgetId = ?1 ORDER BY createdAt DESC"
+        )?;
+        let rows = stmt.query_map([budget_id], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn recent(conn: &Connection, limit: i32) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM budgetAlert ORDER BY createdAt DESC LIMIT ?1"
+        )?;
+        let rows = stmt.query_map([limit], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn acknowledge(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute(
+            "UPDATE budgetAlert SET acknowledgedAt = datetime('now') WHERE id = ?1",
+            [id],
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BudgetUtilization {
+    pub budget: CostBudget,
+    pub current_spend: f64,
+    pub percentage: f64,
+    pub alerts: Vec<BudgetAlert>,
 }

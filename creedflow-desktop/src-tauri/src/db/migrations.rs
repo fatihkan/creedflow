@@ -41,6 +41,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (20, V20_MESSAGE_ATTACHMENTS),
         (21, V21_NOTIFICATIONS_AND_HEALTH),
         (22, V22_PROJECT_COMPLETION_AND_COMMENTS),
+        (23, V23_BACKEND_SCORING_AND_BUDGETS),
     ];
 
     for (version, sql) in migrations {
@@ -463,4 +464,49 @@ CREATE TABLE IF NOT EXISTS taskComment (
 );
 
 CREATE INDEX IF NOT EXISTS idx_taskComment_taskId ON taskComment(taskId);
+"#;
+
+const V23_BACKEND_SCORING_AND_BUDGETS: &str = r#"
+CREATE TABLE IF NOT EXISTS backendScore (
+    id TEXT PRIMARY KEY NOT NULL,
+    backendType TEXT NOT NULL,
+    costEfficiency REAL NOT NULL DEFAULT 0.5,
+    speed REAL NOT NULL DEFAULT 0.5,
+    reliability REAL NOT NULL DEFAULT 0.5,
+    quality REAL NOT NULL DEFAULT 0.5,
+    compositeScore REAL NOT NULL DEFAULT 0.5,
+    sampleSize INTEGER NOT NULL DEFAULT 0,
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_backendScore_type ON backendScore(backendType);
+
+CREATE TABLE IF NOT EXISTS costBudget (
+    id TEXT PRIMARY KEY NOT NULL,
+    scope TEXT NOT NULL DEFAULT 'global',
+    projectId TEXT REFERENCES project(id) ON DELETE CASCADE,
+    period TEXT NOT NULL DEFAULT 'monthly',
+    limitUsd REAL NOT NULL DEFAULT 50.0,
+    warnThreshold REAL NOT NULL DEFAULT 0.80,
+    criticalThreshold REAL NOT NULL DEFAULT 0.95,
+    pauseOnExceed INTEGER NOT NULL DEFAULT 0,
+    isEnabled INTEGER NOT NULL DEFAULT 1,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_costBudget_scope ON costBudget(scope);
+
+CREATE TABLE IF NOT EXISTS budgetAlert (
+    id TEXT PRIMARY KEY NOT NULL,
+    budgetId TEXT NOT NULL REFERENCES costBudget(id) ON DELETE CASCADE,
+    thresholdType TEXT NOT NULL,
+    currentSpend REAL NOT NULL,
+    limitUsd REAL NOT NULL,
+    percentage REAL NOT NULL,
+    acknowledgedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_budgetAlert_budgetId ON budgetAlert(budgetId);
 "#;

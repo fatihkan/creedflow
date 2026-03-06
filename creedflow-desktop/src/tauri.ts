@@ -195,6 +195,26 @@ export const getCostTimeline = () =>
 export const getTaskStatistics = () =>
   invoke<import("./types/models").TaskStatistics>("get_task_statistics");
 
+// ─── Backend Scores & Budgets ────────────────────────────────────────────────
+
+export const getBackendScores = () =>
+  invoke<import("./types/models").BackendScore[]>("get_backend_scores");
+
+export const getCostBudgets = () =>
+  invoke<import("./types/models").CostBudget[]>("get_cost_budgets");
+
+export const upsertCostBudget = (budget: import("./types/models").CostBudget) =>
+  invoke<void>("upsert_cost_budget", { budget });
+
+export const deleteCostBudget = (budgetId: string) =>
+  invoke<void>("delete_cost_budget", { budgetId });
+
+export const getBudgetUtilization = () =>
+  invoke<import("./types/models").BudgetUtilization[]>("get_budget_utilization");
+
+export const acknowledgeBudgetAlert = (alertId: string) =>
+  invoke<void>("acknowledge_budget_alert", { alertId });
+
 // ─── Reviews ─────────────────────────────────────────────────────────────────
 
 export const listReviews = (limit?: number, offset?: number) =>
