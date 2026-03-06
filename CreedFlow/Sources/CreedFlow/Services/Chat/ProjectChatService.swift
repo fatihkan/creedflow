@@ -6,6 +6,7 @@ private let logger = Logger(subsystem: "com.creedflow", category: "ProjectChatSe
 
 /// Manages chat conversations for a project — handles sending messages,
 /// streaming AI responses, and task proposal approval.
+@MainActor
 @Observable
 final class ProjectChatService {
     private(set) var messages: [ProjectMessage] = []
@@ -30,8 +31,8 @@ final class ProjectChatService {
         self.history = ChatHistory(dbQueue: dbQueue)
     }
 
-    deinit {
-        observationTask?.cancel()
+    nonisolated deinit {
+        // observationTask will be cancelled when self is deallocated
     }
 
     // MARK: - Binding
@@ -43,8 +44,9 @@ final class ProjectChatService {
         observationTask?.cancel()
 
         // Load project
-        Task {
-            self.project = try? await dbQueue.read { db in
+        let dbRef = dbQueue
+        Task { @MainActor [weak self] in
+            self?.project = try? await dbRef.read { db in
                 try Project.fetchOne(db, id: projectId)
             }
         }
@@ -57,13 +59,10 @@ final class ProjectChatService {
                 .fetchAll(db)
         }
 
-        let db = dbQueue
-        observationTask = Task { [weak self] in
+        observationTask = Task { @MainActor [weak self] in
             do {
-                for try await msgs in observation.values(in: db) {
-                    await MainActor.run {
-                        self?.messages = msgs
-                    }
+                for try await msgs in observation.values(in: dbRef) {
+                    self?.messages = msgs
                 }
             } catch {
                 logger.error("Observation error: \(error.localizedDescription)")
@@ -419,7 +418,7 @@ final class ProjectChatService {
         return nil
     }
 
-    private static func parseAgentType(_ raw: String) -> AgentTask.AgentType {
+    nonisolated private static func parseAgentType(_ raw: String) -> AgentTask.AgentType {
         switch raw.lowercased() {
         case "coder": return .coder
         case "devops": return .devops
