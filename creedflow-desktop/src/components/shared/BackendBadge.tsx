@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 const BACKEND_COLORS: Record<string, { bg: string; text: string }> = {
   claude: { bg: "bg-purple-900/50", text: "text-purple-400" },
   codex: { bg: "bg-green-900/50", text: "text-green-400" },
@@ -8,23 +10,25 @@ const BACKEND_COLORS: Record<string, { bg: string; text: string }> = {
   mlx: { bg: "bg-lime-900/50", text: "text-lime-400" },
 };
 
-const BACKEND_NAMES: Record<string, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  gemini: "Gemini",
-  ollama: "Ollama",
-  lmStudio: "LM Studio",
-  llamaCpp: "llama.cpp",
-  mlx: "MLX",
+const BACKEND_NAME_KEYS: Record<string, string> = {
+  claude: "common.backends.claude",
+  codex: "common.backends.codex",
+  gemini: "common.backends.gemini",
+  ollama: "common.backends.ollama",
+  lmStudio: "common.backends.lmstudio",
+  llamaCpp: "common.backends.llamacpp",
+  mlx: "common.backends.mlx",
 };
 
 export function BackendBadge({ backend }: { backend: string | null }) {
+  const { t } = useTranslation();
   if (!backend) return null;
   const colors = BACKEND_COLORS[backend] ?? {
     bg: "bg-zinc-700",
     text: "text-zinc-300",
   };
-  const name = BACKEND_NAMES[backend] ?? backend;
+  const nameKey = BACKEND_NAME_KEYS[backend];
+  const name = nameKey ? t(nameKey) : backend;
   return (
     <span
       className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${colors.bg} ${colors.text}`}

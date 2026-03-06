@@ -1,4 +1,5 @@
 import type { GitLogEntry } from "../../tauri";
+import { useTranslation } from "react-i18next";
 
 export interface LaneData {
   lane: number;
@@ -26,8 +27,9 @@ interface GitCommitRowProps {
 }
 
 export function GitCommitRow({ commit, laneData, onClick, isSelected }: GitCommitRowProps) {
+  const { t } = useTranslation();
   const date = new Date(commit.timestamp * 1000);
-  const timeAgo = formatRelativeTime(date);
+  const timeAgo = formatRelativeTime(date, t);
 
   const branches = commit.decorations
     ? commit.decorations
@@ -163,16 +165,16 @@ function BranchTag({ name }: { name: string }) {
   );
 }
 
-function formatRelativeTime(date: Date): string {
+function formatRelativeTime(date: Date, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const now = Date.now();
   const diff = now - date.getTime();
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 30) return `${days}d ago`;
+  if (mins < 1) return t("common.time.justNow");
+  if (mins < 60) return t("common.time.minutesAgo", { count: mins });
+  if (hours < 24) return t("common.time.hoursAgo", { count: hours });
+  if (days < 30) return t("common.time.daysAgo", { count: days });
   return date.toLocaleDateString();
 }

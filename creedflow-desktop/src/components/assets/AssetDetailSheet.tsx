@@ -17,6 +17,7 @@ import * as api from "../../tauri";
 import { useAssetStore } from "../../store/assetStore";
 import { FocusTrap } from "../shared/FocusTrap";
 import { useTranslation } from "react-i18next";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 const TYPE_ICONS: Record<string, React.FC<{ className?: string }>> = {
   image: Image,
@@ -41,7 +42,7 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
   const deleteAsset = useAssetStore((s) => s.deleteAsset);
 
   useEffect(() => {
-    api.getAssetVersions(asset.id).then(setVersions).catch(console.error);
+    api.getAssetVersions(asset.id).then(setVersions).catch((e) => showErrorToast("Failed to load asset versions", e));
   }, [asset.id]);
 
   const TypeIcon = TYPE_ICONS[asset.assetType] ?? FileText;
@@ -227,7 +228,7 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
             <button
               onClick={() => setConfirmDelete(true)}
               className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
-              title="Delete asset"
+              title={t("assets.detail.deleteTitle")}
             >
               <Trash2 className="w-4 h-4" />
             </button>

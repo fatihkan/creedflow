@@ -1,5 +1,6 @@
 import { Star, Trash2, Copy, Check, Clock } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Prompt } from "../../store/promptStore";
 
 interface PromptCardProps {
@@ -10,6 +11,7 @@ interface PromptCardProps {
 }
 
 export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }: PromptCardProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -29,7 +31,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
           <button
             onClick={handleCopy}
             className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
-            title="Copy content"
+            title={t("prompts.card.copy")}
             aria-label={`Copy ${prompt.title} content`}
           >
             {copied ? (
@@ -42,7 +44,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
             <button
               onClick={onShowHistory}
               className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
-              title="Version history"
+              title={t("prompts.card.history")}
               aria-label={`View ${prompt.title} version history`}
             >
               <Clock className="w-3 h-3" />
@@ -51,7 +53,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
           <button
             onClick={onToggleFavorite}
             className="p-1 rounded hover:bg-zinc-700"
-            title="Toggle favorite"
+            title={t("prompts.card.favorite")}
             aria-label={prompt.isFavorite ? `Remove ${prompt.title} from favorites` : `Add ${prompt.title} to favorites`}
           >
             <Star
@@ -66,7 +68,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
             <button
               onClick={onDelete}
               className="p-1 rounded hover:bg-zinc-700 text-zinc-500 hover:text-red-400"
-              title="Delete"
+              title={t("prompts.card.delete")}
               aria-label={`Delete ${prompt.title}`}
             >
               <Trash2 className="w-3 h-3" />
@@ -86,7 +88,7 @@ export function PromptCard({ prompt, onToggleFavorite, onDelete, onShowHistory }
           {prompt.category}
         </span>
         <span className="text-[10px] text-zinc-600">
-          {prompt.source === "user" ? "Custom" : "Built-in"}
+          {prompt.source === "user" ? t("prompts.card.custom") : t("prompts.card.builtIn")}
         </span>
         {prompt.isFavorite && (
           <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400 ml-auto" />

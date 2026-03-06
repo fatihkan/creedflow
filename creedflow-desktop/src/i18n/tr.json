@@ -56,6 +56,13 @@
       },
       "cancel": "İptal",
       "create": "Proje Oluştur"
+    },
+    "timeStats": {
+      "title": "Zaman Takibi",
+      "elapsed": "Geçen",
+      "work": "Çalışma",
+      "idle": "Boşta",
+      "perAgent": "Ajana Göre"
     }
   },
   "tasks": {
@@ -87,7 +94,50 @@
       "restore": "Geri Yükle",
       "delete": "Sil",
       "noMatch": "Eşleşme bulunamadı",
-      "empty": "Arşivlenmiş görev yok"
+      "empty": "Arşivlenmiş görev yok",
+      "archivedDate": "{{date}} tarihinde arşivlendi"
+    },
+    "duplicateTask": "Görevi kopyala",
+    "toggleChat": "Proje sohbetini aç/kapat",
+    "comments": {
+      "title": "Yorumlar",
+      "empty": "Henüz yorum yok",
+      "you": "Sen",
+      "system": "Sistem",
+      "placeholder": "Yorum ekle..."
+    },
+    "promptHistory": {
+      "title": "Prompt Geçmişi",
+      "empty": "Kaydedilmiş prompt kullanımı yok",
+      "untitled": "Başlıksız prompt"
+    },
+    "revision": {
+      "title": "Düzenleme Talimatları",
+      "placeholder": "Yeniden deneme için özel talimatlar ekleyin...",
+      "retrying": "Yeniden deneniyor...",
+      "saveRetry": "Kaydet ve Yeniden Dene"
+    },
+    "detail": {
+      "noSelection": "Görev seçilmedi",
+      "tabs": {
+        "info": "Bilgi",
+        "output": "Çıktı",
+        "reviews": "İncelemeler",
+        "comments": "Yorumlar",
+        "prompts": "Promptlar"
+      },
+      "description": "Açıklama",
+      "priority": "Öncelik",
+      "retries": "Yeniden Denemeler",
+      "duration": "Süre",
+      "cost": "Maliyet",
+      "error": "Hata",
+      "cancelTask": "Görevi İptal Et",
+      "noOutput": "Çıktı mevcut değil",
+      "loadingReviews": "İncelemeler yükleniyor...",
+      "noReviews": "Henüz inceleme yok",
+      "issues": "Sorunlar",
+      "suggestions": "Öneriler"
     }
   },
   "agents": {
@@ -97,7 +147,26 @@
     "active": "{{count}} aktif",
     "activeRunners": "Aktif Çalıştırıcılar",
     "agentTypes": "Ajan Türleri",
-    "recentCompleted": "Son Tamamlananlar"
+    "recentCompleted": "Son Tamamlananlar",
+    "types": {
+      "analyzer": "Analizci",
+      "coder": "Kodlayıcı",
+      "reviewer": "İnceleyici",
+      "tester": "Test Uzmanı",
+      "devops": "DevOps",
+      "monitor": "İzleyici",
+      "contentWriter": "İçerik Yazarı",
+      "designer": "Tasarımcı",
+      "imageGen": "Görsel Üretici",
+      "videoEditor": "Video Editörü",
+      "publisher": "Yayıncı",
+      "planner": "Planlayıcı"
+    },
+    "status": {
+      "mcp": "MCP",
+      "cli": "CLI",
+      "tasks": "görevler"
+    }
   },
   "compare": {
     "title": "Backend Karşılaştır",
@@ -108,7 +177,8 @@
     "run": "Karşılaştırmayı Çalıştır",
     "running": "Çalışıyor...",
     "exportJson": "JSON Dışa Aktar",
-    "emptyState": "Karşılaştırmak için bir prompt girin ve backendleri seçin"
+    "emptyState": "Karşılaştırmak için bir prompt girin ve backendleri seçin",
+    "error": "Hata"
   },
   "deploy": {
     "title": "Dağıtımlar",
@@ -202,7 +272,9 @@
       "update": "Güncelle",
       "create": "Oluştur",
       "cancel": "İptal",
-      "addPrompt": "+ Zincire prompt ekle..."
+      "addPrompt": "+ Zincire prompt ekle...",
+      "editTitle": "Zinciri düzenle",
+      "transitionNotePlaceholder": "geçiş notu..."
     },
     "versionHistory": {
       "title": "Sürüm Geçmişi",
@@ -218,6 +290,27 @@
       "delete": "Sil",
       "custom": "Özel",
       "builtIn": "Yerleşik"
+    },
+    "diff": {
+      "vs": "ile"
+    },
+    "effectiveness": {
+      "loading": "Etkinlik verileri yükleniyor...",
+      "totalUses": "Toplam Kullanım",
+      "successRate": "Başarı Oranı",
+      "trackedPrompts": "Takip Edilen Promptlar",
+      "sortBy": "Sırala",
+      "mostUsed": "En Çok Kullanılan",
+      "avgScore": "Ort. Puan",
+      "noData": "Henüz kullanım verisi yok",
+      "noDataDescription": "Promptlar görevlerde kullanıldıkça istatistikler burada görünecek",
+      "headers": {
+        "prompt": "Prompt",
+        "uses": "Kullanım",
+        "pass": "Başarılı",
+        "rate": "Oran",
+        "avgScore": "Ort. Puan"
+      }
     }
   },
   "assets": {
@@ -262,12 +355,21 @@
       "confirm": "Onayla",
       "cancel": "İptal",
       "showVersions": "Sürüm geçmişini göster ({{count}} sürüm)",
-      "hideVersions": "Sürüm geçmişini gizle ({{count}} sürüm)"
+      "hideVersions": "Sürüm geçmişini gizle ({{count}} sürüm)",
+      "deleteTitle": "Varlığı sil"
+    },
+    "status": {
+      "approved": "Onaylandı",
+      "rejected": "Reddedildi",
+      "pending": "Bekliyor"
     }
   },
   "publishing": {
     "title": "Yayınlama",
     "addChannel": "Kanal Ekle",
+    "loading": "Yükleniyor...",
+    "enable": "Etkinleştir",
+    "disable": "Devre Dışı Bırak",
     "tabs": {
       "channels": "kanallar",
       "publications": "yayınlar"
@@ -293,6 +395,15 @@
       "twitter": "Twitter",
       "linkedin": "LinkedIn",
       "devTo": "Dev.to"
+    },
+    "credentials": {
+      "integrationToken": "Entegrasyon Tokeni",
+      "siteUrl": "Site URL",
+      "username": "Kullanıcı Adı",
+      "applicationPassword": "Uygulama Şifresi",
+      "apiKey": "API Anahtarı",
+      "apiSecret": "API Gizli Anahtarı",
+      "accessToken": "Erişim Tokeni"
     }
   },
   "notifications": {
@@ -323,6 +434,26 @@
     "totalCost": "Toplam Maliyet",
     "tasksTracked": "Takip Edilen Görevler",
     "totalTokens": "Toplam Token",
+    "totalSpent": "Toplam Harcama",
+    "tasksRun": "Çalıştırılan Görevler",
+    "avgCost": "Ort. Maliyet",
+    "thisMonth": "Bu Ay",
+    "backendTab": "Backend",
+    "agentTab": "Ajan",
+    "tasksTab": "Görevler",
+    "performanceTab": "Performans",
+    "dailyTab": "Günlük",
+    "exportTab": "Dışa Aktar",
+    "noData": "Henüz maliyet verisi kaydedilmedi",
+    "noDataDescription": "Görevler tamamlandıkça maliyet verileri görünecek",
+    "backendDistribution": "Backend Dağılımı",
+    "agentDistribution": "Ajan Dağılımı",
+    "noBackendData": "Backend verisi yok",
+    "noAgentData": "Ajan verisi yok",
+    "dailyCostTrend": "Günlük Maliyet Eğilimi",
+    "noDailyData": "Henüz günlük veri yok",
+    "exportCsv": "CSV Olarak Dışa Aktar",
+    "exportJson": "JSON Olarak Dışa Aktar",
     "tabs": {
       "overview": "Genel Bakış",
       "byAgent": "Ajana Göre",
@@ -342,7 +473,11 @@
       "date": "Tarih",
       "cost": "Maliyet",
       "tasks": "Görevler",
-      "tokens": "Tokenlar"
+      "tokens": "Tokenlar",
+      "task": "Görev",
+      "agent": "Ajan",
+      "backend": "Backend",
+      "duration": "Süre"
     },
     "loadingStats": "Görev istatistikleri yükleniyor...",
     "loadingPerformance": "Performans verileri yükleniyor...",
@@ -367,10 +502,18 @@
       "avgDurationByAgent": "Ajana Göre Ort. Süre",
       "tasksCompleted": "Tamamlanan Görevler (Son 30 Gün)",
       "noCompletions": "Son 30 günde tamamlama yok",
-      "completed": "Tamamlanan"
+      "completed": "Tamamlanan",
+      "avgResponseTime": "Ort. Yanıt Süresi",
+      "successRate": "Başarı Oranı",
+      "costPerToken": "Token Başına Maliyet"
     }
   },
   "settings": {
+    "theme": {
+      "system": "Sistem",
+      "light": "Açık",
+      "dark": "Koyu"
+    },
     "title": "Ayarlar",
     "tabs": {
       "general": "Genel",
@@ -477,12 +620,39 @@
         "update": "Güncelle",
         "create": "Oluştur"
       }
+    },
+    "backends": {
+      "title": "Yapay Zeka Backendleri",
+      "description": "Ajanlar için hangi yapay zeka backendlerinin mevcut olduğunu yapılandırın",
+      "local": "Yerel",
+      "available": "Mevcut",
+      "notFound": "Bulunamadı"
+    },
+    "agentPrefs": {
+      "title": "Ajan Backend Tercihleri",
+      "description": "Her ajanın hangi backendi kullanacağını geçersiz kılın",
+      "default": "Varsayılan"
     }
   },
   "shortcuts": {
     "title": "Klavye Kısayolları",
     "navigation": "Gezinme",
     "actions": "İşlemler",
+    "projects": "Projeler",
+    "tasks": "Görevler",
+    "agents": "Ajanlar",
+    "reviews": "İncelemeler",
+    "compare": "Karşılaştır",
+    "deploy": "Dağıtım",
+    "prompts": "Promptlar",
+    "assets": "Varlıklar",
+    "publishing": "Yayınlama",
+    "gitHistory": "Git Geçmişi",
+    "newProject": "Yeni proje",
+    "settings": "Ayarlar",
+    "searchTasks": "Görev ara",
+    "notifications": "Bildirimler",
+    "costDashboard": "Maliyet Paneli",
     "closePanel": "Paneli / sohbeti kapat",
     "showOverlay": "Bu ekranı göster"
   },
@@ -539,7 +709,48 @@
     "enable": "Etkinleştir",
     "disable": "Devre Dışı Bırak",
     "selectAll": "Tümünü seç",
-    "deselectAll": "Seçimi kaldır"
+    "deselectAll": "Seçimi kaldır",
+    "search": "Ara...",
+    "updateAvailable": "CreedFlow <strong>v{{latestVersion}}</strong> mevcut. Şu an v{{currentVersion}} kullanıyorsunuz.",
+    "viewRelease": "Sürümü Görüntüle",
+    "status": {
+      "queued": "Kuyrukta",
+      "inProgress": "Devam Ediyor",
+      "passed": "Başarılı",
+      "failed": "Başarısız",
+      "needsRevision": "Düzenleme Gerekli",
+      "cancelled": "İptal Edildi"
+    },
+    "backends": {
+      "claude": "Claude",
+      "codex": "Codex",
+      "gemini": "Gemini",
+      "ollama": "Ollama",
+      "lmstudio": "LM Studio",
+      "llamacpp": "llama.cpp",
+      "mlx": "MLX",
+      "opencode": "OpenCode",
+      "openclaw": "OpenClaw"
+    },
+    "terminal": {
+      "waiting": "Çıktı bekleniyor...",
+      "copyAll": "Tümünü kopyala"
+    },
+    "time": {
+      "justNow": "az önce",
+      "minutesAgo": "{{count}}dk önce",
+      "hoursAgo": "{{count}}sa önce",
+      "daysAgo": "{{count}}g önce"
+    },
+    "errorPanel": {
+      "title": "Bir şeyler ters gitti",
+      "description": "Beklenmeyen bir hata oluştu. Uygulamayı yeniden yüklemeyi deneyin.",
+      "reload": "Yeniden Yükle"
+    },
+    "sectionError": {
+      "title": "Bu bölümde bir hata oluştu",
+      "retry": "Tekrar Dene"
+    }
   },
   "content": {
     "selectProject": "Görevleri görmek için bir proje seçin",
@@ -557,10 +768,17 @@
     "suggestions": "Öneriler",
     "securityNotes": "Güvenlik Notları",
     "approved": "Onaylandı",
+    "approve": "Onayla",
+    "reject": "Reddet",
     "filters": {
       "all": "tümü",
       "pending": "bekliyor",
       "approved": "onaylandı"
+    },
+    "verdict": {
+      "pass": "Başarılı",
+      "needsRevision": "Düzenleme Gerekli",
+      "fail": "Başarısız"
     }
   },
   "projectDetail": {
@@ -604,14 +822,32 @@
     "message": "Mesaj",
     "branches": "Dallar",
     "author": "Yazar",
-    "date": "Tarih"
+    "date": "Tarih",
+    "commitDetail": {
+      "title": "Commit Detayı",
+      "hash": "Hash",
+      "message": "Mesaj",
+      "parent": "Üst Commit",
+      "parents": "Üst Commitler",
+      "mergeCommit": "Birleştirme commiti",
+      "refs": "Referanslar"
+    }
   },
   "chat": {
     "title": "Proje Sohbeti",
     "startConversation": "Bir konuşma başlatın",
     "description": "Ne oluşturmak istediğinizi açıklayın, CreedFlow projeniz için görevler ve özellikler önerecek.",
     "placeholder": "Ne oluşturmak istediğinizi açıklayın...",
-    "attachFiles": "Dosya veya görsel ekle"
+    "attachFiles": "Dosya veya görsel ekle",
+    "you": "Sen",
+    "aiName": "CreedFlow AI",
+    "taskProposal": {
+      "title": "Görev Önerisi",
+      "approved": "Onaylandı",
+      "rejected": "Reddedildi",
+      "approve": "Onayla",
+      "reject": "Reddet"
+    }
   },
   "toast": {
     "dismiss": "Bildirimi kapat"
@@ -620,9 +856,21 @@
     "title": "Şablondan Oluştur",
     "backToTemplates": "Şablonlara Dön",
     "projectName": "Proje adı...",
-    "createInfo": "{{features}} özellik ve {{tasks}} görev oluşturur.",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "Projenizi açıklayın...",
+    "techStack": "Teknoloji Yığını",
+    "createInfo": "{{features}} özellik · {{tasks}} görev",
     "tech": "Teknoloji:",
     "cancel": "İptal",
-    "createProject": "Proje Oluştur"
+    "createProject": "Proje Oluştur",
+    "task": "görev",
+    "tasks": "görev",
+    "types": {
+      "software": "Yazılım",
+      "content": "İçerik",
+      "image": "Görsel",
+      "video": "Video",
+      "general": "Genel"
+    }
   }
 }

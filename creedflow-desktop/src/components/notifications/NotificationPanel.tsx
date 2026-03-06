@@ -28,14 +28,7 @@ const SEVERITY_COLOR: Record<NotificationSeverity, string> = {
   info: "text-blue-400",
 };
 
-const CATEGORY_LABEL: Record<NotificationCategory, string> = {
-  backendHealth: "Backend",
-  mcpHealth: "MCP",
-  rateLimit: "Rate Limit",
-  task: "Task",
-  deploy: "Deploy",
-  system: "System",
-};
+// Category labels are resolved via t() at render time — see NotificationRow.
 
 const CATEGORY_COLOR: Record<NotificationCategory, string> = {
   backendHealth: "bg-purple-500/20 text-purple-400",
@@ -146,10 +139,10 @@ function NotificationRow({
   const { t } = useTranslation();
   const Icon = SEVERITY_ICON[notification.severity] || Info;
   const iconColor = SEVERITY_COLOR[notification.severity] || "text-zinc-400";
-  const catLabel = CATEGORY_LABEL[notification.category] || notification.category;
+  const catLabel = t(`notifications.categories.${notification.category}`, notification.category);
   const catColor = CATEGORY_COLOR[notification.category] || "bg-zinc-500/20 text-zinc-400";
 
-  const timeAgo = getTimeAgo(notification.createdAt);
+  const timeAgo = getTimeAgo(notification.createdAt, t);
 
   return (
     <div
@@ -193,15 +186,15 @@ function NotificationRow({
   );
 }
 
-function getTimeAgo(dateStr: string): string {
+function getTimeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const now = Date.now();
   const then = new Date(dateStr + "Z").getTime();
   const diffMs = now - then;
   const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return t("notifications.timeAgo.justNow");
+  if (diffMin < 60) return t("notifications.timeAgo.minutesAgo", { count: diffMin });
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return t("notifications.timeAgo.hoursAgo", { count: diffHr });
   const diffDay = Math.floor(diffHr / 24);
-  return `${diffDay}d ago`;
+  return t("notifications.timeAgo.daysAgo", { count: diffDay });
 }

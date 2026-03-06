@@ -1,10 +1,12 @@
 import { Bot, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   content: string;
 }
 
 export function StreamingMessage({ content }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-3 px-4 py-3">
       <div className="flex-shrink-0 w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center">
@@ -13,7 +15,7 @@ export function StreamingMessage({ content }: Props) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-medium text-zinc-400">
-            CreedFlow AI
+            {t("chat.aiName")}
           </span>
           <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
         </div>

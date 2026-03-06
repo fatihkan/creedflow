@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { Copy, Check } from "lucide-react";
 
@@ -14,6 +15,7 @@ interface OutputLine {
 }
 
 export function TerminalOutput({ taskId, initialContent }: TerminalOutputProps) {
+  const { t } = useTranslation();
   const [lines, setLines] = useState<OutputLine[]>(() => {
     if (initialContent) {
       return initialContent.split("\n").map((line) => ({
@@ -105,7 +107,7 @@ export function TerminalOutput({ taskId, initialContent }: TerminalOutputProps) 
   if (lines.length === 0) {
     return (
       <div className="bg-zinc-950 rounded border border-zinc-800 p-3 text-xs text-zinc-600 font-mono">
-        Waiting for output...
+        {t("common.terminal.waiting")}
       </div>
     );
   }
@@ -116,7 +118,7 @@ export function TerminalOutput({ taskId, initialContent }: TerminalOutputProps) 
       <button
         onClick={handleCopy}
         className="absolute top-2 right-2 p-1 rounded bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors z-10"
-        title="Copy all"
+        title={t("common.terminal.copyAll")}
       >
         {copied ? (
           <Check className="w-3.5 h-3.5 text-green-400" />

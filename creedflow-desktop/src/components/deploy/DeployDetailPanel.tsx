@@ -3,6 +3,7 @@ import { X, XCircle, RotateCcw, Copy, Terminal } from "lucide-react";
 import type { DeploymentInfo } from "../../types/models";
 import * as api from "../../tauri";
 import { useTranslation } from "react-i18next";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "text-zinc-400 bg-zinc-400/10",
@@ -29,7 +30,7 @@ export function DeployDetailPanel({ deployment, onClose, onRefresh }: DeployDeta
     api
       .getDeploymentLogs(deployment.id)
       .then(setLogs)
-      .catch(console.error)
+      .catch((e) => showErrorToast("Failed to load deployment logs", e))
       .finally(() => setLoadingLogs(false));
   }, [deployment.id]);
 
