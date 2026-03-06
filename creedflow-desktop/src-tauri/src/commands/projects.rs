@@ -143,6 +143,22 @@ pub async fn get_project_time_stats(
     })
 }
 
+/// Validate that a path does not escape the allowed base directory via traversal.
+fn validate_path_no_traversal(path: &str) -> Result<std::path::PathBuf, String> {
+    let p = std::path::Path::new(path);
+    // Reject paths containing .. components
+    for component in p.components() {
+        if matches!(component, std::path::Component::ParentDir) {
+            return Err("Path traversal detected: '..' components are not allowed".to_string());
+        }
+    }
+    // Ensure the path is absolute
+    if !p.is_absolute() {
+        return Err("Output path must be absolute".to_string());
+    }
+    Ok(p.to_path_buf())
+}
+
 /// Export project documentation (architecture, diagrams, summary) to a single markdown file.
 /// Useful for importing into NotebookLM or other documentation tools.
 #[tauri::command]
@@ -151,6 +167,8 @@ pub async fn export_project_docs(
     id: String,
     output_path: String,
 ) -> Result<String, String> {
+    validate_path_no_traversal(&output_path)?;
+
     let db = state.db.lock().await;
     let project = Project::get(&db.conn, &id).map_err(|e| e.to_string())?;
 
@@ -232,6 +250,8 @@ pub async fn export_project_zip(
     project_id: String,
     output_path: String,
 ) -> Result<String, String> {
+    validate_path_no_traversal(&output_path)?;
+
     let db = state.db.lock().await;
     let project = Project::get(&db.conn, &project_id).map_err(|e| e.to_string())?;
 
@@ -341,28 +361,44 @@ pub async fn create_project_from_template(
     };
 
     let db = state.db.lock().await;
-    Project::insert(&db.conn, &project).map_err(|e| e.to_string())?;
 
-    // Create features and tasks from template
-    for feature_tmpl in &template.features {
-        let feature_id = Uuid::new_v4().to_string();
-        db.conn.execute(
-            "INSERT INTO feature (id, projectId, name, description, priority, status, createdAt, updatedAt)
-             VALUES (?1, ?2, ?3, ?4, 0, 'pending', ?5, ?5)",
-            params![feature_id, project_id, feature_tmpl.name, feature_tmpl.description, now],
-        ).map_err(|e| e.to_string())?;
+    // Wrap all inserts in a transaction for atomicity
+    db.conn.execute_batch("BEGIN").map_err(|e| e.to_string())?;
 
-        for task_tmpl in &feature_tmpl.tasks {
-            let task_id = Uuid::new_v4().to_string();
+    let result = (|| -> Result<(), String> {
+        Project::insert(&db.conn, &project).map_err(|e| e.to_string())?;
+
+        // Create features and tasks from template
+        for feature_tmpl in &template.features {
+            let feature_id = Uuid::new_v4().to_string();
             db.conn.execute(
-                "INSERT INTO agentTask (id, projectId, featureId, agentType, title, description, priority, status, retryCount, maxRetries, createdAt, updatedAt)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', 0, 3, ?8, ?8)",
-                params![task_id, project_id, feature_id, task_tmpl.agent_type, task_tmpl.title, task_tmpl.description, task_tmpl.priority, now],
+                "INSERT INTO feature (id, projectId, name, description, priority, status, createdAt, updatedAt)
+                 VALUES (?1, ?2, ?3, ?4, 0, 'pending', ?5, ?5)",
+                params![feature_id, project_id, feature_tmpl.name, feature_tmpl.description, now],
             ).map_err(|e| e.to_string())?;
+
+            for task_tmpl in &feature_tmpl.tasks {
+                let task_id = Uuid::new_v4().to_string();
+                db.conn.execute(
+                    "INSERT INTO agentTask (id, projectId, featureId, agentType, title, description, priority, status, retryCount, maxRetries, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', 0, 3, ?8, ?8)",
+                    params![task_id, project_id, feature_id, task_tmpl.agent_type, task_tmpl.title, task_tmpl.description, task_tmpl.priority, now],
+                ).map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            db.conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            Ok(project)
+        }
+        Err(e) => {
+            let _ = db.conn.execute_batch("ROLLBACK");
+            Err(e)
         }
     }
-
-    Ok(project)
 }
 
 fn built_in_templates() -> Vec<ProjectTemplate> {
