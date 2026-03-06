@@ -1,4 +1,4 @@
-use crate::db::models::{CostSummary, CostTracking};
+use crate::db::models::{BackendScore, BudgetAlert, BudgetUtilization, CostBudget, CostSummary, CostTracking};
 use crate::state::AppState;
 use tauri::State;
 
@@ -196,4 +196,115 @@ pub async fn get_task_statistics(state: State<'_, AppState>) -> Result<TaskStati
         success_rate,
         avg_duration_ms,
     })
+}
+
+// ─── Backend Scores ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_backend_scores(state: State<'_, AppState>) -> Result<Vec<BackendScore>, String> {
+    let db = state.db.lock().await;
+    BackendScore::all(&db.conn).map_err(|e| e.to_string())
+}
+
+// ─── Cost Budgets ────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_cost_budgets(state: State<'_, AppState>) -> Result<Vec<CostBudget>, String> {
+    let db = state.db.lock().await;
+    CostBudget::all(&db.conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn upsert_cost_budget(
+    state: State<'_, AppState>,
+    budget: CostBudget,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    // Try update first, then insert
+    let rows = db.conn.execute(
+        "UPDATE costBudget SET scope = ?2, projectId = ?3, period = ?4, limitUsd = ?5,
+         warnThreshold = ?6, criticalThreshold = ?7, pauseOnExceed = ?8, isEnabled = ?9,
+         updatedAt = datetime('now') WHERE id = ?1",
+        rusqlite::params![
+            budget.id, budget.scope, budget.project_id, budget.period,
+            budget.limit_usd, budget.warn_threshold, budget.critical_threshold,
+            budget.pause_on_exceed as i32, budget.is_enabled as i32
+        ],
+    ).map_err(|e| e.to_string())?;
+    if rows == 0 {
+        CostBudget::insert(&db.conn, &budget).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_cost_budget(
+    state: State<'_, AppState>,
+    budget_id: String,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    CostBudget::delete(&db.conn, &budget_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_budget_utilization(
+    state: State<'_, AppState>,
+) -> Result<Vec<BudgetUtilization>, String> {
+    let db = state.db.lock().await;
+    let budgets = CostBudget::all_enabled(&db.conn).map_err(|e| e.to_string())?;
+    let mut results = Vec::new();
+
+    for budget in budgets {
+        let period_sql = match budget.period.as_str() {
+            "daily" => "datetime('now', 'start of day')",
+            "weekly" => "datetime('now', '-7 days')",
+            _ => "datetime('now', 'start of month')",
+        };
+        let spend_sql = if budget.scope == "project" {
+            format!(
+                "SELECT COALESCE(SUM(costUSD), 0) FROM costTracking WHERE createdAt >= {} AND projectId = ?1",
+                period_sql
+            )
+        } else {
+            format!(
+                "SELECT COALESCE(SUM(costUSD), 0) FROM costTracking WHERE createdAt >= {}",
+                period_sql
+            )
+        };
+
+        let current_spend: f64 = if budget.scope == "project" {
+            let pid = budget.project_id.clone().unwrap_or_default();
+            db.conn.query_row(&spend_sql, [&pid], |r| r.get(0))
+                .unwrap_or(0.0)
+        } else {
+            db.conn.query_row(&spend_sql, [], |r| r.get(0))
+                .unwrap_or(0.0)
+        };
+
+        let percentage = if budget.limit_usd > 0.0 {
+            current_spend / budget.limit_usd
+        } else {
+            0.0
+        };
+
+        let alerts = BudgetAlert::by_budget(&db.conn, &budget.id).unwrap_or_default();
+
+        results.push(BudgetUtilization {
+            budget,
+            current_spend,
+            percentage,
+            alerts,
+        });
+    }
+
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn acknowledge_budget_alert(
+    state: State<'_, AppState>,
+    alert_id: String,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    BudgetAlert::acknowledge(&db.conn, &alert_id).map_err(|e| e.to_string())
 }

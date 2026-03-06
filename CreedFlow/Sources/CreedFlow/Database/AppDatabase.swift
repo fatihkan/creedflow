@@ -535,6 +535,63 @@ public struct AppDatabase {
             )
         }
 
+        migrator.registerMigration("v22_backend_scoring_and_budgets") { db in
+            try db.create(table: "backendScore") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("backendType", .text).notNull()
+                t.column("costEfficiency", .double).notNull().defaults(to: 0.5)
+                t.column("speed", .double).notNull().defaults(to: 0.5)
+                t.column("reliability", .double).notNull().defaults(to: 0.5)
+                t.column("quality", .double).notNull().defaults(to: 0.5)
+                t.column("compositeScore", .double).notNull().defaults(to: 0.5)
+                t.column("sampleSize", .integer).notNull().defaults(to: 0)
+                t.column("updatedAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "backendScore_on_backendType",
+                on: "backendScore",
+                columns: ["backendType"],
+                unique: true
+            )
+
+            try db.create(table: "costBudget") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("scope", .text).notNull().defaults(to: "global")
+                t.column("projectId", .text)
+                    .references("project", onDelete: .cascade)
+                t.column("period", .text).notNull().defaults(to: "monthly")
+                t.column("limitUsd", .double).notNull().defaults(to: 50.0)
+                t.column("warnThreshold", .double).notNull().defaults(to: 0.80)
+                t.column("criticalThreshold", .double).notNull().defaults(to: 0.95)
+                t.column("pauseOnExceed", .boolean).notNull().defaults(to: false)
+                t.column("isEnabled", .boolean).notNull().defaults(to: true)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "costBudget_on_scope",
+                on: "costBudget",
+                columns: ["scope"]
+            )
+
+            try db.create(table: "budgetAlert") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("budgetId", .text).notNull()
+                    .references("costBudget", onDelete: .cascade)
+                t.column("thresholdType", .text).notNull()
+                t.column("currentSpend", .double).notNull()
+                t.column("limitUsd", .double).notNull()
+                t.column("percentage", .double).notNull()
+                t.column("acknowledgedAt", .datetime)
+                t.column("createdAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "budgetAlert_on_budgetId",
+                on: "budgetAlert",
+                columns: ["budgetId"]
+            )
+        }
+
         return migrator
     }
 }

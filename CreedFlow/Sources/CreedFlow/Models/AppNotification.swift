@@ -20,6 +20,7 @@ package struct AppNotification: Codable, Identifiable, Equatable {
         case rateLimit
         case task
         case deploy
+        case budget
         case system
     }
 

@@ -3,8 +3,9 @@ import os
 
 private let logger = Logger(subsystem: "com.creedflow", category: "BackendRouter")
 
-/// Routes agent tasks to the appropriate CLI backend using round-robin
-/// load balancing, with MCP-aware routing for agents that need Claude features.
+/// Routes agent tasks to the appropriate CLI backend using score-weighted random
+/// selection (with round-robin fallback when scores lack data), plus MCP-aware
+/// routing for agents that need Claude features.
 ///
 /// **Hard rules:**
 /// - A backend that is disabled in Settings is NEVER selected.
@@ -14,6 +15,14 @@ private let logger = Logger(subsystem: "com.creedflow", category: "BackendRouter
 actor BackendRouter {
     private var backends: [CLIBackendType: any CLIBackend] = [:]
     private var roundRobinIndex: Int = 0
+
+    /// Injected by Orchestrator after init — enables score-weighted selection.
+    private(set) var scoringService: BackendScoringService?
+
+    /// Set the scoring service (must be called from within the actor).
+    func setScoringService(_ service: BackendScoringService) {
+        scoringService = service
+    }
 
     /// Register a backend. Overwrites any existing backend of the same type.
     func register(_ backend: any CLIBackend) {
@@ -79,10 +88,7 @@ actor BackendRouter {
             return nil
         }
 
-        // Round-robin across available backends
-        let index = roundRobinIndex % available.count
-        roundRobinIndex += 1
-        return available[index]
+        return await selectWeightedOrRoundRobin(from: available)
     }
 
     /// Select any usable backend using the given preferences (no task context).
@@ -96,14 +102,62 @@ actor BackendRouter {
         // Fall back to any usable backend
         let usable = await allUsableBackends()
         guard !usable.isEmpty else { return nil }
-        let index = roundRobinIndex % usable.count
-        roundRobinIndex += 1
-        return usable[index]
+        return await selectWeightedOrRoundRobin(from: usable)
     }
 
     /// Get a specific backend by type (only if enabled and available).
     func backend(for type: CLIBackendType) async -> (any CLIBackend)? {
         guard let b = backends[type], isEnabled(type), await b.isAvailable else { return nil }
         return b
+    }
+
+    // MARK: - Weighted Selection
+
+    /// If scores are available with sufficient samples, use weighted-random selection
+    /// (higher composite score = higher probability). Otherwise fall back to round-robin.
+    /// Weighted-random prevents starvation — low-score backends still get occasional tasks.
+    private func selectWeightedOrRoundRobin(from available: [any CLIBackend]) async -> (any CLIBackend) {
+        guard let scoring = scoringService else {
+            return roundRobin(from: available)
+        }
+
+        // Gather scores for available backends
+        var weights: [(backend: any CLIBackend, weight: Double)] = []
+        var allHaveData = true
+
+        for backend in available {
+            if let score = await scoring.score(for: backend.backendType), score.sampleSize >= 5 {
+                // Use composite score as weight (minimum 0.05 to prevent zero-weight starvation)
+                weights.append((backend, max(score.compositeScore, 0.05)))
+            } else {
+                allHaveData = false
+                break
+            }
+        }
+
+        // Only use weighted selection if ALL backends have sufficient data
+        guard allHaveData, !weights.isEmpty else {
+            return roundRobin(from: available)
+        }
+
+        // Weighted random selection
+        let totalWeight = weights.reduce(0.0) { $0 + $1.weight }
+        let random = Double.random(in: 0..<totalWeight)
+        var cumulative = 0.0
+        for (backend, weight) in weights {
+            cumulative += weight
+            if random < cumulative {
+                return backend
+            }
+        }
+
+        // Fallback (shouldn't reach here, but safety net)
+        return weights.last!.backend
+    }
+
+    private func roundRobin(from available: [any CLIBackend]) -> any CLIBackend {
+        let index = roundRobinIndex % available.count
+        roundRobinIndex += 1
+        return available[index]
     }
 }

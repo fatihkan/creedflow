@@ -64,6 +64,7 @@ public struct SettingsView: View {
     @State private var mlxVersion = "Checking..."
     @State private var ghVersion = "Checking..."
     @State private var backendHealthStatus: [CLIBackendType: HealthEvent.HealthStatus] = [:]
+    @State private var backendScores: [CLIBackendType: BackendScore] = [:]
 
     // Git & Dependencies
     @State private var gitDetector = EnvironmentDetector()
@@ -646,6 +647,16 @@ public struct SettingsView: View {
             } else {
                 Text("Disabled").font(.caption).foregroundStyle(.secondary)
             }
+            if let score = backendScores[type], score.sampleSize >= 5 {
+                let pct = Int(score.compositeScore * 100)
+                let color: Color = pct >= 70 ? .green : pct >= 40 ? .orange : .red
+                Text("\(pct)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(color.opacity(0.15), in: Capsule())
+                    .foregroundStyle(color)
+            }
         }
     }
 
@@ -745,6 +756,20 @@ public struct SettingsView: View {
             backendHealthStatus = statusMap
         } catch {
             // Non-fatal — status dots will show unknown/gray
+        }
+
+        // Also load backend scores for the score badge
+        do {
+            let scores = try await db.dbQueue.read { dbConn in
+                try BackendScore.fetchAll(dbConn)
+            }
+            var scoreMap: [CLIBackendType: BackendScore] = [:]
+            for score in scores {
+                scoreMap[score.backendType] = score
+            }
+            backendScores = scoreMap
+        } catch {
+            // Non-fatal
         }
     }
 

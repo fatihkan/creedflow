@@ -3,7 +3,7 @@ import { useCostStore } from "../../store/costStore";
 import * as api from "../../tauri";
 import type { CostBreakdown } from "../../tauri";
 import type { TaskStatistics } from "../../types/models";
-import { DollarSign, Cpu, Server, Calendar, BarChart3, Zap } from "lucide-react";
+import { DollarSign, Cpu, Server, Calendar, BarChart3, Zap, Gauge, CreditCard } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { showErrorToast } from "../../hooks/useErrorToast";
 import { KpiCard } from "./KpiCard";
@@ -11,8 +11,10 @@ import { BreakdownTable } from "./BreakdownTable";
 import { CostTimelineTab } from "./CostTimelineTab";
 import { CostTasksTab } from "./CostTasksTab";
 import { CostPerformanceTab } from "./CostPerformanceTab";
+import { CostEfficiencyTab } from "./CostEfficiencyTab";
+import { CostBudgetTab } from "./CostBudgetTab";
 
-type Tab = "overview" | "agents" | "backends" | "timeline" | "tasks" | "performance";
+type Tab = "overview" | "agents" | "backends" | "timeline" | "tasks" | "performance" | "efficiency" | "budgets";
 
 export function CostDashboard() {
   const { t } = useTranslation();
@@ -55,6 +57,8 @@ export function CostDashboard() {
           { id: "timeline" as Tab, label: t("costs.tabs.timeline"), icon: Calendar },
           { id: "tasks" as Tab, label: t("costs.tabs.tasks"), icon: BarChart3 },
           { id: "performance" as Tab, label: t("costs.tabs.performance"), icon: Zap },
+          { id: "efficiency" as Tab, label: t("costs.tabs.efficiency"), icon: Gauge },
+          { id: "budgets" as Tab, label: t("costs.tabs.budgets"), icon: CreditCard },
         ]).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -96,6 +100,9 @@ export function CostDashboard() {
         {tab === "performance" && !taskStats && (
           <p className="text-xs text-zinc-500">{t("costs.loadingPerformance")}</p>
         )}
+
+        {tab === "efficiency" && <CostEfficiencyTab />}
+        {tab === "budgets" && <CostBudgetTab />}
       </div>
     </div>
   );

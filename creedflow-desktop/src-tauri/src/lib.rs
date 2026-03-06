@@ -135,6 +135,12 @@ pub fn run() {
             commands::costs::get_cost_by_backend,
             commands::costs::get_cost_timeline,
             commands::costs::get_task_statistics,
+            commands::costs::get_backend_scores,
+            commands::costs::get_cost_budgets,
+            commands::costs::upsert_cost_budget,
+            commands::costs::delete_cost_budget,
+            commands::costs::get_budget_utilization,
+            commands::costs::acknowledge_budget_alert,
             // Reviews
             commands::reviews::list_reviews,
             commands::reviews::approve_review,

@@ -18,11 +18,21 @@ struct CostDashboardView: View {
     @State private var totalTasks: Int = 0
     @State private var successRate: Double = 0
     @State private var avgDurationMs: Double? = nil
+    // Backend scores & budgets
+    @State private var backendScores: [BackendScore] = []
+    @State private var costBudgets: [CostBudget] = []
+    @State private var budgetAlerts: [BudgetAlert] = []
+    @State private var budgetSpending: [UUID: Double] = [:]
+    // Budget form
+    @State private var showBudgetForm = false
+    @State private var editingBudget: CostBudget?
 
     private enum DashboardTab: String, CaseIterable {
         case costs = "Costs"
         case tasks = "Tasks"
         case performance = "Performance"
+        case efficiency = "Efficiency"
+        case budgets = "Budgets"
     }
 
     var body: some View {
@@ -81,6 +91,10 @@ struct CostDashboardView: View {
                     tasksTabContent
                 case .performance:
                     performanceTabContent
+                case .efficiency:
+                    efficiencyTabContent
+                case .budgets:
+                    budgetsTabContent
                 }
             }
         }
@@ -90,6 +104,12 @@ struct CostDashboardView: View {
         .task {
             await observeTaskStatistics()
         }
+        .task {
+            await observeBackendScores()
+        }
+        .task {
+            await observeBudgets()
+        }
     }
 
     private func tabIcon(_ tab: DashboardTab) -> String {
@@ -97,6 +117,8 @@ struct CostDashboardView: View {
         case .costs: return "dollarsign.circle"
         case .tasks: return "chart.bar"
         case .performance: return "bolt"
+        case .efficiency: return "gauge.with.needle"
+        case .budgets: return "creditcard"
         }
     }
 
@@ -618,5 +640,416 @@ struct CostDashboardView: View {
             return String(format: "%.1fK", Double(count) / 1_000)
         }
         return "\(count)"
+    }
+
+    // MARK: - Efficiency Tab
+
+    private var efficiencyTabContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if backendScores.isEmpty {
+                    ForgeEmptyState(
+                        icon: "gauge.with.needle",
+                        title: "No Score Data",
+                        subtitle: "Backend scores are computed every 5 minutes after tasks complete"
+                    )
+                    .frame(height: 200)
+                } else {
+                    ForEach(backendScores.sorted(by: { $0.compositeScore > $1.compositeScore }), id: \.id) { score in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(score.backendType.displayName)
+                                    .font(.headline)
+                                Spacer()
+                                backendScoreBadge(score.compositeScore)
+                                Text("\(score.sampleSize) tasks")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+
+                            scoreDimensionBar(label: "Cost Efficiency", value: score.costEfficiency, color: .green)
+                            scoreDimensionBar(label: "Speed", value: score.speed, color: .blue)
+                            scoreDimensionBar(label: "Reliability", value: score.reliability, color: .orange)
+                            scoreDimensionBar(label: "Quality", value: score.quality, color: .purple)
+                        }
+                        .padding(12)
+                        .forgeCard(cornerRadius: 8)
+                    }
+                }
+            }
+            .padding(16)
+        }
+    }
+
+    private func scoreDimensionBar(label: String, value: Double, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 11))
+                .frame(width: 100, alignment: .leading)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.primary.opacity(0.05))
+                        .frame(height: 8)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color.opacity(0.6))
+                        .frame(width: geo.size.width * CGFloat(min(value, 1.0)), height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            Text(String(format: "%.0f", value * 100))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 30, alignment: .trailing)
+        }
+    }
+
+    private func backendScoreBadge(_ score: Double) -> some View {
+        let pct = Int(score * 100)
+        let color: Color = pct >= 70 ? .green : pct >= 40 ? .orange : .red
+        return Text("\(pct)")
+            .font(.system(size: 12, weight: .bold, design: .monospaced))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule())
+            .foregroundStyle(color)
+    }
+
+    // MARK: - Budgets Tab
+
+    private var budgetsTabContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Cost Budgets")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        editingBudget = nil
+                        showBudgetForm = true
+                    } label: {
+                        Label("Add Budget", systemImage: "plus")
+                            .font(.system(size: 12))
+                    }
+                }
+
+                if costBudgets.isEmpty {
+                    ForgeEmptyState(
+                        icon: "creditcard",
+                        title: "No Budgets",
+                        subtitle: "Create a budget to track and limit AI spending"
+                    )
+                    .frame(height: 150)
+                } else {
+                    ForEach(costBudgets, id: \.id) { budget in
+                        budgetCard(budget)
+                    }
+                }
+
+                // Recent alerts
+                if !budgetAlerts.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Recent Alerts")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.secondary)
+
+                        ForEach(budgetAlerts.prefix(10), id: \.id) { alert in
+                            HStack(spacing: 8) {
+                                Image(systemName: alert.thresholdType == .warn ? "exclamationmark.triangle" : "xmark.octagon")
+                                    .foregroundStyle(alert.thresholdType == .warn ? .orange : .red)
+                                    .font(.system(size: 12))
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("\(alert.thresholdType.rawValue.capitalized) — \(Int(alert.percentage * 100))%")
+                                        .font(.system(size: 12, weight: .medium))
+                                    Text("$\(String(format: "%.2f", alert.currentSpend)) / $\(String(format: "%.2f", alert.limitUsd))")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(alert.createdAt, style: .relative)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.vertical, 3)
+                        }
+                    }
+                    .padding(12)
+                    .forgeCard(cornerRadius: 8)
+                }
+            }
+            .padding(16)
+        }
+        .sheet(isPresented: $showBudgetForm) {
+            BudgetFormView(appDatabase: appDatabase, existingBudget: editingBudget) {
+                showBudgetForm = false
+            }
+        }
+    }
+
+    private func budgetCard(_ budget: CostBudget) -> some View {
+        let spending = budgetSpending[budget.id] ?? 0
+        let percentage = budget.limitUsd > 0 ? spending / budget.limitUsd : 0
+        let barColor: Color = percentage >= 1.0 ? .red : percentage >= budget.criticalThreshold ? .orange : percentage >= budget.warnThreshold ? .yellow : .green
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(budget.scope == .global ? "Global" : "Project")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(budget.period.rawValue.capitalized)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("$\(String(format: "%.2f", spending)) / $\(String(format: "%.2f", budget.limitUsd))")
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                }
+                Spacer()
+                Text("\(Int(percentage * 100))%")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(barColor)
+            }
+
+            // Utilization bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.primary.opacity(0.05))
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(barColor.opacity(0.6))
+                        .frame(width: geo.size.width * CGFloat(min(percentage, 1.0)))
+                }
+            }
+            .frame(height: 10)
+
+            HStack(spacing: 12) {
+                if budget.pauseOnExceed {
+                    Label("Auto-pause", systemImage: "pause.circle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                }
+                Spacer()
+                Button {
+                    editingBudget = budget
+                    showBudgetForm = true
+                } label: {
+                    Text("Edit")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.forgeAmber)
+
+                Button {
+                    Task { await deleteBudget(budget) }
+                } label: {
+                    Text("Delete")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+            }
+        }
+        .padding(12)
+        .forgeCard(cornerRadius: 8)
+    }
+
+    // MARK: - Budget CRUD
+
+    private func deleteBudget(_ budget: CostBudget) async {
+        guard let db = appDatabase else { return }
+        do {
+            try await db.dbQueue.write { db in
+                try CostBudget.deleteOne(db, id: budget.id)
+            }
+        } catch {
+            errorMessage = "Failed to delete budget: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - Observations (Scores + Budgets)
+
+    private func observeBackendScores() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { db in
+            try BackendScore.fetchAll(db)
+        }
+        do {
+            for try await scores in observation.values(in: db.dbQueue) {
+                backendScores = scores
+            }
+        } catch { /* observation error */ }
+    }
+
+    private func observeBudgets() async {
+        guard let db = appDatabase else { return }
+        let observation = ValueObservation.tracking { dbConn in
+            try CostBudget.order(Column("createdAt").desc).fetchAll(dbConn)
+        }
+        do {
+            for try await budgets in observation.values(in: db.dbQueue) {
+                costBudgets = budgets
+                // Compute spending and alerts in a separate read
+                let (spending, alerts) = try await db.dbQueue.read { dbConn -> ([UUID: Double], [BudgetAlert]) in
+                    var spendMap: [UUID: Double] = [:]
+                    for budget in budgets {
+                        let periodStart = Self.periodStartDate(for: budget.period)
+                        var sql = "SELECT COALESCE(SUM(costUSD), 0) FROM costTracking WHERE createdAt >= ?"
+                        var args: [DatabaseValueConvertible] = [periodStart]
+                        if budget.scope == .project, let pid = budget.projectId {
+                            sql += " AND projectId = ?"
+                            args.append(pid.uuidString)
+                        }
+                        if let amount = try Double.fetchOne(dbConn, sql: sql, arguments: StatementArguments(args)) {
+                            spendMap[budget.id] = amount
+                        }
+                    }
+                    let recentAlerts = try BudgetAlert.order(Column("createdAt").desc).limit(20).fetchAll(dbConn)
+                    return (spendMap, recentAlerts)
+                }
+                budgetSpending = spending
+                budgetAlerts = alerts
+            }
+        } catch { /* observation error */ }
+    }
+
+    private static func periodStartDate(for period: CostBudget.Period) -> Date {
+        let calendar = Calendar.current
+        let now = Date()
+        switch period {
+        case .daily:
+            return calendar.startOfDay(for: now)
+        case .weekly:
+            let weekday = calendar.component(.weekday, from: now)
+            return calendar.date(byAdding: .day, value: -(weekday - calendar.firstWeekday), to: calendar.startOfDay(for: now))!
+        case .monthly:
+            let components = calendar.dateComponents([.year, .month], from: now)
+            return calendar.date(from: components)!
+        }
+    }
+}
+
+// MARK: - Budget Form
+
+struct BudgetFormView: View {
+    let appDatabase: AppDatabase?
+    let existingBudget: CostBudget?
+    let onDismiss: () -> Void
+
+    @State private var scope: CostBudget.Scope = .global
+    @State private var period: CostBudget.Period = .monthly
+    @State private var limitUsd: Double = 50.0
+    @State private var warnThreshold: Double = 80
+    @State private var criticalThreshold: Double = 95
+    @State private var pauseOnExceed = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(existingBudget != nil ? "Edit Budget" : "New Budget")
+                .font(.headline)
+
+            Form {
+                Picker("Scope", selection: $scope) {
+                    ForEach(CostBudget.Scope.allCases, id: \.self) { s in
+                        Text(s.rawValue.capitalized).tag(s)
+                    }
+                }
+
+                Picker("Period", selection: $period) {
+                    ForEach(CostBudget.Period.allCases, id: \.self) { p in
+                        Text(p.rawValue.capitalized).tag(p)
+                    }
+                }
+
+                HStack {
+                    Text("Limit ($)")
+                    Spacer()
+                    TextField("Amount", value: $limitUsd, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 100)
+                }
+
+                HStack {
+                    Text("Warn at (%)")
+                    Spacer()
+                    TextField("", value: $warnThreshold, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 60)
+                }
+
+                HStack {
+                    Text("Critical at (%)")
+                    Spacer()
+                    TextField("", value: $criticalThreshold, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 60)
+                }
+
+                Toggle("Pause tasks when exceeded", isOn: $pauseOnExceed)
+            }
+            .formStyle(.grouped)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Button("Cancel") { onDismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button(existingBudget != nil ? "Save" : "Create") {
+                    Task { await saveBudget() }
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 400)
+        .onAppear {
+            if let b = existingBudget {
+                scope = b.scope
+                period = b.period
+                limitUsd = b.limitUsd
+                warnThreshold = b.warnThreshold * 100
+                criticalThreshold = b.criticalThreshold * 100
+                pauseOnExceed = b.pauseOnExceed
+            }
+        }
+    }
+
+    private func saveBudget() async {
+        guard let db = appDatabase else { return }
+        do {
+            try await db.dbQueue.write { db in
+                if var existing = existingBudget {
+                    existing.scope = scope
+                    existing.period = period
+                    existing.limitUsd = limitUsd
+                    existing.warnThreshold = warnThreshold / 100
+                    existing.criticalThreshold = criticalThreshold / 100
+                    existing.pauseOnExceed = pauseOnExceed
+                    existing.updatedAt = Date()
+                    try existing.update(db)
+                } else {
+                    var budget = CostBudget(
+                        scope: scope,
+                        period: period,
+                        limitUsd: limitUsd,
+                        warnThreshold: warnThreshold / 100,
+                        criticalThreshold: criticalThreshold / 100,
+                        pauseOnExceed: pauseOnExceed
+                    )
+                    try budget.insert(db)
+                }
+            }
+            onDismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
