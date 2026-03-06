@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { showErrorToast } from "../hooks/useErrorToast";
 
 export interface Prompt {
   id: string;
@@ -18,6 +19,8 @@ export interface Prompt {
 interface PromptStore {
   prompts: Prompt[];
   loading: boolean;
+  hasMore: boolean;
+  pageSize: number;
   filter: {
     category: string | null;
     source: string | null;
@@ -26,6 +29,7 @@ interface PromptStore {
   };
 
   fetchPrompts: () => Promise<void>;
+  fetchMorePrompts: () => Promise<void>;
   createPrompt: (title: string, content: string, category: string) => Promise<void>;
   deletePrompt: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
@@ -36,6 +40,8 @@ interface PromptStore {
 export const usePromptStore = create<PromptStore>((set, get) => ({
   prompts: [],
   loading: false,
+  hasMore: true,
+  pageSize: 50,
   filter: {
     category: null,
     source: null,
@@ -46,11 +52,24 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
   fetchPrompts: async () => {
     set({ loading: true });
     try {
-      const prompts = await invoke<Prompt[]>("list_prompts");
-      set({ prompts, loading: false });
+      const prompts = await invoke<Prompt[]>("list_prompts", { limit: 50, offset: 0 });
+      set({ prompts, loading: false, hasMore: prompts.length >= 50 });
     } catch (e) {
-      console.error("Failed to fetch prompts:", e);
+      showErrorToast("Failed to fetch prompts", e);
       set({ loading: false });
+    }
+  },
+
+  fetchMorePrompts: async () => {
+    const { prompts, pageSize } = get();
+    try {
+      const more = await invoke<Prompt[]>("list_prompts", { limit: pageSize, offset: prompts.length });
+      set((s) => ({
+        prompts: [...s.prompts, ...more],
+        hasMore: more.length >= pageSize,
+      }));
+    } catch (e) {
+      showErrorToast("Failed to fetch more prompts", e);
     }
   },
 
@@ -59,7 +78,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
       await invoke("create_prompt", { title, content, category });
       await get().fetchPrompts();
     } catch (e) {
-      console.error("Failed to create prompt:", e);
+      showErrorToast("Failed to create prompt", e);
       throw e;
     }
   },
@@ -71,7 +90,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         prompts: state.prompts.filter((p) => p.id !== id),
       }));
     } catch (e) {
-      console.error("Failed to delete prompt:", e);
+      showErrorToast("Failed to delete prompt", e);
     }
   },
 
@@ -84,7 +103,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         ),
       }));
     } catch (e) {
-      console.error("Failed to toggle favorite:", e);
+      showErrorToast("Failed to toggle favorite", e);
     }
   },
 

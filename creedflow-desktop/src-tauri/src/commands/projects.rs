@@ -5,9 +5,20 @@ use tauri::State;
 use uuid::Uuid;
 
 #[tauri::command]
-pub async fn list_projects(state: State<'_, AppState>) -> Result<Vec<Project>, String> {
+pub async fn list_projects(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> Result<Vec<Project>, String> {
     let db = state.db.lock().await;
-    Project::all(&db.conn).map_err(|e| e.to_string())
+    let lim = limit.unwrap_or(50);
+    let off = offset.unwrap_or(0);
+    let mut stmt = db.conn.prepare(
+        "SELECT * FROM project ORDER BY name LIMIT ?1 OFFSET ?2"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params![lim, off], |row| Project::from_row(row))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -290,6 +301,8 @@ pub async fn create_project_from_template(
     state: State<'_, AppState>,
     template_id: String,
     name: String,
+    description: Option<String>,
+    tech_stack: Option<String>,
     directory_path: Option<String>,
 ) -> Result<Project, String> {
     let templates = built_in_templates();
@@ -315,8 +328,8 @@ pub async fn create_project_from_template(
     let project = Project {
         id: project_id.clone(),
         name,
-        description: template.description.clone(),
-        tech_stack: template.tech_stack.clone(),
+        description: description.unwrap_or_else(|| template.description.clone()),
+        tech_stack: tech_stack.unwrap_or_else(|| template.tech_stack.clone()),
         status: "planning".to_string(),
         directory_path: dir_path,
         project_type: template.project_type.clone(),
@@ -417,7 +430,7 @@ fn built_in_templates() -> Vec<ProjectTemplate> {
             description: "Marketing landing page with responsive design and SEO optimization".to_string(),
             icon: "file-text".to_string(),
             tech_stack: "HTML, CSS, JavaScript".to_string(),
-            project_type: "content".to_string(),
+            project_type: "software".to_string(),
             features: vec![
                 TemplateFeature { name: "Design & Layout".to_string(), description: "Visual design and responsive layout".to_string(), tasks: vec![
                     TemplateTask { agent_type: "designer".to_string(), title: "Design landing page layout".to_string(), description: "Create hero, features, and CTA sections".to_string(), priority: 9 },
@@ -434,7 +447,7 @@ fn built_in_templates() -> Vec<ProjectTemplate> {
             description: "Content management system with blog and multi-channel publishing".to_string(),
             icon: "newspaper".to_string(),
             tech_stack: "Next.js, MDX, Tailwind CSS".to_string(),
-            project_type: "content".to_string(),
+            project_type: "software".to_string(),
             features: vec![
                 TemplateFeature { name: "Content System".to_string(), description: "Blog post management".to_string(), tasks: vec![
                     TemplateTask { agent_type: "coder".to_string(), title: "Build blog engine".to_string(), description: "Create MDX-based blog with categories and search".to_string(), priority: 9 },

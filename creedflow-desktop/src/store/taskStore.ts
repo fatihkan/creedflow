@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { AgentTask } from "../types/models";
 import { useHistoryStore } from "./historyStore";
 import { useNotificationStore } from "./notificationStore";
+import { showErrorToast } from "../hooks/useErrorToast";
 import * as api from "../tauri";
 
 interface TaskStore {
@@ -11,8 +12,12 @@ interface TaskStore {
   selectedIds: Set<string>;
   selectionMode: boolean;
   loading: boolean;
+  hasMore: boolean;
+  hasMoreArchived: boolean;
   fetchTasks: (projectId: string) => Promise<void>;
+  fetchMoreTasks: (projectId: string) => Promise<void>;
   fetchArchivedTasks: (projectId?: string) => Promise<void>;
+  fetchMoreArchivedTasks: (projectId?: string) => Promise<void>;
   selectTask: (id: string | null) => void;
   createTask: (
     projectId: string,
@@ -41,24 +46,52 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   selectedIds: new Set(),
   selectionMode: false,
   loading: false,
+  hasMore: true,
+  hasMoreArchived: true,
 
   fetchTasks: async (projectId) => {
     set({ loading: true });
     try {
-      const tasks = await api.listTasks(projectId);
-      set({ tasks, loading: false });
+      const tasks = await api.listTasks(projectId, 100, 0);
+      set({ tasks, loading: false, hasMore: tasks.length >= 100 });
     } catch (e) {
-      console.error("Failed to fetch tasks:", e);
+      showErrorToast("Failed to fetch tasks", e);
       set({ loading: false });
+    }
+  },
+
+  fetchMoreTasks: async (projectId) => {
+    const { tasks } = get();
+    try {
+      const more = await api.listTasks(projectId, 100, tasks.length);
+      set((s) => ({
+        tasks: [...s.tasks, ...more],
+        hasMore: more.length >= 100,
+      }));
+    } catch (e) {
+      showErrorToast("Failed to fetch more tasks", e);
     }
   },
 
   fetchArchivedTasks: async (projectId?) => {
     try {
-      const archivedTasks = await api.listArchivedTasks(projectId);
-      set({ archivedTasks });
+      const archivedTasks = await api.listArchivedTasks(projectId, 100, 0);
+      set({ archivedTasks, hasMoreArchived: archivedTasks.length >= 100 });
     } catch (e) {
-      console.error("Failed to fetch archived tasks:", e);
+      showErrorToast("Failed to fetch archived tasks", e);
+    }
+  },
+
+  fetchMoreArchivedTasks: async (projectId?) => {
+    const { archivedTasks } = get();
+    try {
+      const more = await api.listArchivedTasks(projectId, 100, archivedTasks.length);
+      set((s) => ({
+        archivedTasks: [...s.archivedTasks, ...more],
+        hasMoreArchived: more.length >= 100,
+      }));
+    } catch (e) {
+      showErrorToast("Failed to fetch more archived tasks", e);
     }
   },
 
@@ -129,7 +162,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const task = await api.duplicateTask(id);
       set((s) => ({ tasks: [...s.tasks, task] }));
     } catch (e) {
-      console.error("Failed to duplicate task:", e);
+      showErrorToast("Failed to duplicate task", e);
     }
   },
 
@@ -210,7 +243,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         try {
           await api.permanentlyDeleteTasks(ids);
         } catch (e) {
-          console.error("Failed to permanently delete tasks:", e);
+          showErrorToast("Failed to permanently delete tasks", e);
         }
       }
     }, 10500);
