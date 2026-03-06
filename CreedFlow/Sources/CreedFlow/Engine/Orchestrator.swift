@@ -58,6 +58,7 @@ final class Orchestrator {
 
     private(set) var isRunning = false
     private(set) var activeRunners: [UUID: MultiBackendRunner] = [:]
+    private let runnersLock = NSLock()
     private var pollingTask: Task<Void, Never>?
 
     init(
@@ -173,12 +174,16 @@ final class Orchestrator {
         for backend in await backendRouter.allBackends {
             await backend.cancelAll()
         }
+        runnersLock.lock()
         activeRunners.removeAll()
+        runnersLock.unlock()
     }
 
     /// Get a runner for a specific task (for UI display of live output)
     func runner(for taskId: UUID) -> MultiBackendRunner? {
-        activeRunners[taskId]
+        runnersLock.lock()
+        defer { runnersLock.unlock() }
+        return activeRunners[taskId]
     }
 
     // MARK: - Private
@@ -256,7 +261,9 @@ final class Orchestrator {
                 continue
             }
             let runner = MultiBackendRunner(backend: backend, dbQueue: dbQueue)
+            runnersLock.lock()
             activeRunners[task.id] = runner
+            runnersLock.unlock()
 
             // Record selected backend immediately so UI shows it during in_progress
             let selectedBackend = backend.backendType.rawValue
@@ -283,7 +290,9 @@ final class Orchestrator {
                 defer {
                     Task { [weak self] in
                         await self?.scheduler.release(task: task)
+                        self?.runnersLock.lock()
                         self?.activeRunners.removeValue(forKey: task.id)
+                        self?.runnersLock.unlock()
                     }
                 }
 

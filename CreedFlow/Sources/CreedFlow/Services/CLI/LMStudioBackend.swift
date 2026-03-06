@@ -5,7 +5,7 @@ import Foundation
 actor LMStudioBackend: CLIBackend {
     nonisolated let backendType = CLIBackendType.lmstudio
 
-    private var activeRequests: [UUID: URLSessionDataTask] = [:]
+    private var activeTasks: Set<UUID> = []
 
     var isAvailable: Bool {
         get async {
@@ -65,46 +65,19 @@ actor LMStudioBackend: CLIBackend {
             return (processId, AsyncThrowingStream { $0.finish(throwing: error) })
         }
 
+        activeTasks.insert(processId)
+        let capturedRequest = request
+
         let stream = AsyncThrowingStream<CLIOutputEvent, Error> { continuation in
-            let task = URLSession.shared.dataTask(with: request) { data, response, error in
-                let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
-
-                if let error = error {
-                    continuation.yield(.error(error.localizedDescription))
-                    let result = CLIResult(
-                        output: error.localizedDescription,
-                        isError: true,
-                        sessionId: nil,
-                        model: "lmstudio:\(model)",
-                        costUSD: nil,
-                        durationMs: elapsed,
-                        inputTokens: 0,
-                        outputTokens: 0
-                    )
-                    continuation.yield(.result(result))
-                    continuation.finish()
-                    return
+            let asyncTask = Task { [weak self] in
+                defer {
+                    Task { await self?.removeActiveTask(processId) }
                 }
 
-                guard let data = data else {
-                    continuation.yield(.error("No data received"))
-                    let result = CLIResult(
-                        output: "No data received",
-                        isError: true,
-                        sessionId: nil,
-                        model: "lmstudio:\(model)",
-                        costUSD: nil,
-                        durationMs: elapsed,
-                        inputTokens: 0,
-                        outputTokens: 0
-                    )
-                    continuation.yield(.result(result))
-                    continuation.finish()
-                    return
-                }
-
-                // Parse OpenAI-compatible response
                 do {
+                    let (data, _) = try await URLSession.shared.data(for: capturedRequest)
+                    let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
+
                     guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                           let choices = json["choices"] as? [[String: Any]],
                           let first = choices.first,
@@ -113,81 +86,61 @@ actor LMStudioBackend: CLIBackend {
                         let raw = String(data: data, encoding: .utf8) ?? "Unknown response"
                         continuation.yield(.error("Failed to parse response: \(raw)"))
                         let result = CLIResult(
-                            output: raw,
-                            isError: true,
-                            sessionId: nil,
-                            model: "lmstudio:\(model)",
-                            costUSD: nil,
-                            durationMs: elapsed,
-                            inputTokens: 0,
-                            outputTokens: 0
+                            output: raw, isError: true, sessionId: nil,
+                            model: "lmstudio:\(model)", costUSD: nil,
+                            durationMs: elapsed, inputTokens: 0, outputTokens: 0
                         )
                         continuation.yield(.result(result))
                         continuation.finish()
                         return
                     }
 
-                    // Extract token usage if available
                     let usage = json["usage"] as? [String: Any]
                     let inputTokens = usage?["prompt_tokens"] as? Int ?? 0
                     let outputTokens = usage?["completion_tokens"] as? Int ?? 0
 
                     continuation.yield(.text(content))
                     let result = CLIResult(
-                        output: content,
-                        isError: false,
-                        sessionId: nil,
-                        model: "lmstudio:\(model)",
-                        costUSD: nil,
-                        durationMs: elapsed,
-                        inputTokens: inputTokens,
-                        outputTokens: outputTokens
+                        output: content, isError: false, sessionId: nil,
+                        model: "lmstudio:\(model)", costUSD: nil,
+                        durationMs: elapsed, inputTokens: inputTokens, outputTokens: outputTokens
                     )
                     continuation.yield(.result(result))
                     continuation.finish()
                 } catch {
-                    continuation.yield(.error("JSON parse error: \(error.localizedDescription)"))
+                    let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
+                    continuation.yield(.error(error.localizedDescription))
                     let result = CLIResult(
-                        output: error.localizedDescription,
-                        isError: true,
-                        sessionId: nil,
-                        model: "lmstudio:\(model)",
-                        costUSD: nil,
-                        durationMs: elapsed,
-                        inputTokens: 0,
-                        outputTokens: 0
+                        output: error.localizedDescription, isError: true, sessionId: nil,
+                        model: "lmstudio:\(model)", costUSD: nil,
+                        durationMs: elapsed, inputTokens: 0, outputTokens: 0
                     )
                     continuation.yield(.result(result))
                     continuation.finish()
                 }
             }
 
-            self.activeRequests[processId] = task
-            task.resume()
-
             continuation.onTermination = { @Sendable _ in
-                task.cancel()
+                asyncTask.cancel()
             }
         }
 
         return (processId, stream)
     }
 
+    private func removeActiveTask(_ id: UUID) {
+        activeTasks.remove(id)
+    }
+
     func cancel(_ processId: UUID) async {
-        guard let task = activeRequests[processId] else { return }
-        task.cancel()
-        activeRequests.removeValue(forKey: processId)
+        activeTasks.remove(processId)
     }
 
     func cancelAll() async {
-        for (_, task) in activeRequests {
-            task.cancel()
-        }
-        activeRequests.removeAll()
+        activeTasks.removeAll()
     }
 
     func activeCount() -> Int {
-        activeRequests = activeRequests.filter { $0.value.state == .running }
-        return activeRequests.count
+        activeTasks.count
     }
 }

@@ -266,8 +266,11 @@ pub async fn stream_chat_response(
             created_at: now,
         };
 
-        if let Ok(db) = state_db.try_lock() {
-            let _ = ProjectMessage::insert(&db.conn, &assistant_msg);
+        {
+            let db = state_db.lock().await;
+            if let Err(e) = ProjectMessage::insert(&db.conn, &assistant_msg) {
+                log::error!("Failed to save assistant message: {}", e);
+            }
         }
 
         let _ = app_clone.emit(
