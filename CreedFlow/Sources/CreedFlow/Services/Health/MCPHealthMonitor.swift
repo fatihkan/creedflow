@@ -71,28 +71,33 @@ actor MCPHealthMonitor {
         }
 
         // Spawn process and check if it survives for 1 second
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: command)
+        process.arguments = config.decodedArguments
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+
+        // Set environment variables
+        var env = ProcessInfo.processInfo.environment
+        for (key, value) in config.decodedEnvironmentVars {
+            env[key] = value
+        }
+        process.environment = env
+
         do {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: command)
-            process.arguments = config.decodedArguments
-            process.standardOutput = Pipe()
-            process.standardError = Pipe()
-
-            // Set environment variables
-            var env = ProcessInfo.processInfo.environment
-            for (key, value) in config.decodedEnvironmentVars {
-                env[key] = value
-            }
-            process.environment = env
-
             try process.run()
+
+            // Ensure process is always cleaned up, even on task cancellation
+            defer {
+                if process.isRunning {
+                    process.terminate()
+                }
+            }
 
             // Wait 1 second and check if still running
             try await Task.sleep(for: .seconds(1))
 
             let isAlive = process.isRunning
-            process.terminate()
-
             let elapsed = Int(Date().timeIntervalSince(start) * 1000)
             if isAlive {
                 recordAndNotify(name, status: .healthy, startTime: start, responseTimeMs: elapsed)
@@ -101,6 +106,10 @@ actor MCPHealthMonitor {
                                 error: "Process exited with code \(process.terminationStatus)")
             }
         } catch {
+            // Ensure process cleanup on error/cancellation
+            if process.isRunning {
+                process.terminate()
+            }
             recordAndNotify(name, status: .unhealthy, startTime: start,
                             error: error.localizedDescription)
         }
