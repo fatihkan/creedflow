@@ -92,8 +92,10 @@ final class NotificationViewModel {
         }
         do {
             for try await (count, items) in observation.values(in: dbQueue) {
-                unreadCount = count
-                recentNotifications = items
+                await MainActor.run {
+                    unreadCount = count
+                    recentNotifications = items
+                }
             }
         } catch {
             // Observation stream ended — stale data but non-fatal

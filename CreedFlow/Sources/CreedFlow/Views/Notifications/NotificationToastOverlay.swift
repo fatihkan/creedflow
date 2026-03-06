@@ -28,6 +28,7 @@ private struct ToastCard: View {
     let notification: AppNotification
     let onDismiss: () -> Void
     @State private var isVisible = true
+    @State private var autoDismissTask: Task<Void, Never>?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -72,10 +73,14 @@ private struct ToastCard: View {
         }
         .onAppear {
             // Auto-dismiss after 5 seconds
-            Task {
+            autoDismissTask = Task {
                 try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { return }
                 onDismiss()
             }
+        }
+        .onDisappear {
+            autoDismissTask?.cancel()
         }
     }
 }
