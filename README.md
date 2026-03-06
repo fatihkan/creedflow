@@ -26,7 +26,7 @@
 
 ### Demo
 
-https://github.com/fatihkan/creedflow/raw/main/screen/screen_record.mp4
+https://github.com/user-attachments/assets/aceea9cc-373c-4d52-9d7d-13bcd7e186b5
 
 ---
 
