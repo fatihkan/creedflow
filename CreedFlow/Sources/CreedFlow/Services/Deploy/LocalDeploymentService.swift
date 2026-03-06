@@ -180,7 +180,11 @@ actor LocalDeploymentService {
             deployment.status = .failed
             deployment.completedAt = Date()
             deployment.logs = (deployment.logs ?? "") + "\nError: \(error.localizedDescription)"
-            try? await updateDeployment(deployment)
+            do {
+                try await updateDeployment(deployment)
+            } catch {
+                logger.critical("Failed to persist deployment failure status for \(deployment.id): \(error.localizedDescription)")
+            }
             logger.error("Deployment \(deployment.id) failed: \(error.localizedDescription)")
             throw error
         }
