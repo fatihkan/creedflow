@@ -438,6 +438,11 @@ struct TaskDetailView: View {
         do {
             try await db.dbQueue.write { dbConn in
                 guard var t = try AgentTask.fetchOne(dbConn, id: taskId) else { return }
+                // Only allow retry from terminal/revisable states
+                guard [.failed, .needsRevision, .cancelled].contains(t.status) else {
+                    throw NSError(domain: "CreedFlow", code: 0,
+                                  userInfo: [NSLocalizedDescriptionKey: "Only failed, needs_revision, or cancelled tasks can be retried"])
+                }
                 t.status = .queued
                 t.retryCount += 1
                 t.errorMessage = nil
