@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Terminal, FolderOpen, Code2, FileText } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { NewProjectDialog } from "./NewProjectDialog";
@@ -14,6 +14,7 @@ import {
   getPreferredEditor,
 } from "../../tauri";
 import type { DetectedEditor } from "../../types/models";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 export function ProjectList() {
   const { projects, fetchProjects, selectProject, selectedProjectId, deleteProject } =
@@ -31,41 +32,39 @@ export function ProjectList() {
     getPreferredEditor().then(setPreferredEditor).catch(() => {});
   }, [fetchProjects]);
 
-  const getEditorCommand = (): string | null => {
+  const editorCommand = useMemo((): string | null => {
     if (preferredEditor) return preferredEditor;
     if (editors.length > 0) return editors[0].command;
     return null;
-  };
+  }, [preferredEditor, editors]);
 
-  const handleOpenTerminal = (e: React.MouseEvent, path: string) => {
+  const handleOpenTerminal = useCallback((e: React.MouseEvent, path: string) => {
     e.stopPropagation();
-    openTerminal(path).catch((err) => console.error("Failed to open terminal:", err));
-  };
+    openTerminal(path).catch((e) => showErrorToast("Failed to open terminal", e));
+  }, []);
 
-  const handleOpenFileManager = (e: React.MouseEvent, path: string) => {
+  const handleOpenFileManager = useCallback((e: React.MouseEvent, path: string) => {
     e.stopPropagation();
-    openInFileManager(path).catch((err) => console.error("Failed to open file manager:", err));
-  };
+    openInFileManager(path).catch((e) => showErrorToast("Failed to open file manager", e));
+  }, []);
 
-  const handleOpenEditor = (e: React.MouseEvent, path: string) => {
+  const handleOpenEditor = useCallback((e: React.MouseEvent, path: string) => {
     e.stopPropagation();
-    const cmd = getEditorCommand();
-    if (cmd) {
-      openInEditor(path, cmd).catch((err) => console.error("Failed to open editor:", err));
+    if (editorCommand) {
+      openInEditor(path, editorCommand).catch((e) => showErrorToast("Failed to open editor", e));
     }
-  };
+  }, [editorCommand]);
 
-  const filteredProjects = search.trim()
-    ? projects.filter((p) => {
-        const q = search.toLowerCase();
-        return (
-          p.name.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          (p.techStack || "").toLowerCase().includes(q) ||
-          p.status.toLowerCase().includes(q)
-        );
-      })
-    : projects;
+  const filteredProjects = useMemo(() => {
+    if (!search.trim()) return projects;
+    const q = search.toLowerCase();
+    return projects.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q) ||
+      (p.techStack || "").toLowerCase().includes(q) ||
+      p.status.toLowerCase().includes(q)
+    );
+  }, [projects, search]);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -159,11 +158,11 @@ export function ProjectList() {
                         >
                           <FolderOpen className="w-3.5 h-3.5" />
                         </button>
-                        {getEditorCommand() && (
+                        {editorCommand && (
                           <button
                             onClick={(e) => handleOpenEditor(e, project.directoryPath)}
                             className="p-1 text-zinc-600 hover:text-zinc-200"
-                            title={`Open in ${editors.find((e) => e.command === getEditorCommand())?.name ?? "Editor"}`}
+                            title={`Open in ${editors.find((e) => e.command === editorCommand)?.name ?? "Editor"}`}
                           >
                             <Code2 className="w-3.5 h-3.5" />
                           </button>
@@ -197,7 +196,7 @@ export function ProjectList() {
       {showTemplate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-label="Project template selector">
           <FocusTrap>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-[480px] max-h-[500px] overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-[520px] max-h-[600px] overflow-y-auto">
             <ProjectTemplateSelector
               onCreated={(id) => {
                 setShowTemplate(false);

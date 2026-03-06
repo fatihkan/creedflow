@@ -1,3 +1,9 @@
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+/// Static regex for stripping ANSI escape codes (compiled once).
+static ANSI_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap());
+
 /// NDJSON stream parser — buffers partial JSON lines across pipe chunks.
 /// Mirrors Swift NDJSONParser.
 pub struct NDJSONParser {
@@ -47,8 +53,7 @@ impl NDJSONParser {
 
 /// Strip ANSI escape codes from CLI output.
 pub fn strip_ansi(input: &str) -> String {
-    let re = regex::Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap();
-    re.replace_all(input, "").to_string()
+    ANSI_RE.replace_all(input, "").to_string()
 }
 
 /// Extract JSON from text that may contain markdown code blocks or other wrapping.

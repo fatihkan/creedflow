@@ -19,6 +19,8 @@ use crate::services::telegram::TelegramService;
 use crate::services::notifications::NotificationService;
 use crate::services::health::{BackendHealthMonitor, MCPHealthMonitor};
 use crate::util::ndjson::extract_json;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use rusqlite::params;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -1037,14 +1039,14 @@ fn parse_yaml_front_matter(text: &str, default_name: &str) -> Option<ContentWrit
     })
 }
 
+/// Static regex for creedflow:image:slug placeholders (compiled once).
+static RE_IMAGE_PLACEHOLDER: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"!\[([^\]]*)\]\(creedflow:image:([a-z0-9-]+)\)").unwrap()
+});
+
 /// Scan content for creedflow:image:slug placeholders and queue ImageGenerator tasks.
 fn scan_and_queue_images(content: &str, task: &AgentTask, db: &Database) {
-    let re = match regex::Regex::new(r"!\[([^\]]*)\]\(creedflow:image:([a-z0-9-]+)\)") {
-        Ok(r) => r,
-        Err(_) => return,
-    };
-
-    for cap in re.captures_iter(content) {
+    for cap in RE_IMAGE_PLACEHOLDER.captures_iter(content) {
         let description = cap.get(1).map(|m| m.as_str()).unwrap_or("");
         let slug = cap.get(2).map(|m| m.as_str()).unwrap_or("");
 

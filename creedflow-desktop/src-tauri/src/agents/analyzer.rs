@@ -1,6 +1,13 @@
 use super::Agent;
 use crate::backends::BackendPreferences;
 use crate::db::models::{AgentTask, AgentType, ProjectType};
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+/// Static regex for extracting [ProjectType: X] tags (compiled once).
+static RE_PROJECT_TYPE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[ProjectType:\s*(\w+)\]").unwrap());
+/// Static regex for removing [ProjectType: X] tags from descriptions (compiled once).
+static RE_PROJECT_TYPE_TAG: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[ProjectType:\s*\w+\]\s*").unwrap());
 
 pub struct AnalyzerAgent;
 
@@ -76,8 +83,7 @@ impl Agent for AnalyzerAgent {
 
 fn extract_project_type(description: &str) -> ProjectType {
     // Look for [ProjectType: X] tag prepended by NewProjectSheet
-    let re = regex::Regex::new(r"\[ProjectType:\s*(\w+)\]").ok();
-    match re.and_then(|r| r.captures(description)) {
+    match RE_PROJECT_TYPE.captures(description) {
         Some(caps) => {
             let type_str = caps.get(1).map(|m| m.as_str()).unwrap_or("software");
             ProjectType::from_str(type_str)
@@ -87,11 +93,7 @@ fn extract_project_type(description: &str) -> ProjectType {
 }
 
 fn remove_project_type_tag(description: &str) -> String {
-    let re = regex::Regex::new(r"\[ProjectType:\s*\w+\]\s*").ok();
-    match re {
-        Some(r) => r.replace(description, "").into_owned(),
-        None => description.to_string(),
-    }
+    RE_PROJECT_TYPE_TAG.replace(description, "").into_owned()
 }
 
 // MARK: - System Context (Project-Type-Aware)

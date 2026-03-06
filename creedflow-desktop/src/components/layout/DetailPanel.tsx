@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   GitBranch,
@@ -20,6 +21,7 @@ import { TaskComments } from "../tasks/TaskComments";
 import { TaskPromptHistory } from "../tasks/TaskPromptHistory";
 import * as api from "../../tauri";
 import type { Review } from "../../types/models";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 type Tab = "info" | "output" | "reviews" | "comments" | "prompts";
 
@@ -28,8 +30,12 @@ interface DetailPanelProps {
 }
 
 export function DetailPanel({ onClose }: DetailPanelProps) {
+  const { t } = useTranslation();
   const { selectedTaskId, tasks, updateTaskStatus } = useTaskStore();
-  const task = tasks.find((t) => t.id === selectedTaskId);
+  const task = useMemo(
+    () => tasks.find((t) => t.id === selectedTaskId),
+    [tasks, selectedTaskId],
+  );
   const [tab, setTab] = useState<Tab>("info");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
@@ -40,7 +46,7 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
       api
         .listReviewsForTask(task.id)
         .then(setReviews)
-        .catch(console.error)
+        .catch((e) => showErrorToast("Failed to load reviews", e))
         .finally(() => setLoadingReviews(false));
     }
   }, [task?.id]);
@@ -53,7 +59,7 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
   if (!task) {
     return (
       <div className="w-[400px] min-w-[340px] border-l border-zinc-800 bg-zinc-900/30 flex items-center justify-center text-zinc-500 text-sm">
-        No task selected
+        {t("tasks.detail.noSelection")}
       </div>
     );
   }
@@ -62,12 +68,16 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
   const isRunning = task.status === "in_progress";
   const duration = task.durationMs != null ? formatDuration(task.durationMs) : null;
 
+  const handleCancel = useCallback(() => {
+    updateTaskStatus(task.id, "cancelled");
+  }, [task.id, updateTaskStatus]);
+
   const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }>; count?: number }[] = [
-    { id: "info", label: "Info", icon: FileText },
-    { id: "output", label: "Output", icon: Terminal },
-    { id: "reviews", label: "Reviews", icon: MessageSquare, count: reviews.length },
-    { id: "comments", label: "Comments", icon: MessageCircle },
-    { id: "prompts", label: "Prompts", icon: History },
+    { id: "info", label: t("tasks.detail.tabs.info"), icon: FileText },
+    { id: "output", label: t("tasks.detail.tabs.output"), icon: Terminal },
+    { id: "reviews", label: t("tasks.detail.tabs.reviews"), icon: MessageSquare, count: reviews.length },
+    { id: "comments", label: t("tasks.detail.tabs.comments"), icon: MessageCircle },
+    { id: "prompts", label: t("tasks.detail.tabs.prompts"), icon: History },
   ];
 
   return (
@@ -124,18 +134,18 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
             {/* Description */}
             <div>
               <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-                Description
+                {t("tasks.detail.description")}
               </label>
               <p className="text-sm text-zinc-300 mt-1 leading-relaxed">{task.description}</p>
             </div>
 
             {/* Metadata grid */}
             <div className="grid grid-cols-2 gap-3">
-              <MetaField label="Priority" value={`P${task.priority}`} />
-              <MetaField label="Retries" value={`${task.retryCount}/${task.maxRetries}`} />
-              {duration && <MetaField label="Duration" value={duration} icon={Clock} />}
+              <MetaField label={t("tasks.detail.priority")} value={`P${task.priority}`} />
+              <MetaField label={t("tasks.detail.retries")} value={`${task.retryCount}/${task.maxRetries}`} />
+              {duration && <MetaField label={t("tasks.detail.duration")} value={duration} icon={Clock} />}
               {task.costUsd != null && (
-                <MetaField label="Cost" value={`$${task.costUsd.toFixed(4)}`} />
+                <MetaField label={t("tasks.detail.cost")} value={`$${task.costUsd.toFixed(4)}`} />
               )}
             </div>
 
@@ -154,7 +164,7 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
             {task.errorMessage && (
               <div className="px-3 py-2 bg-red-950/30 border border-red-900/30 rounded-md">
                 <label className="text-[10px] font-medium text-red-500 uppercase tracking-wider">
-                  Error
+                  {t("tasks.detail.error")}
                 </label>
                 <p className="text-xs text-red-400 mt-1">{task.errorMessage}</p>
               </div>
@@ -164,11 +174,11 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
             <div className="flex items-center gap-2">
               {canCancel && (
                 <button
-                  onClick={() => updateTaskStatus(task.id, "cancelled")}
+                  onClick={handleCancel}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600/20 text-red-400 rounded-md hover:bg-red-600/30 transition-colors"
                 >
                   <XCircle className="w-3.5 h-3.5" />
-                  Cancel Task
+                  {t("tasks.detail.cancelTask")}
                 </button>
               )}
             </div>
@@ -188,7 +198,7 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
                 <Terminal className="w-8 h-8 mb-2 opacity-50" />
-                <p className="text-xs">No output available</p>
+                <p className="text-xs">{t("tasks.detail.noOutput")}</p>
               </div>
             )}
           </div>
@@ -197,11 +207,11 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
         {tab === "reviews" && (
           <div className="space-y-3">
             {loadingReviews ? (
-              <p className="text-xs text-zinc-500">Loading reviews...</p>
+              <p className="text-xs text-zinc-500">{t("tasks.detail.loadingReviews")}</p>
             ) : reviews.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
                 <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
-                <p className="text-xs">No reviews yet</p>
+                <p className="text-xs">{t("tasks.detail.noReviews")}</p>
               </div>
             ) : (
               reviews.map((review) => (
@@ -242,6 +252,7 @@ function MetaField({
 }
 
 function ReviewCard({ review }: { review: Review }) {
+  const { t } = useTranslation();
   const verdictColors: Record<string, string> = {
     pass: "bg-green-500/20 text-green-400",
     needsRevision: "bg-yellow-500/20 text-yellow-400",
@@ -267,13 +278,13 @@ function ReviewCard({ review }: { review: Review }) {
       )}
       {review.issues && (
         <div>
-          <label className="text-[10px] text-zinc-500 font-medium">Issues</label>
+          <label className="text-[10px] text-zinc-500 font-medium">{t("tasks.detail.issues")}</label>
           <p className="text-xs text-zinc-400 mt-0.5">{review.issues}</p>
         </div>
       )}
       {review.suggestions && (
         <div>
-          <label className="text-[10px] text-zinc-500 font-medium">Suggestions</label>
+          <label className="text-[10px] text-zinc-500 font-medium">{t("tasks.detail.suggestions")}</label>
           <p className="text-xs text-zinc-400 mt-0.5">{review.suggestions}</p>
         </div>
       )}
