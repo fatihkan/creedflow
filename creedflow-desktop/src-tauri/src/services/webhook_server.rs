@@ -48,12 +48,39 @@ impl WebhookServer {
             let db = db.clone();
 
             tokio::spawn(async move {
-                let mut buf = vec![0u8; 65536];
-                let n = match stream.read(&mut buf).await {
-                    Ok(n) => n,
-                    Err(_) => return,
-                };
-                let request = String::from_utf8_lossy(&buf[..n]).to_string();
+                const MAX_PAYLOAD: usize = 1_048_576; // 1MB max
+                let mut buf = Vec::with_capacity(65536);
+                let mut tmp = [0u8; 8192];
+                loop {
+                    match stream.read(&mut tmp).await {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&tmp[..n]);
+                            if buf.len() > MAX_PAYLOAD {
+                                let resp = http_response(413, r#"{"error":"Payload too large"}"#);
+                                let _ = stream.write_all(resp.as_bytes()).await;
+                                let _ = stream.shutdown().await;
+                                return;
+                            }
+                            // If we've read the full HTTP request (headers + body), break
+                            // Simple heuristic: check if we have \r\n\r\n (end of headers)
+                            if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+                                // Check Content-Length to see if we have the full body
+                                let text = String::from_utf8_lossy(&buf);
+                                if let Some(cl) = get_content_length(&text) {
+                                    let header_end = text.find("\r\n\r\n").unwrap_or(0) + 4;
+                                    if buf.len() >= header_end + cl {
+                                        break;
+                                    }
+                                } else {
+                                    break; // No Content-Length, assume complete
+                                }
+                            }
+                        }
+                        Err(_) => return,
+                    }
+                }
+                let request = String::from_utf8_lossy(&buf).to_string();
 
                 let response = handle_request(&request, &api_key, &github_secret, &db).await;
                 let _ = stream.write_all(response.as_bytes()).await;
@@ -61,6 +88,15 @@ impl WebhookServer {
             });
         }
     }
+}
+
+fn get_content_length(raw: &str) -> Option<usize> {
+    for line in raw.split("\r\n") {
+        if line.to_lowercase().starts_with("content-length:") {
+            return line[15..].trim().parse().ok();
+        }
+    }
+    None
 }
 
 fn get_header<'a>(lines: &'a [&str], name: &str) -> Option<&'a str> {
@@ -71,7 +107,8 @@ fn get_header<'a>(lines: &'a [&str], name: &str) -> Option<&'a str> {
 }
 
 fn verify_github_signature(secret: &str, body: &str, signature: &str) -> bool {
-    use std::fmt::Write;
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
 
     // signature format: sha256=<hex>
     let hex_sig = match signature.strip_prefix("sha256=") {
@@ -79,28 +116,19 @@ fn verify_github_signature(secret: &str, body: &str, signature: &str) -> bool {
         None => return false,
     };
 
+    // Decode the provided hex signature
+    let provided_sig = match hex::decode(hex_sig) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
     // Compute HMAC-SHA256
-    // Simple HMAC implementation using ring-less approach
-    // For production, use hmac crate; here we do a basic check
-    let key_bytes = secret.as_bytes();
-    let msg_bytes = body.as_bytes();
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+        .expect("HMAC accepts any key length");
+    mac.update(body.as_bytes());
 
-    // HMAC-SHA256: H((K xor opad) || H((K xor ipad) || message))
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    // Simplified: just compare lengths as a basic gate, then do constant-time comparison
-    // In a real production app, use the `hmac` + `sha2` crates
-    // For now, we verify the format is correct and log the event
-    if hex_sig.len() != 64 {
-        return false;
-    }
-
-    // We accept the webhook if a secret is configured and signature format is valid
-    // Full HMAC verification requires crypto dependencies
-    log::info!("GitHub webhook signature present and format valid (full HMAC verification requires crypto crate)");
-    let _ = (key_bytes, msg_bytes);
-    true
+    // Constant-time comparison via hmac crate's verify_slice
+    mac.verify_slice(&provided_sig).is_ok()
 }
 
 async fn handle_request(

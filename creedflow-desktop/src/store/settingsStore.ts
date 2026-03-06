@@ -16,8 +16,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   backends: [],
 
   fetchSettings: async () => {
-    const settings = await api.getSettings();
-    set({ settings });
+    try {
+      const settings = await api.getSettings();
+      set({ settings });
+    } catch (e) {
+      console.error("Failed to fetch settings:", e);
+    }
   },
 
   updateSettings: async (settings) => {

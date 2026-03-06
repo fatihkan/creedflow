@@ -259,7 +259,14 @@ impl MCPHealthMonitor {
                     let db_lock = db.lock().await;
                     let mut stmt = db_lock.conn.prepare(
                         "SELECT name, command, arguments, environmentVars FROM mcpServerConfig WHERE isEnabled = 1"
-                    ).unwrap_or_else(|_| panic!("Failed to prepare MCP query"));
+                    ).map_err(|e| {
+                        log::error!("Failed to prepare MCP query: {}", e);
+                        e
+                    }).unwrap_or_else(|_| {
+                        // Return an empty statement result on failure
+                        log::error!("MCP health monitor: skipping cycle due to DB error");
+                        return db_lock.conn.prepare("SELECT NULL WHERE 0").expect("trivial query");
+                    });
                     stmt.query_map([], |row| {
                         Ok((
                             row.get::<_, String>(0)?,

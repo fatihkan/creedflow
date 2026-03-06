@@ -145,6 +145,12 @@ extension Orchestrator {
             }
             deployment.port = port
 
+            // Persist port assignment before deploying
+            try await dbQueue.write { db in
+                var d = deployment
+                try d.update(db)
+            }
+
             // Run actual local deployment
             _ = try await localDeployService.deploy(
                 project: project,
@@ -152,11 +158,11 @@ extension Orchestrator {
                 port: port
             )
 
-            // Mark deployment as successful
-            deployment.status = .success
-            deployment.completedAt = Date()
+            // Mark deployment as successful — re-read from DB to avoid stale overwrites
             try await dbQueue.write { db in
-                var d = deployment
+                guard var d = try Deployment.fetchOne(db, id: deployment.id) else { return }
+                d.status = .success
+                d.completedAt = Date()
                 try d.update(db)
             }
 

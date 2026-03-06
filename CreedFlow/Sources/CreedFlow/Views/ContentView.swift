@@ -201,8 +201,11 @@ public struct ContentView: View {
         }
         guard let db = appDatabase, let orchestrator else {
             // Fallback — should not happen in practice since orchestrator is set in .task
+            guard let fallbackDb = try? DatabaseQueue() else {
+                fatalError("Failed to create fallback DatabaseQueue for chat service")
+            }
             let fallback = ProjectChatService(
-                dbQueue: try! DatabaseQueue(),
+                dbQueue: fallbackDb,
                 backendRouter: BackendRouter()
             )
             return fallback

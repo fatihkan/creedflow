@@ -54,6 +54,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (projectId: string, content: string) => {
+    let unlisten: UnlistenFn | null = null;
     try {
       set({ error: null });
       const attachments = get().pendingAttachments;
@@ -73,7 +74,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }));
 
       // Listen for streaming events
-      let unlisten: UnlistenFn | null = null;
 
       unlisten = await listen<ChatStreamEvent>("chat-stream", (event) => {
         const data = event.payload;
@@ -119,6 +119,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Trigger the backend to start streaming
       await streamChatResponse(projectId, content, attachments);
     } catch (e) {
+      unlisten?.();
       set({ error: String(e), isStreaming: false, streamingContent: "" });
     }
   },

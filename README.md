@@ -24,6 +24,10 @@
 | ![Settings - Agents](screen/setting_agents.png) | ![Settings - MCP](screen/setting_mcp.png) |
 | **Agent Preferences** — Per-agent backend routing config | **MCP Servers** — 13 integrations (DALL-E, Figma, Runway...) |
 
+### Demo
+
+https://github.com/fatihkan/creedflow/raw/main/screen/screen_record.mp4
+
 ---
 
 ## Download

@@ -36,16 +36,19 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     setLoadingTasks(true);
+    setTasks([]);
     api
       .listTasks(projectId)
-      .then(setTasks)
-      .catch((e) => showErrorToast("Failed to load tasks", e))
-      .finally(() => setLoadingTasks(false));
+      .then((t) => { if (!cancelled) setTasks(t); })
+      .catch((e) => { if (!cancelled) showErrorToast("Failed to load tasks", e); })
+      .finally(() => { if (!cancelled) setLoadingTasks(false); });
 
-    api.gitCurrentBranch(projectId).then(setCurrentBranch).catch(() => {});
-    api.detectEditors().then(setEditors).catch(() => {});
-    api.getPreferredEditor().then(setPreferredEditor).catch(() => {});
+    api.gitCurrentBranch(projectId).then((b) => { if (!cancelled) setCurrentBranch(b); }).catch(() => {});
+    api.detectEditors().then((e) => { if (!cancelled) setEditors(e); }).catch(() => {});
+    api.getPreferredEditor().then((e) => { if (!cancelled) setPreferredEditor(e); }).catch(() => {});
+    return () => { cancelled = true; };
   }, [projectId]);
 
   if (!project) {

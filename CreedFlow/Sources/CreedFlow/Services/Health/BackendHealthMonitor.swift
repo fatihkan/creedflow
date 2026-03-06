@@ -191,15 +191,16 @@ actor BackendHealthMonitor {
     }
 
     private func runWithTimeout(path: String, arguments: [String], timeout: TimeInterval) async throws -> String {
-        try await withThrowingTaskGroup(of: String.self) { group in
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        process.environment = ProcessInfo.processInfo.environment
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+
+        return try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: path)
-                process.arguments = arguments
-                process.environment = ProcessInfo.processInfo.environment
-                let pipe = Pipe()
-                process.standardOutput = pipe
-                process.standardError = Pipe()
                 try process.run()
                 process.waitUntilExit()
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -211,8 +212,15 @@ actor BackendHealthMonitor {
                 throw CancellationError()
             }
 
+            defer {
+                // Ensure process is always terminated on exit (timeout or success)
+                if process.isRunning {
+                    process.terminate()
+                }
+                group.cancelAll()
+            }
+
             let result = try await group.next()!
-            group.cancelAll()
             return result
         }
     }

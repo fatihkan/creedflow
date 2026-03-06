@@ -25,6 +25,9 @@ interface NotificationStore {
   setShowPanel: (show: boolean) => void;
 }
 
+// Track active toast timeouts so they can be cleared on manual dismiss
+const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
   unreadCount: 0,
@@ -88,10 +91,12 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const toasts = [...s.toasts, notification].slice(-5);
       return { toasts };
     });
-    // Auto-remove after 5s
-    setTimeout(() => {
+    // Auto-remove after 5s (track timeout for cleanup)
+    const timeoutId = setTimeout(() => {
+      toastTimeouts.delete(notification.id);
       get().removeToast(notification.id);
     }, 5000);
+    toastTimeouts.set(notification.id, timeoutId);
   },
 
   addUndoToast: (label, undoFn) => {
@@ -117,16 +122,24 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }));
 
     // Auto-remove after 10s (longer grace period for undo)
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      toastTimeouts.delete(id);
       set((s) => {
         const { [actionId]: _, ...rest } = s.actionCallbacks;
         return { actionCallbacks: rest };
       });
       get().removeToast(id);
     }, 10000);
+    toastTimeouts.set(id, timeoutId);
   },
 
   removeToast: (id) => {
+    // Clear any pending auto-dismiss timeout
+    const existingTimeout = toastTimeouts.get(id);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      toastTimeouts.delete(id);
+    }
     set((s) => ({
       toasts: s.toasts.filter((t) => t.id !== id),
     }));

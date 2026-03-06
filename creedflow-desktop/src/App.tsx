@@ -154,7 +154,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectTask]);
+  }, [selectTask, showChatPanel]);
 
   // Listen to Tauri events for real-time task updates
   const handleTaskStatusChanged = useCallback(

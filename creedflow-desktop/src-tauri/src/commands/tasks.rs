@@ -210,11 +210,15 @@ pub async fn retry_task_with_revision(
     revision_prompt: Option<String>,
 ) -> Result<(), String> {
     let db = state.db.lock().await;
-    db.conn.execute(
+    let rows_affected = db.conn.execute(
         "UPDATE agentTask SET status = 'queued', retryCount = retryCount + 1,
-         revisionPrompt = ?2, updatedAt = datetime('now') WHERE id = ?1",
+         revisionPrompt = ?2, updatedAt = datetime('now')
+         WHERE id = ?1 AND status IN ('failed', 'needs_revision', 'cancelled')",
         params![id, revision_prompt],
     ).map_err(|e| e.to_string())?;
+    if rows_affected == 0 {
+        return Err("Task cannot be retried: only failed, needs_revision, or cancelled tasks can be retried".to_string());
+    }
     Ok(())
 }
 

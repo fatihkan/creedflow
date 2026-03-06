@@ -20,6 +20,9 @@ DerivedData/
 *.swp
 *~
 
+# Large media originals (keep only compressed mp4)
+*.mov
+
 # IDE
 .idea/
 .vscode/

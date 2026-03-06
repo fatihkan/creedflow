@@ -31,6 +31,19 @@ export function TerminalOutput({ taskId, initialContent }: TerminalOutputProps) 
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
+  // Reset content when taskId changes
+  useEffect(() => {
+    if (initialContent) {
+      setLines(initialContent.split("\n").map((line) => ({
+        type: "text" as const,
+        content: line,
+        timestamp: Date.now(),
+      })));
+    } else {
+      setLines([]);
+    }
+  }, [taskId, initialContent]);
+
   // Listen for live task output
   useEffect(() => {
     const unlisten = listen<{

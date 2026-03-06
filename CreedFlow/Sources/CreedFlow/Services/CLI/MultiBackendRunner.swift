@@ -37,11 +37,13 @@ final class MultiBackendRunner {
     /// Execute an agent task with full lifecycle management.
     /// - Parameter promptOverride: If provided, replaces the agent's default prompt (used by PromptRecommender / ChainExecutor).
     func execute(task: AgentTask, agent: any AgentProtocol, workingDirectory: String = "", promptOverride: String? = nil) async throws -> AgentResult {
-        isRunning = true
-        liveOutput = []
-        defer { isRunning = false }
+        await MainActor.run {
+            isRunning = true
+            liveOutput = []
+        }
+        defer { Task { @MainActor in self.isRunning = false } }
 
-        addOutputLine("Starting \(agent.agentType.rawValue) agent via \(backendType.rawValue) for: \(task.title)", type: .system)
+        await MainActor.run { self.addOutputLine("Starting \(agent.agentType.rawValue) agent via \(backendType.rawValue) for: \(task.title)", type: .system) }
 
         // Generate MCP config if agent needs MCP servers (Claude only)
         var mcpConfigPath: String?
@@ -49,7 +51,7 @@ final class MultiBackendRunner {
             let generator = MCPConfigGenerator(dbQueue: dbQueue)
             mcpConfigPath = try generator.generateConfig(serverNames: serverNames)
             if let path = mcpConfigPath {
-                addOutputLine("MCP config: \(path)", type: .system)
+                await MainActor.run { self.addOutputLine("MCP config: \(path)", type: .system) }
             }
         }
         defer {
@@ -147,7 +149,7 @@ final class MultiBackendRunner {
             // TaskGroup cancellation from group.cancelAll() — not a real error
         } catch let error as ClaudeError where error.localizedDescription.contains("timed out") {
             let errorMsg = "Task timed out after \(timeoutSeconds)s"
-            addOutputLine("Error: \(errorMsg)", type: .error)
+            await MainActor.run { self.addOutputLine("Error: \(errorMsg)", type: .error) }
 
             try await dbQueue.write { db in
                 var updatedTask = task
@@ -165,7 +167,7 @@ final class MultiBackendRunner {
 
             // Detect rate-limit signals in error output
             if let signal = RateLimitDetector.detect(in: errorMsg) {
-                addOutputLine("Rate limited: \(signal)", type: .error)
+                await MainActor.run { self.addOutputLine("Rate limited: \(signal)", type: .error) }
 
                 try await dbQueue.write { db in
                     var updatedTask = task
@@ -180,7 +182,7 @@ final class MultiBackendRunner {
                 throw RateLimitError(backendType: backendType, rawSignal: signal)
             }
 
-            addOutputLine("Error: \(errorMsg)", type: .error)
+            await MainActor.run { self.addOutputLine("Error: \(errorMsg)", type: .error) }
 
             try await dbQueue.write { db in
                 var updatedTask = task
@@ -249,6 +251,7 @@ final class MultiBackendRunner {
         return agentResult
     }
 
+    @MainActor
     private func addOutputLine(_ text: String, type: OutputLine.LineType) {
         liveOutput.append(OutputLine(text: text, type: type, timestamp: Date()))
     }

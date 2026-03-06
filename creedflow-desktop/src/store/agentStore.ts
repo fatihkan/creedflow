@@ -11,7 +11,11 @@ export const useAgentStore = create<AgentStore>((set) => ({
   agentTypes: [],
 
   fetchAgentTypes: async () => {
-    const agentTypes = await api.listAgentTypes();
-    set({ agentTypes });
+    try {
+      const agentTypes = await api.listAgentTypes();
+      set({ agentTypes });
+    } catch (e) {
+      console.error("Failed to fetch agent types:", e);
+    }
   },
 }));

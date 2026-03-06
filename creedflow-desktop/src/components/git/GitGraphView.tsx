@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { gitLog, gitCurrentBranch, type GitLogEntry } from "../../tauri";
 import { GitCommitRow, type LaneData } from "./GitCommitRow";
 import { GitCommitDetail } from "./GitCommitDetail";
@@ -26,7 +26,7 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
   const [search, setSearch] = useState("");
   const [selectedCommit, setSelectedCommit] = useState<GitLogEntry | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -41,11 +41,11 @@ export function GitGraphView({ projectId }: GitGraphViewProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, count]);
 
   useEffect(() => {
     fetchData();
-  }, [projectId, count]);
+  }, [fetchData]);
 
   // Extract all branch names from decorations
   const branches = useMemo(() => {

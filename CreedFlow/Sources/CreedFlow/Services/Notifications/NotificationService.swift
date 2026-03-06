@@ -21,7 +21,7 @@ actor NotificationService {
         title: String,
         message: String,
         metadata: String? = nil
-    ) {
+    ) async {
         let notification = AppNotification(
             category: category,
             severity: severity,
@@ -30,8 +30,8 @@ actor NotificationService {
             metadata: metadata
         )
 
-        // Persist to DB
-        try? dbQueue.write { db in
+        // Persist to DB (async to avoid blocking the actor's thread)
+        try? await dbQueue.write { db in
             var n = notification
             try n.insert(db)
         }
@@ -51,8 +51,8 @@ actor NotificationService {
     }
 
     /// Mark a notification as read.
-    func markRead(_ id: UUID) {
-        try? dbQueue.write { db in
+    func markRead(_ id: UUID) async {
+        try? await dbQueue.write { db in
             guard var n = try AppNotification.fetchOne(db, id: id) else { return }
             n.isRead = true
             try n.update(db)
@@ -60,8 +60,8 @@ actor NotificationService {
     }
 
     /// Mark all unread notifications as read.
-    func markAllRead() {
-        try? dbQueue.write { db in
+    func markAllRead() async {
+        try? await dbQueue.write { db in
             try db.execute(
                 sql: "UPDATE appNotification SET isRead = 1 WHERE isRead = 0"
             )
@@ -69,8 +69,8 @@ actor NotificationService {
     }
 
     /// Dismiss a notification (hides from panel).
-    func dismiss(_ id: UUID) {
-        try? dbQueue.write { db in
+    func dismiss(_ id: UUID) async {
+        try? await dbQueue.write { db in
             guard var n = try AppNotification.fetchOne(db, id: id) else { return }
             n.isDismissed = true
             try n.update(db)
@@ -78,23 +78,23 @@ actor NotificationService {
     }
 
     /// Permanently delete a single notification.
-    func deleteOne(_ id: UUID) {
-        try? dbQueue.write { db in
+    func deleteOne(_ id: UUID) async {
+        try? await dbQueue.write { db in
             _ = try AppNotification.deleteOne(db, id: id)
         }
     }
 
     /// Permanently delete all notifications.
-    func clearAll() {
-        try? dbQueue.write { db in
+    func clearAll() async {
+        try? await dbQueue.write { db in
             _ = try AppNotification.deleteAll(db)
         }
     }
 
     /// Remove notifications older than `pruneAfterDays`.
-    func pruneOld() {
+    func pruneOld() async {
         let cutoff = Calendar.current.date(byAdding: .day, value: -pruneAfterDays, to: Date()) ?? Date()
-        try? dbQueue.write { db in
+        try? await dbQueue.write { db in
             try db.execute(
                 sql: "DELETE FROM appNotification WHERE createdAt < ?",
                 arguments: [cutoff]
