@@ -134,7 +134,7 @@ struct TaskBoardView: View {
 
                     Picker("Project", selection: $filterProjectId) {
                         Text("All").tag(UUID?.none)
-                        ForEach(projects) { project in
+                        ForEach(projects, id: \.id) { project in
                             Text(project.name).tag(UUID?.some(project.id))
                         }
                     }
@@ -560,7 +560,7 @@ struct KanbanColumnView: View {
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 6) {
-                        ForEach(tasks) { task in
+                        ForEach(tasks, id: \.id) { task in
                             HStack(spacing: 6) {
                                 if isArchiveSelectionMode {
                                     Button {

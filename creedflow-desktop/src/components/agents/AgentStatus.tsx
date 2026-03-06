@@ -5,37 +5,8 @@ import { useTaskStore } from "../../store/taskStore";
 import { Cpu, Clock, Shield, Activity } from "lucide-react";
 import { SearchBar } from "../shared/SearchBar";
 import { Skeleton } from "../shared/Skeleton";
+import { LiveTimer } from "../shared/LiveTimer";
 import { useTranslation } from "react-i18next";
-
-function formatDuration(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  if (totalSec < 60) return `${totalSec}s`;
-  if (totalSec < 3600) {
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m}m ${s}s`;
-  }
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  return `${h}h ${m}m`;
-}
-
-function LiveTimer({ since }: { since: string }) {
-  const [elapsed, setElapsed] = useState(() => Date.now() - new Date(since).getTime());
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setElapsed(Date.now() - new Date(since).getTime());
-    }, 1000);
-    return () => clearInterval(id);
-  }, [since]);
-
-  return (
-    <span className="text-[10px] font-mono text-amber-400">
-      {formatDuration(Math.max(0, elapsed))}
-    </span>
-  );
-}
 
 export function AgentStatus() {
   const { t } = useTranslation();
@@ -170,7 +141,7 @@ export function AgentStatus() {
                             : "bg-zinc-800 text-zinc-500"
                         }`}
                       >
-                        {agent.hasMcp ? "MCP" : "CLI"}
+                        {agent.hasMcp ? t("agents.status.mcp") : t("agents.status.cli")}
                       </span>
                     </div>
                   </div>
@@ -186,7 +157,7 @@ export function AgentStatus() {
                     {count > 0 && (
                       <span className="flex items-center gap-1 text-zinc-400">
                         <Shield className="w-3 h-3" />
-                        {count} tasks
+                        {count} {t("agents.status.tasks")}
                       </span>
                     )}
                   </div>

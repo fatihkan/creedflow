@@ -180,7 +180,7 @@ struct AssetDetailSheet: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 8) {
-                ForEach(formatVariants) { variant in
+                ForEach(formatVariants, id: \.id) { variant in
                     Button {
                         NSWorkspace.shared.open(URL(fileURLWithPath: variant.filePath))
                     } label: {
@@ -217,7 +217,7 @@ struct AssetDetailSheet: View {
                 .font(.system(.subheadline, weight: .semibold))
                 .foregroundStyle(.secondary)
 
-            ForEach(versionHistory.reversed()) { version in
+            ForEach(versionHistory.reversed(), id: \.id) { version in
                 HStack(spacing: 10) {
                     // Version indicator
                     ZStack {

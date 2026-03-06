@@ -152,7 +152,7 @@ struct TaskDetailView: View {
                             Text("Reviews")
                                 .font(.subheadline.bold())
                                 .foregroundStyle(.secondary)
-                            ForEach(reviews) { review in
+                            ForEach(reviews, id: \.id) { review in
                                 ReviewRowView(review: review)
                             }
                         }
@@ -259,7 +259,7 @@ struct TaskDetailView: View {
                         .foregroundStyle(.tertiary)
                         .padding(.vertical, 4)
                 } else {
-                    ForEach(comments) { comment in
+                    ForEach(comments, id: \.id) { comment in
                         commentRow(comment)
                     }
                 }
@@ -582,7 +582,7 @@ struct LogOutputView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 1) {
-                ForEach(logs) { log in
+                ForEach(logs, id: \.id) { log in
                     HStack(alignment: .top, spacing: 6) {
                         Text(log.createdAt, format: .dateTime.hour().minute().second())
                             .font(.system(size: 12, design: .monospaced))

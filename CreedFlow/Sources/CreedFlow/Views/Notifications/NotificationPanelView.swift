@@ -51,7 +51,7 @@ struct NotificationPanelView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(viewModel.recentNotifications) { notification in
+                        ForEach(viewModel.recentNotifications, id: \.id) { notification in
                             NotificationRow(
                                 notification: notification,
                                 onRead: { viewModel.markRead(notification.id) },

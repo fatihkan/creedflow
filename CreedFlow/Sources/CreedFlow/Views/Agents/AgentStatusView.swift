@@ -55,7 +55,7 @@ struct AgentStatusView: View {
 
                     Picker("Project", selection: $selectedProjectForHealth) {
                         Text("Select project").tag(nil as UUID?)
-                        ForEach(projects) { project in
+                        ForEach(projects, id: \.id) { project in
                             Text(project.name).tag(project.id as UUID?)
                         }
                     }
@@ -140,7 +140,7 @@ struct AgentStatusView: View {
                                     .foregroundStyle(.secondary)
                                     .padding(.top, orchestrator.activeRunners.isEmpty ? 0 : 8)
 
-                                ForEach(filteredRecentTasks) { task in
+                                ForEach(filteredRecentTasks, id: \.id) { task in
                                     recentTaskRow(task)
                                         .onTapGesture { selectedTaskId = task.id }
                                 }

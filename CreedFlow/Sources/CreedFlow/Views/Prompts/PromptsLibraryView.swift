@@ -248,7 +248,7 @@ struct PromptsLibraryView: View {
                 )
             } else {
                 List {
-                    ForEach(filteredPrompts) { prompt in
+                    ForEach(filteredPrompts, id: \.id) { prompt in
                         PromptRow(
                             prompt: prompt,
                             tags: store.promptTags[prompt.id] ?? [],
@@ -279,7 +279,7 @@ struct PromptsLibraryView: View {
                 )
             } else {
                 List {
-                    ForEach(chainStore.chains) { chain in
+                    ForEach(chainStore.chains, id: \.id) { chain in
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 6) {

@@ -79,7 +79,7 @@ struct CompareBackendsView: View {
                 } else if hasRun {
                     ScrollView(.horizontal) {
                         HStack(alignment: .top, spacing: 12) {
-                            ForEach(runner.results) { result in
+                            ForEach(runner.results, id: \.id) { result in
                                 resultCard(result)
                             }
                         }

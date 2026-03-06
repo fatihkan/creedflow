@@ -487,7 +487,7 @@ public struct SettingsView: View {
                         Text("Detecting...").font(.subheadline).foregroundStyle(.secondary)
                     }
                 } else {
-                    ForEach(depInstaller.dependencies) { dep in
+                    ForEach(depInstaller.dependencies, id: \.id) { dep in
                         HStack(spacing: 8) {
                             Image(systemName: dep.isInstalled ? "checkmark.circle.fill" : "circle.dashed")
                                 .foregroundStyle(dep.isInstalled ? .forgeSuccess : .forgeNeutral)

@@ -163,7 +163,7 @@ struct DeployView: View {
                             ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                         }
 
-                        ForEach(filteredDeployments) { deployment in
+                        ForEach(filteredDeployments, id: \.id) { deployment in
                             let isCleanable = Self.cleanableStatuses.contains(deployment.status)
                             HStack(spacing: 8) {
                                 if isSelectionMode && isCleanable {
@@ -348,12 +348,16 @@ struct DeployView: View {
             }
         } else {
             // Pending — just mark as failed in DB
-            try? db.dbQueue.write { dbConn in
-                guard var d = try Deployment.fetchOne(dbConn, id: deployment.id) else { return }
-                d.status = .failed
-                d.completedAt = Date()
-                d.logs = (d.logs ?? "") + "\nCancelled by user"
-                try d.update(dbConn)
+            do {
+                try db.dbQueue.write { dbConn in
+                    guard var d = try Deployment.fetchOne(dbConn, id: deployment.id) else { return }
+                    d.status = .failed
+                    d.completedAt = Date()
+                    d.logs = (d.logs ?? "") + "\nCancelled by user"
+                    try d.update(dbConn)
+                }
+            } catch {
+                self.errorMessage = error.localizedDescription
             }
         }
     }
@@ -387,10 +391,14 @@ struct DeployView: View {
     private func deleteSelected() {
         guard let db = appDatabase, !selection.isEmpty else { return }
         let ids = Array(selection)
-        try? db.dbQueue.write { dbConn in
-            try Deployment
-                .filter(ids.contains(Column("id")))
-                .deleteAll(dbConn)
+        do {
+            try db.dbQueue.write { dbConn in
+                try Deployment
+                    .filter(ids.contains(Column("id")))
+                    .deleteAll(dbConn)
+            }
+        } catch {
+            self.errorMessage = error.localizedDescription
         }
         if let selected = selectedDeploymentId, selection.contains(selected) {
             selectedDeploymentId = nil
@@ -482,7 +490,7 @@ private struct DeployTriggerSheet: View {
                 Section("Project") {
                     Picker("Project", selection: $selectedProjectId) {
                         Text("Select a project").tag(nil as UUID?)
-                        ForEach(projects) { project in
+                        ForEach(projects, id: \.id) { project in
                             Text(project.name).tag(project.id as UUID?)
                         }
                     }

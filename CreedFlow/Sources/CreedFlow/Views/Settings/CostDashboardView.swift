@@ -193,7 +193,7 @@ struct CostDashboardView: View {
                                 .foregroundStyle(.tertiary)
                         }
 
-                        ForEach(costEntries.prefix(visibleCount)) { entry in
+                        ForEach(costEntries.prefix(visibleCount), id: \.id) { entry in
                             HStack(spacing: 8) {
                                 AgentTypeBadge(type: entry.agentType)
 
