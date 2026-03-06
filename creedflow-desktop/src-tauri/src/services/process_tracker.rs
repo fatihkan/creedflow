@@ -19,15 +19,15 @@ impl ProcessTracker {
 
     pub fn track(&self, pid: u32) {
         if pid == 0 { return; }
-        self.pids.lock().unwrap().insert(pid);
+        self.pids.lock().expect("process tracker mutex poisoned").insert(pid);
     }
 
     pub fn untrack(&self, pid: u32) {
-        self.pids.lock().unwrap().remove(&pid);
+        self.pids.lock().expect("process tracker mutex poisoned").remove(&pid);
     }
 
     pub fn terminate_all(&self) {
-        let pids: Vec<u32> = self.pids.lock().unwrap().drain().collect();
+        let pids: Vec<u32> = self.pids.lock().expect("process tracker mutex poisoned").drain().collect();
         for pid in pids {
             terminate_process(pid);
         }

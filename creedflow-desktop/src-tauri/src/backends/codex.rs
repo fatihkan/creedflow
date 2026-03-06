@@ -32,11 +32,11 @@ impl CliBackend for CodexBackend {
     fn backend_type(&self) -> BackendType { BackendType::Codex }
 
     async fn is_available(&self) -> bool {
-        self.cli_path.lock().unwrap().is_some()
+        self.cli_path.lock().expect("cli_path mutex poisoned").is_some()
     }
 
     async fn execute(&self, input: TaskInput) -> Result<(Uuid, mpsc::Receiver<OutputEvent>), String> {
-        let path = self.cli_path.lock().unwrap().clone().ok_or("Codex CLI not found")?;
+        let path = self.cli_path.lock().expect("cli_path mutex poisoned").clone().ok_or("Codex CLI not found")?;
         let id = Uuid::new_v4();
         let (tx, rx) = mpsc::channel(256);
 
@@ -73,7 +73,7 @@ impl CliBackend for CodexBackend {
 
         let pid = child.id().unwrap_or(0);
         PROCESS_TRACKER.track(pid);
-        self.children.lock().unwrap().insert(id, pid);
+        self.children.lock().expect("children mutex poisoned").insert(id, pid);
         self.active.fetch_add(1, Ordering::SeqCst);
 
         let active = self.active.clone();
@@ -91,7 +91,7 @@ impl CliBackend for CodexBackend {
 
             let _ = child.wait().await;
             PROCESS_TRACKER.untrack(pid);
-            children.lock().unwrap().remove(&id);
+            children.lock().expect("children mutex poisoned").remove(&id);
             active.fetch_sub(1, Ordering::SeqCst);
 
             // Prefer clean output from --output-last-message file (no banner)
@@ -117,7 +117,7 @@ impl CliBackend for CodexBackend {
     }
 
     async fn cancel(&self, id: Uuid) {
-        if let Some(pid) = self.children.lock().unwrap().remove(&id) {
+        if let Some(pid) = self.children.lock().expect("children mutex poisoned").remove(&id) {
             crate::services::process_tracker::terminate_process(pid);
             PROCESS_TRACKER.untrack(pid);
             self.active.fetch_sub(1, Ordering::SeqCst);
@@ -125,7 +125,7 @@ impl CliBackend for CodexBackend {
     }
 
     async fn cancel_all(&self) {
-        let children: Vec<(Uuid, u32)> = self.children.lock().unwrap().drain().collect();
+        let children: Vec<(Uuid, u32)> = self.children.lock().expect("children mutex poisoned").drain().collect();
         for (_, pid) in children {
             crate::services::process_tracker::terminate_process(pid);
             PROCESS_TRACKER.untrack(pid);

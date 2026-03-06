@@ -27,7 +27,7 @@ impl ClaudeBackend {
     }
 
     fn get_path(&self) -> Option<String> {
-        self.cli_path.lock().unwrap().clone()
+        self.cli_path.lock().expect("cli_path mutex poisoned").clone()
     }
 }
 
@@ -98,7 +98,7 @@ impl CliBackend for ClaudeBackend {
 
         let pid = child.id().unwrap_or(0);
         PROCESS_TRACKER.track(pid);
-        self.children.lock().unwrap().insert(id, pid);
+        self.children.lock().expect("children mutex poisoned").insert(id, pid);
         self.active.fetch_add(1, Ordering::SeqCst);
 
         let active = self.active.clone();
@@ -184,7 +184,7 @@ impl CliBackend for ClaudeBackend {
 
             let _ = child.wait().await;
             PROCESS_TRACKER.untrack(pid);
-            children.lock().unwrap().remove(&id);
+            children.lock().expect("children mutex poisoned").remove(&id);
             active.fetch_sub(1, Ordering::SeqCst);
         });
 
@@ -192,7 +192,7 @@ impl CliBackend for ClaudeBackend {
     }
 
     async fn cancel(&self, id: Uuid) {
-        if let Some(pid) = self.children.lock().unwrap().remove(&id) {
+        if let Some(pid) = self.children.lock().expect("children mutex poisoned").remove(&id) {
             crate::services::process_tracker::terminate_process(pid);
             PROCESS_TRACKER.untrack(pid);
             self.active.fetch_sub(1, Ordering::SeqCst);
@@ -200,7 +200,7 @@ impl CliBackend for ClaudeBackend {
     }
 
     async fn cancel_all(&self) {
-        let children: Vec<(Uuid, u32)> = self.children.lock().unwrap().drain().collect();
+        let children: Vec<(Uuid, u32)> = self.children.lock().expect("children mutex poisoned").drain().collect();
         for (_, pid) in children {
             crate::services::process_tracker::terminate_process(pid);
             PROCESS_TRACKER.untrack(pid);
