@@ -56,6 +56,13 @@
       },
       "cancel": "Cancel",
       "create": "Create Project"
+    },
+    "timeStats": {
+      "title": "Time Tracking",
+      "elapsed": "Elapsed",
+      "work": "Work",
+      "idle": "Idle",
+      "perAgent": "Per Agent"
     }
   },
   "tasks": {
@@ -87,7 +94,50 @@
       "restore": "Restore",
       "delete": "Delete",
       "noMatch": "No matches found",
-      "empty": "No archived tasks"
+      "empty": "No archived tasks",
+      "archivedDate": "Archived {{date}}"
+    },
+    "duplicateTask": "Duplicate task",
+    "toggleChat": "Toggle project chat",
+    "comments": {
+      "title": "Comments",
+      "empty": "No comments yet",
+      "you": "You",
+      "system": "System",
+      "placeholder": "Add a comment..."
+    },
+    "promptHistory": {
+      "title": "Prompt History",
+      "empty": "No prompt usage recorded",
+      "untitled": "Untitled prompt"
+    },
+    "revision": {
+      "title": "Revision Instructions",
+      "placeholder": "Add specific instructions for the retry...",
+      "retrying": "Retrying...",
+      "saveRetry": "Save & Retry"
+    },
+    "detail": {
+      "noSelection": "No task selected",
+      "tabs": {
+        "info": "Info",
+        "output": "Output",
+        "reviews": "Reviews",
+        "comments": "Comments",
+        "prompts": "Prompts"
+      },
+      "description": "Description",
+      "priority": "Priority",
+      "retries": "Retries",
+      "duration": "Duration",
+      "cost": "Cost",
+      "error": "Error",
+      "cancelTask": "Cancel Task",
+      "noOutput": "No output available",
+      "loadingReviews": "Loading reviews...",
+      "noReviews": "No reviews yet",
+      "issues": "Issues",
+      "suggestions": "Suggestions"
     }
   },
   "agents": {
@@ -97,7 +147,26 @@
     "active": "{{count}} active",
     "activeRunners": "Active Runners",
     "agentTypes": "Agent Types",
-    "recentCompleted": "Recent Completed"
+    "recentCompleted": "Recent Completed",
+    "types": {
+      "analyzer": "Analyzer",
+      "coder": "Coder",
+      "reviewer": "Reviewer",
+      "tester": "Tester",
+      "devops": "DevOps",
+      "monitor": "Monitor",
+      "contentWriter": "Content Writer",
+      "designer": "Designer",
+      "imageGen": "Image Gen",
+      "videoEditor": "Video Editor",
+      "publisher": "Publisher",
+      "planner": "Planner"
+    },
+    "status": {
+      "mcp": "MCP",
+      "cli": "CLI",
+      "tasks": "tasks"
+    }
   },
   "compare": {
     "title": "Compare Backends",
@@ -108,7 +177,8 @@
     "run": "Run Comparison",
     "running": "Running...",
     "exportJson": "Export JSON",
-    "emptyState": "Enter a prompt and select backends to compare"
+    "emptyState": "Enter a prompt and select backends to compare",
+    "error": "Error"
   },
   "deploy": {
     "title": "Deployments",
@@ -202,7 +272,9 @@
       "update": "Update",
       "create": "Create",
       "cancel": "Cancel",
-      "addPrompt": "+ Add prompt to chain..."
+      "addPrompt": "+ Add prompt to chain...",
+      "editTitle": "Edit chain",
+      "transitionNotePlaceholder": "transition note..."
     },
     "versionHistory": {
       "title": "Version History",
@@ -218,6 +290,27 @@
       "delete": "Delete",
       "custom": "Custom",
       "builtIn": "Built-in"
+    },
+    "diff": {
+      "vs": "vs"
+    },
+    "effectiveness": {
+      "loading": "Loading effectiveness data...",
+      "totalUses": "Total Uses",
+      "successRate": "Success Rate",
+      "trackedPrompts": "Tracked Prompts",
+      "sortBy": "Sort by",
+      "mostUsed": "Most Used",
+      "avgScore": "Avg Score",
+      "noData": "No usage data yet",
+      "noDataDescription": "Stats will appear as prompts are used in tasks",
+      "headers": {
+        "prompt": "Prompt",
+        "uses": "Uses",
+        "pass": "Pass",
+        "rate": "Rate",
+        "avgScore": "Avg Score"
+      }
     }
   },
   "assets": {
@@ -262,12 +355,21 @@
       "confirm": "Confirm",
       "cancel": "Cancel",
       "showVersions": "Show version history ({{count}} versions)",
-      "hideVersions": "Hide version history ({{count}} versions)"
+      "hideVersions": "Hide version history ({{count}} versions)",
+      "deleteTitle": "Delete asset"
+    },
+    "status": {
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "pending": "Pending"
     }
   },
   "publishing": {
     "title": "Publishing",
     "addChannel": "Add Channel",
+    "loading": "Loading...",
+    "enable": "Enable",
+    "disable": "Disable",
     "tabs": {
       "channels": "channels",
       "publications": "publications"
@@ -293,6 +395,15 @@
       "twitter": "Twitter",
       "linkedin": "LinkedIn",
       "devTo": "Dev.to"
+    },
+    "credentials": {
+      "integrationToken": "Integration Token",
+      "siteUrl": "Site URL",
+      "username": "Username",
+      "applicationPassword": "Application Password",
+      "apiKey": "API Key",
+      "apiSecret": "API Secret",
+      "accessToken": "Access Token"
     }
   },
   "notifications": {
@@ -301,6 +412,8 @@
     "close": "Close notifications",
     "empty": "No notifications yet",
     "dismiss": "Dismiss notification",
+    "delete": "Delete notification",
+    "clearAll": "Clear all notifications",
     "categories": {
       "backendHealth": "Backend",
       "mcpHealth": "MCP",
@@ -321,6 +434,26 @@
     "totalCost": "Total Cost",
     "tasksTracked": "Tasks Tracked",
     "totalTokens": "Total Tokens",
+    "totalSpent": "Total Spent",
+    "tasksRun": "Tasks Run",
+    "avgCost": "Avg Cost",
+    "thisMonth": "This Month",
+    "backendTab": "Backend",
+    "agentTab": "Agent",
+    "tasksTab": "Tasks",
+    "performanceTab": "Performance",
+    "dailyTab": "Daily",
+    "exportTab": "Export",
+    "noData": "No cost data recorded yet",
+    "noDataDescription": "Cost data appears as tasks are completed",
+    "backendDistribution": "Backend Distribution",
+    "agentDistribution": "Agent Distribution",
+    "noBackendData": "No backend data",
+    "noAgentData": "No agent data",
+    "dailyCostTrend": "Daily Cost Trend",
+    "noDailyData": "No daily data yet",
+    "exportCsv": "Export as CSV",
+    "exportJson": "Export as JSON",
     "tabs": {
       "overview": "Overview",
       "byAgent": "By Agent",
@@ -340,7 +473,11 @@
       "date": "Date",
       "cost": "Cost",
       "tasks": "Tasks",
-      "tokens": "Tokens"
+      "tokens": "Tokens",
+      "task": "Task",
+      "agent": "Agent",
+      "backend": "Backend",
+      "duration": "Duration"
     },
     "loadingStats": "Loading task statistics...",
     "loadingPerformance": "Loading performance data...",
@@ -365,10 +502,18 @@
       "avgDurationByAgent": "Avg Duration by Agent",
       "tasksCompleted": "Tasks Completed (Last 30 Days)",
       "noCompletions": "No completions in the last 30 days",
-      "completed": "Completed"
+      "completed": "Completed",
+      "avgResponseTime": "Avg Response Time",
+      "successRate": "Success Rate",
+      "costPerToken": "Cost per Token"
     }
   },
   "settings": {
+    "theme": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
     "title": "Settings",
     "tabs": {
       "general": "General",
@@ -398,6 +543,18 @@
       "githubSecretHint": "Used for X-Hub-Signature-256 validation",
       "webhookHelp": "POST /api/tasks to create tasks via webhook. POST /api/webhooks/github for GitHub events. Requires app restart to take effect.",
       "rerunSetup": "Re-run Setup Wizard"
+    },
+    "backends": {
+      "title": "AI Backends",
+      "description": "Configure which AI backends are available for agents",
+      "local": "Local",
+      "available": "Available",
+      "notFound": "Not found"
+    },
+    "agentPrefs": {
+      "title": "Agent Backend Preferences",
+      "description": "Override which backend each agent uses",
+      "default": "Default"
     },
     "git": {
       "title": "Git Configuration",
@@ -481,6 +638,21 @@
     "title": "Keyboard Shortcuts",
     "navigation": "Navigation",
     "actions": "Actions",
+    "projects": "Projects",
+    "tasks": "Tasks",
+    "agents": "Agents",
+    "reviews": "Reviews",
+    "compare": "Compare",
+    "deploy": "Deploy",
+    "prompts": "Prompts",
+    "assets": "Assets",
+    "publishing": "Publishing",
+    "gitHistory": "Git History",
+    "newProject": "New project",
+    "settings": "Settings",
+    "searchTasks": "Search tasks",
+    "notifications": "Notifications",
+    "costDashboard": "Cost Dashboard",
     "closePanel": "Close panel / chat",
     "showOverlay": "Show this overlay"
   },
@@ -515,6 +687,7 @@
     "backendsDescription": "Enable the AI backends you want to use. Cloud backends are recommended.",
     "cloud": "Cloud",
     "local": "Local",
+    "notInstalled": "Not installed",
     "projectsDir": "Projects Directory",
     "maxConcurrency": "Max Concurrency",
     "notificationsDescription": "Optional: Configure Telegram notifications for task milestones.",
@@ -536,7 +709,48 @@
     "enable": "Enable",
     "disable": "Disable",
     "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+    "deselectAll": "Deselect all",
+    "search": "Search...",
+    "updateAvailable": "CreedFlow <strong>v{{latestVersion}}</strong> is available. You're on v{{currentVersion}}.",
+    "viewRelease": "View Release",
+    "status": {
+      "queued": "Queued",
+      "inProgress": "In Progress",
+      "passed": "Passed",
+      "failed": "Failed",
+      "needsRevision": "Needs Revision",
+      "cancelled": "Cancelled"
+    },
+    "backends": {
+      "claude": "Claude",
+      "codex": "Codex",
+      "gemini": "Gemini",
+      "ollama": "Ollama",
+      "lmstudio": "LM Studio",
+      "llamacpp": "llama.cpp",
+      "mlx": "MLX",
+      "opencode": "OpenCode",
+      "openclaw": "OpenClaw"
+    },
+    "terminal": {
+      "waiting": "Waiting for output...",
+      "copyAll": "Copy all"
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "errorPanel": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Try reloading the application.",
+      "reload": "Reload"
+    },
+    "sectionError": {
+      "title": "This section encountered an error",
+      "retry": "Retry"
+    }
   },
   "content": {
     "selectProject": "Select a project to view tasks",
@@ -554,10 +768,17 @@
     "suggestions": "Suggestions",
     "securityNotes": "Security Notes",
     "approved": "Approved",
+    "approve": "Approve",
+    "reject": "Reject",
     "filters": {
       "all": "all",
       "pending": "pending",
       "approved": "approved"
+    },
+    "verdict": {
+      "pass": "Pass",
+      "needsRevision": "Needs Revision",
+      "fail": "Fail"
     }
   },
   "projectDetail": {
@@ -601,14 +822,32 @@
     "message": "Message",
     "branches": "Branches",
     "author": "Author",
-    "date": "Date"
+    "date": "Date",
+    "commitDetail": {
+      "title": "Commit Detail",
+      "hash": "Hash",
+      "message": "Message",
+      "parent": "Parent",
+      "parents": "Parents",
+      "mergeCommit": "Merge commit",
+      "refs": "Refs"
+    }
   },
   "chat": {
     "title": "Project Chat",
     "startConversation": "Start a conversation",
     "description": "Describe what you want to build and CreedFlow will propose tasks and features for your project.",
     "placeholder": "Describe what you want to build...",
-    "attachFiles": "Attach files or images"
+    "attachFiles": "Attach files or images",
+    "you": "You",
+    "aiName": "CreedFlow AI",
+    "taskProposal": {
+      "title": "Task Proposal",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "approve": "Approve",
+      "reject": "Reject"
+    }
   },
   "toast": {
     "dismiss": "Dismiss notification"
@@ -617,9 +856,21 @@
     "title": "New from Template",
     "backToTemplates": "Back to Templates",
     "projectName": "Project name...",
-    "createInfo": "Creates {{features}} features with {{tasks}} tasks.",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe your project...",
+    "techStack": "Tech Stack",
+    "createInfo": "{{features}} features · {{tasks}} tasks",
     "tech": "Tech:",
     "cancel": "Cancel",
-    "createProject": "Create Project"
+    "createProject": "Create Project",
+    "task": "task",
+    "tasks": "tasks",
+    "types": {
+      "software": "Software",
+      "content": "Content",
+      "image": "Image",
+      "video": "Video",
+      "general": "General"
+    }
   }
 }

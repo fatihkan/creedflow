@@ -34,12 +34,12 @@ impl CliBackend for OllamaBackend {
     fn backend_type(&self) -> BackendType { BackendType::Ollama }
 
     async fn is_available(&self) -> bool {
-        self.cli_path.lock().unwrap().is_some()
+        self.cli_path.lock().expect("mutex poisoned").is_some()
     }
 
     async fn execute(&self, input: TaskInput) -> Result<(Uuid, mpsc::Receiver<OutputEvent>), String> {
-        let path = self.cli_path.lock().unwrap().clone().ok_or("Ollama CLI not found")?;
-        let model = self.model.lock().unwrap().clone();
+        let path = self.cli_path.lock().expect("mutex poisoned").clone().ok_or("Ollama CLI not found")?;
+        let model = self.model.lock().expect("mutex poisoned").clone();
         let id = Uuid::new_v4();
         let (tx, rx) = mpsc::channel(256);
 
@@ -65,7 +65,7 @@ impl CliBackend for OllamaBackend {
 
         let pid = child.id().unwrap_or(0);
         PROCESS_TRACKER.track(pid);
-        self.children.lock().unwrap().insert(id, pid);
+        self.children.lock().expect("mutex poisoned").insert(id, pid);
         self.active.fetch_add(1, Ordering::SeqCst);
 
         let active = self.active.clone();
@@ -83,7 +83,7 @@ impl CliBackend for OllamaBackend {
             })).await;
             let _ = child.wait().await;
             PROCESS_TRACKER.untrack(pid);
-            children.lock().unwrap().remove(&id);
+            children.lock().expect("mutex poisoned").remove(&id);
             active.fetch_sub(1, Ordering::SeqCst);
         });
 
@@ -91,14 +91,14 @@ impl CliBackend for OllamaBackend {
     }
 
     async fn cancel(&self, id: Uuid) {
-        if let Some(pid) = self.children.lock().unwrap().remove(&id) {
+        if let Some(pid) = self.children.lock().expect("mutex poisoned").remove(&id) {
             crate::services::process_tracker::terminate_process(pid);
             self.active.fetch_sub(1, Ordering::SeqCst);
         }
     }
 
     async fn cancel_all(&self) {
-        let pids: Vec<u32> = self.children.lock().unwrap().drain().map(|(_, p)| p).collect();
+        let pids: Vec<u32> = self.children.lock().expect("mutex poisoned").drain().map(|(_, p)| p).collect();
         for pid in pids { crate::services::process_tracker::terminate_process(pid); }
         self.active.store(0, Ordering::SeqCst);
     }

@@ -18,6 +18,7 @@ import * as api from "../../tauri";
 import type { AgentTask, DetectedEditor } from "../../types/models";
 import { ProjectTimeStats } from "./ProjectTimeStats";
 import { useTranslation } from "react-i18next";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 interface ProjectDetailPanelProps {
   projectId: string;
@@ -39,7 +40,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
     api
       .listTasks(projectId)
       .then(setTasks)
-      .catch(console.error)
+      .catch((e) => showErrorToast("Failed to load tasks", e))
       .finally(() => setLoadingTasks(false));
 
     api.gitCurrentBranch(projectId).then(setCurrentBranch).catch(() => {});
@@ -147,7 +148,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
                   filters: [{ name: "ZIP", extensions: ["zip"] }],
                 });
                 if (path) {
-                  api.exportProjectZip(projectId, path).catch(console.error);
+                  api.exportProjectZip(projectId, path).catch((e) => showErrorToast("Failed to export project ZIP", e));
                 }
               }}
               className="flex items-center gap-1.5 px-3 py-2 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 transition-colors"

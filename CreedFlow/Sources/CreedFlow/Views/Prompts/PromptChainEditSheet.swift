@@ -57,7 +57,7 @@ struct PromptChainEditSheet: View {
 
                             Picker("Prompt", selection: $steps[index].promptId) {
                                 Text("Select...").tag(nil as UUID?)
-                                ForEach(prompts) { prompt in
+                                ForEach(prompts, id: \.id) { prompt in
                                     Text(prompt.title).tag(prompt.id as UUID?)
                                 }
                             }

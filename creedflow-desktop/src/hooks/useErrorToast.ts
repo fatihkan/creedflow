@@ -30,3 +30,27 @@ export function useErrorToast() {
 
   return withError;
 }
+
+/**
+ * Non-hook version for use in Zustand stores and other non-component contexts.
+ * Call directly: showErrorToast("Failed to load", error)
+ */
+export function showErrorToast(title: string, error?: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "An unexpected error occurred";
+  useNotificationStore.getState().addToast({
+    id: crypto.randomUUID(),
+    category: "system",
+    severity: "error",
+    title,
+    message,
+    metadata: null,
+    isRead: false,
+    isDismissed: false,
+    createdAt: new Date().toISOString(),
+  });
+}

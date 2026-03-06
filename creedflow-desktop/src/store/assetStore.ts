@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { GeneratedAsset } from "../types/models";
+import { showErrorToast } from "../hooks/useErrorToast";
 import * as api from "../tauri";
 
 type AssetTypeFilter = "all" | "image" | "video" | "audio" | "design" | "document";
@@ -12,8 +13,11 @@ interface AssetStore {
   typeFilter: AssetTypeFilter;
   sortField: SortField;
   searchQuery: string;
+  hasMore: boolean;
+  pageSize: number;
 
   fetchAssets: (projectId: string) => Promise<void>;
+  fetchMoreAssets: (projectId: string) => Promise<void>;
   selectAsset: (id: string | null) => void;
   setTypeFilter: (filter: AssetTypeFilter) => void;
   setSortField: (field: SortField) => void;
@@ -33,15 +37,30 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   typeFilter: "all",
   sortField: "date",
   searchQuery: "",
+  hasMore: true,
+  pageSize: 50,
 
   fetchAssets: async (projectId: string) => {
     set({ loading: true });
     try {
-      const assets = await api.listAssets(projectId);
-      set({ assets, loading: false });
+      const assets = await api.listAssets(projectId, 50, 0);
+      set({ assets, loading: false, hasMore: assets.length >= 50 });
     } catch (e) {
-      console.error("Failed to fetch assets:", e);
+      showErrorToast("Failed to fetch assets", e);
       set({ loading: false });
+    }
+  },
+
+  fetchMoreAssets: async (projectId: string) => {
+    const { assets, pageSize } = get();
+    try {
+      const more = await api.listAssets(projectId, pageSize, assets.length);
+      set((s) => ({
+        assets: [...s.assets, ...more],
+        hasMore: more.length >= pageSize,
+      }));
+    } catch (e) {
+      showErrorToast("Failed to fetch more assets", e);
     }
   },
 

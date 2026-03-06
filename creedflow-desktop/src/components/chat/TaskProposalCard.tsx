@@ -1,6 +1,7 @@
 import { Check, X, ListTodo } from "lucide-react";
 import type { ProjectMessage, TaskProposal } from "../../types/models";
 import { useChatStore } from "../../store/chatStore";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   message: ProjectMessage;
@@ -20,6 +21,7 @@ function parseProposal(metadata?: string): TaskProposal | null {
 }
 
 export function TaskProposalCard({ message }: Props) {
+  const { t } = useTranslation();
   const proposal = parseProposal(message.metadata);
   const approveProposal = useChatStore((s) => s.approveProposal);
   const rejectProposal = useChatStore((s) => s.rejectProposal);
@@ -36,16 +38,16 @@ export function TaskProposalCard({ message }: Props) {
       <div className="flex items-center gap-2 px-3 py-2 bg-zinc-800/50 border-b border-zinc-700">
         <ListTodo className="w-4 h-4 text-amber-400" />
         <span className="text-xs font-semibold text-zinc-300">
-          Task Proposal
+          {t("chat.taskProposal.title")}
         </span>
         {isApproved && (
           <span className="ml-auto text-[10px] font-medium text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-            Approved
+            {t("chat.taskProposal.approved")}
           </span>
         )}
         {isRejected && (
           <span className="ml-auto text-[10px] font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
-            Rejected
+            {t("chat.taskProposal.rejected")}
           </span>
         )}
       </div>
@@ -89,13 +91,13 @@ export function TaskProposalCard({ message }: Props) {
             }
             className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-green-400 bg-green-500/10 hover:bg-green-500/20 rounded transition-colors"
           >
-            <Check className="w-3 h-3" /> Approve
+            <Check className="w-3 h-3" /> {t("chat.taskProposal.approve")}
           </button>
           <button
             onClick={() => rejectProposal(message.id)}
             className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded transition-colors"
           >
-            <X className="w-3 h-3" /> Reject
+            <X className="w-3 h-3" /> {t("chat.taskProposal.reject")}
           </button>
         </div>
       )}

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../../store/settingsStore";
 import * as api from "../../tauri";
 import type { AgentBackendOverrides, AgentType } from "../../types/models";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 interface AgentBackendInfo {
   agentType: string;
@@ -35,11 +37,12 @@ const AGENT_OVERRIDE_KEYS: AgentType[] = [
 ];
 
 export function AgentPreferences() {
+  const { t } = useTranslation();
   const { settings, updateSettings } = useSettingsStore();
   const [agentInfo, setAgentInfo] = useState<AgentBackendInfo[]>([]);
 
   useEffect(() => {
-    api.getAgentBackendInfo().then(setAgentInfo).catch(console.error);
+    api.getAgentBackendInfo().then(setAgentInfo).catch((e) => showErrorToast("Failed to load agent backend info", e));
   }, []);
 
   if (!settings || agentInfo.length === 0) return null;
@@ -74,11 +77,10 @@ export function AgentPreferences() {
   return (
     <section>
       <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-        Agent Backend Preferences
+        {t("settings.agentPrefs.title")}
       </h3>
       <p className="text-xs text-zinc-500 mb-3">
-        Override the default backend for each agent. &quot;Default&quot; uses the
-        built-in preference.
+        {t("settings.agentPrefs.description")}
       </p>
       <div className="space-y-1">
         {agentInfo.map((info) => {
@@ -107,7 +109,7 @@ export function AgentPreferences() {
                 onChange={(e) => handleChange(agentType, e.target.value)}
                 className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300"
               >
-                <option value="default">Default</option>
+                <option value="default">{t("settings.agentPrefs.default")}</option>
                 {info.allowedBackends.map((b) => (
                   <option key={b} value={b}>
                     {BACKEND_LABELS[b] || b}

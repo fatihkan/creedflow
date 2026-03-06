@@ -1,5 +1,6 @@
 import type { GitLogEntry } from "../../tauri";
 import { X, GitCommit, User, Clock, GitBranch } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface GitCommitDetailProps {
   commit: GitLogEntry;
@@ -7,6 +8,7 @@ interface GitCommitDetailProps {
 }
 
 export function GitCommitDetail({ commit, onClose }: GitCommitDetailProps) {
+  const { t } = useTranslation();
   const date = new Date(commit.timestamp * 1000);
 
   const branches = commit.decorations
@@ -24,7 +26,7 @@ export function GitCommitDetail({ commit, onClose }: GitCommitDetailProps) {
         <div className="flex items-center gap-2 min-w-0">
           <GitCommit className="w-4 h-4 text-brand-400 flex-shrink-0" />
           <span className="text-sm font-medium text-zinc-200 truncate">
-            Commit Detail
+            {t("git.commitDetail.title")}
           </span>
         </div>
         <button
@@ -40,7 +42,7 @@ export function GitCommitDetail({ commit, onClose }: GitCommitDetailProps) {
         {/* Hash */}
         <div>
           <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
-            Hash
+            {t("git.commitDetail.hash")}
           </label>
           <p className="mt-1 font-mono text-xs text-brand-400 select-all break-all">
             {commit.hash}
@@ -50,7 +52,7 @@ export function GitCommitDetail({ commit, onClose }: GitCommitDetailProps) {
         {/* Message */}
         <div>
           <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
-            Message
+            {t("git.commitDetail.message")}
           </label>
           <p className="mt-1 text-sm text-zinc-200 whitespace-pre-wrap">
             {commit.message}
@@ -75,7 +77,7 @@ export function GitCommitDetail({ commit, onClose }: GitCommitDetailProps) {
         {commit.parents.length > 0 && (
           <div>
             <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
-              Parent{commit.parents.length > 1 ? "s" : ""}
+              {commit.parents.length > 1 ? t("git.commitDetail.parents") : t("git.commitDetail.parent")}
             </label>
             <div className="mt-1 space-y-1">
               {commit.parents.map((p) => (
@@ -86,7 +88,7 @@ export function GitCommitDetail({ commit, onClose }: GitCommitDetailProps) {
             </div>
             {commit.parents.length > 1 && (
               <span className="text-[10px] text-amber-400 mt-1 inline-block">
-                Merge commit
+                {t("git.commitDetail.mergeCommit")}
               </span>
             )}
           </div>
@@ -97,7 +99,7 @@ export function GitCommitDetail({ commit, onClose }: GitCommitDetailProps) {
           <div>
             <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium flex items-center gap-1">
               <GitBranch className="w-3 h-3" />
-              Refs
+              {t("git.commitDetail.refs")}
             </label>
             <div className="mt-1 flex flex-wrap gap-1">
               {branches.map((b) => {

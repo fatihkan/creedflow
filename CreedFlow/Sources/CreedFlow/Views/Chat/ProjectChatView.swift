@@ -77,7 +77,7 @@ struct ProjectChatView: View {
                             .padding(.top, 40)
                     }
 
-                    ForEach(chatService.messages) { message in
+                    ForEach(chatService.messages, id: \.id) { message in
                         ChatMessageView(
                             message: message,
                             chatService: chatService

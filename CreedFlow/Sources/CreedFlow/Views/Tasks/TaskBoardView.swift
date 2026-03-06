@@ -134,7 +134,7 @@ struct TaskBoardView: View {
 
                     Picker("Project", selection: $filterProjectId) {
                         Text("All").tag(UUID?.none)
-                        ForEach(projects) { project in
+                        ForEach(projects, id: \.id) { project in
                             Text(project.name).tag(UUID?.some(project.id))
                         }
                     }
@@ -560,7 +560,7 @@ struct KanbanColumnView: View {
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 6) {
-                        ForEach(tasks) { task in
+                        ForEach(tasks, id: \.id) { task in
                             HStack(spacing: 6) {
                                 if isArchiveSelectionMode {
                                     Button {
@@ -680,7 +680,9 @@ struct TaskCardView: View {
                         .help("Priority \(task.priority) (1=low, 10=critical)")
                 }
                 Spacer()
-                if let duration = task.durationMs {
+                if task.status == .inProgress, let startedAt = task.startedAt {
+                    LiveTimerView(since: startedAt)
+                } else if let duration = task.durationMs {
                     Text(ForgeDuration.format(ms: duration))
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.tertiary)

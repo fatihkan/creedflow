@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, GitCompare, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { PromptVersion, PromptVersionDiff } from "../../types/models";
 import * as api from "../../tauri";
 import { PromptDiffViewer } from "./PromptDiffViewer";
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function PromptVersionHistory({ promptId, promptTitle, onClose }: Props) {
+  const { t } = useTranslation();
   const [versions, setVersions] = useState<PromptVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -68,7 +70,7 @@ export function PromptVersionHistory({ promptId, promptTitle, onClose }: Props) 
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-zinc-400" />
             <h3 id="version-history-title" className="text-sm font-semibold text-zinc-200">
-              Version History
+              {t("prompts.versionHistory.title")}
             </h3>
             <span className="text-xs text-zinc-500 truncate max-w-[200px]">
               {promptTitle}
@@ -82,11 +84,11 @@ export function PromptVersionHistory({ promptId, promptTitle, onClose }: Props) 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {loading ? (
             <div className="text-sm text-zinc-500 text-center py-8">
-              Loading versions...
+              {t("prompts.versionHistory.loading")}
             </div>
           ) : versions.length === 0 ? (
             <div className="text-sm text-zinc-500 text-center py-8">
-              No version history available
+              {t("prompts.versionHistory.empty")}
             </div>
           ) : (
             <>
@@ -133,7 +135,7 @@ export function PromptVersionHistory({ promptId, promptTitle, onClose }: Props) 
                   className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded disabled:opacity-40 transition-colors"
                 >
                   <GitCompare className="w-3.5 h-3.5" />
-                  {comparing ? "Comparing..." : "Compare Selected"}
+                  {comparing ? t("prompts.versionHistory.comparing") : t("prompts.versionHistory.compare")}
                 </button>
               </div>
 

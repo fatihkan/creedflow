@@ -39,7 +39,7 @@ struct SidebarView: View {
 
                 if !projects.isEmpty {
                     Section(L("sidebar.recent")) {
-                        ForEach(projects.prefix(5)) { project in
+                        ForEach(projects.prefix(5), id: \.id) { project in
                             Label {
                                 Text(project.name)
                                     .lineLimit(1)

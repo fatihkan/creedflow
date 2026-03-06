@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { PromptVersionDiff } from "../../types/models";
 
 interface Props {
@@ -5,6 +6,7 @@ interface Props {
 }
 
 export function PromptDiffViewer({ diff }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="border border-zinc-800 rounded-lg overflow-hidden">
       {/* Header */}
@@ -15,7 +17,7 @@ export function PromptDiffViewer({ diff }: Props) {
             <span className="ml-1.5 text-zinc-500">({diff.versionA.changeNote})</span>
           )}
         </span>
-        <span className="text-zinc-600">vs</span>
+        <span className="text-zinc-600">{t("prompts.diff.vs")}</span>
         <span>
           <span className="text-green-400">v{diff.versionB.version}</span>
           {diff.versionB.changeNote && (

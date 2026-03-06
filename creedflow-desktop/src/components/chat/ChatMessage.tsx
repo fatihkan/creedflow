@@ -1,6 +1,7 @@
 import { Bot, User, FileText } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { ChatAttachment, ProjectMessage } from "../../types/models";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   message: ProjectMessage;
@@ -26,6 +27,7 @@ function parseAttachments(attachmentsJson?: string): ChatAttachment[] {
 }
 
 export function ChatMessage({ message }: Props) {
+  const { t } = useTranslation();
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const attachments = parseAttachments(message.attachments);
@@ -59,7 +61,7 @@ export function ChatMessage({ message }: Props) {
       <div className={`flex-1 min-w-0 ${isUser ? "text-right" : ""}`}>
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-medium text-zinc-400">
-            {isUser ? "You" : "CreedFlow AI"}
+            {isUser ? t("chat.you") : t("chat.aiName")}
           </span>
           {message.backend && (
             <span

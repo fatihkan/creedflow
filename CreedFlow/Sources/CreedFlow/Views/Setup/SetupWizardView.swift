@@ -13,6 +13,17 @@ public struct SetupWizardView: View {
     @AppStorage("lmstudioEnabled") private var storedLmstudioEnabled = false
     @AppStorage("llamacppPath") private var storedLlamacppPath = ""
     @AppStorage("mlxPath") private var storedMlxPath = ""
+
+    // Enabled flags — auto-set based on detection
+    @AppStorage("claudeEnabled") private var claudeEnabled = true
+    @AppStorage("codexEnabled") private var codexEnabled = true
+    @AppStorage("geminiEnabled") private var geminiEnabled = true
+    @AppStorage("opencodeEnabled") private var opencodeEnabled = true
+    @AppStorage("openclawEnabled") private var openclawEnabled = true
+    @AppStorage("qwenEnabled") private var qwenEnabled = true
+    @AppStorage("ollamaEnabled") private var ollamaEnabled = false
+    @AppStorage("llamacppEnabled") private var llamacppEnabled = false
+    @AppStorage("mlxEnabled") private var mlxEnabled = false
     @AppStorage("projectsBaseDir") private var storedProjectsBaseDir = ""
     @AppStorage("maxConcurrency") private var storedMaxConcurrency = 3
     @AppStorage("defaultMaxBudgetUSD") private var storedDefaultBudget = 5.0
@@ -255,6 +266,18 @@ public struct SetupWizardView: View {
         } else if detector.mlxFound {
             storedMlxPath = detector.mlxPath
         }
+
+        // Auto-disable backends that are not found and have no override path
+        claudeEnabled = !claudePathOverride.isEmpty || detector.claudeFound
+        codexEnabled = !codexPathOverride.isEmpty || detector.codexFound
+        geminiEnabled = !geminiPathOverride.isEmpty || detector.geminiFound
+        opencodeEnabled = !opencodePathOverride.isEmpty || detector.opencodeFound
+        openclawEnabled = !openclawPathOverride.isEmpty || detector.openclawFound
+        qwenEnabled = !qwenPathOverride.isEmpty || detector.qwenFound
+        ollamaEnabled = !ollamaPathOverride.isEmpty || detector.ollamaFound
+        storedLmstudioEnabled = !lmstudioPathOverride.isEmpty || detector.lmstudioFound
+        llamacppEnabled = !llamacppPathOverride.isEmpty || detector.llamacppFound
+        mlxEnabled = !mlxPathOverride.isEmpty || detector.mlxFound
 
         // Write preferred editor
         storedPreferredEditor = selectedEditor

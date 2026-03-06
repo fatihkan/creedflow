@@ -66,7 +66,7 @@ struct MCPSettingsView: View {
                 GridItem(.flexible(), spacing: 12),
                 GridItem(.flexible(), spacing: 12)
             ], spacing: 12) {
-                ForEach(MCPServerTemplate.all) { template in
+                ForEach(MCPServerTemplate.all, id: \.id) { template in
                     let isConfigured = store.configs.contains { $0.name == template.id }
                     MCPTemplateCard(
                         template: template,
@@ -94,7 +94,7 @@ struct MCPSettingsView: View {
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
             } else {
-                ForEach(store.configs) { config in
+                ForEach(store.configs, id: \.id) { config in
                     MCPServerRow(
                         config: config,
                         healthStatus: mcpHealthStatus[config.name] ?? .unknown,
@@ -233,7 +233,7 @@ private struct MCPTemplateSetupSheet: View {
             .padding()
 
             Form {
-                ForEach(template.requiredInputs) { input in
+                ForEach(template.requiredInputs, id: \.id) { input in
                     Section(input.label) {
                         switch input.type {
                         case .path:

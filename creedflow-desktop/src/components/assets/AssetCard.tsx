@@ -8,6 +8,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { GeneratedAsset } from "../../types/models";
 
 const TYPE_CONFIG: Record<string, { icon: React.FC<{ className?: string }>; color: string }> = {
@@ -18,10 +19,10 @@ const TYPE_CONFIG: Record<string, { icon: React.FC<{ className?: string }>; colo
   document: { icon: FileText, color: "text-amber-400" },
 };
 
-const STATUS_BADGE: Record<string, { icon: React.FC<{ className?: string }>; color: string; label: string }> = {
-  approved: { icon: CheckCircle, color: "text-green-400 bg-green-400/10", label: "Approved" },
-  rejected: { icon: XCircle, color: "text-red-400 bg-red-400/10", label: "Rejected" },
-  generated: { icon: Clock, color: "text-zinc-400 bg-zinc-400/10", label: "Pending" },
+const STATUS_BADGE: Record<string, { icon: React.FC<{ className?: string }>; color: string; labelKey: string }> = {
+  approved: { icon: CheckCircle, color: "text-green-400 bg-green-400/10", labelKey: "assets.status.approved" },
+  rejected: { icon: XCircle, color: "text-red-400 bg-red-400/10", labelKey: "assets.status.rejected" },
+  generated: { icon: Clock, color: "text-zinc-400 bg-zinc-400/10", labelKey: "assets.status.pending" },
 };
 
 function formatFileSize(bytes: number | null): string {
@@ -38,6 +39,7 @@ interface AssetCardProps {
 }
 
 export function AssetCard({ asset, selected, onClick }: AssetCardProps) {
+  const { t } = useTranslation();
   const typeConf = TYPE_CONFIG[asset.assetType] ?? TYPE_CONFIG.document;
   const TypeIcon = typeConf.icon;
   const status = STATUS_BADGE[asset.status] ?? STATUS_BADGE.generated;
@@ -73,7 +75,7 @@ export function AssetCard({ asset, selected, onClick }: AssetCardProps) {
         <span className="flex-1" />
         <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${status.color}`}>
           <StatusIcon className="w-2.5 h-2.5" />
-          {status.label}
+          {t(status.labelKey)}
         </span>
       </div>
     </button>

@@ -14,6 +14,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // when running as a .app bundle (which gets a minimal PATH by default).
         ShellEnvironment.shared.apply()
 
+        // Apply saved theme on launch
+        let mode = UserDefaults.standard.string(forKey: "appearanceMode") ?? "system"
+        switch mode {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: NSApp.appearance = nil
+        }
+
         // Ensure the app appears in the dock and accepts focus
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)

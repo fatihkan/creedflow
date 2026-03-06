@@ -1,18 +1,20 @@
+import { useTranslation } from "react-i18next";
 import { useThemeStore } from "../../store/themeStore";
 import { Monitor, Sun, Moon } from "lucide-react";
 
 const MODES = [
-  { value: "system" as const, label: "System", icon: Monitor },
-  { value: "light" as const, label: "Light", icon: Sun },
-  { value: "dark" as const, label: "Dark", icon: Moon },
+  { value: "system" as const, labelKey: "settings.theme.system", icon: Monitor },
+  { value: "light" as const, labelKey: "settings.theme.light", icon: Sun },
+  { value: "dark" as const, labelKey: "settings.theme.dark", icon: Moon },
 ];
 
 export function ThemeToggle() {
+  const { t } = useTranslation();
   const { mode, setMode } = useThemeStore();
 
   return (
     <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-md p-0.5">
-      {MODES.map(({ value, label, icon: Icon }) => (
+      {MODES.map(({ value, labelKey, icon: Icon }) => (
         <button
           key={value}
           onClick={() => setMode(value)}
@@ -23,7 +25,7 @@ export function ThemeToggle() {
           }`}
         >
           <Icon className="w-3.5 h-3.5" />
-          {label}
+          {t(labelKey)}
         </button>
       ))}
     </div>

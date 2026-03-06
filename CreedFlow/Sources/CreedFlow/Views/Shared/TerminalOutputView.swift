@@ -53,7 +53,7 @@ struct TerminalOutputView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 1) {
-                        ForEach(runner.liveOutput) { line in
+                        ForEach(runner.liveOutput, id: \.id) { line in
                             HStack(alignment: .top, spacing: 6) {
                                 Text(line.timestamp, format: .dateTime.hour().minute().second())
                                     .font(.system(size: 12, design: .monospaced))

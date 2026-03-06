@@ -5,6 +5,7 @@ import { useTaskStore } from "../../store/taskStore";
 import { Cpu, Clock, Shield, Activity } from "lucide-react";
 import { SearchBar } from "../shared/SearchBar";
 import { Skeleton } from "../shared/Skeleton";
+import { LiveTimer } from "../shared/LiveTimer";
 import { useTranslation } from "react-i18next";
 
 export function AgentStatus() {
@@ -87,6 +88,7 @@ export function AgentStatus() {
                         {project ? ` · ${project.name}` : ""}
                       </p>
                     </div>
+                    {task.startedAt && <LiveTimer since={task.startedAt} />}
                   </div>
                 );
               })}
@@ -139,7 +141,7 @@ export function AgentStatus() {
                             : "bg-zinc-800 text-zinc-500"
                         }`}
                       >
-                        {agent.hasMcp ? "MCP" : "CLI"}
+                        {agent.hasMcp ? t("agents.status.mcp") : t("agents.status.cli")}
                       </span>
                     </div>
                   </div>
@@ -155,7 +157,7 @@ export function AgentStatus() {
                     {count > 0 && (
                       <span className="flex items-center gap-1 text-zinc-400">
                         <Shield className="w-3 h-3" />
-                        {count} tasks
+                        {count} {t("agents.status.tasks")}
                       </span>
                     )}
                   </div>

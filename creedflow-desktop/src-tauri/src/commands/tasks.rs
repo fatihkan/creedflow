@@ -8,12 +8,16 @@ use uuid::Uuid;
 pub async fn list_tasks(
     state: State<'_, AppState>,
     project_id: String,
+    limit: Option<i64>,
+    offset: Option<i64>,
 ) -> Result<Vec<AgentTask>, String> {
     let db = state.db.lock().await;
+    let lim = limit.unwrap_or(100);
+    let off = offset.unwrap_or(0);
     let mut stmt = db.conn.prepare(
-        "SELECT * FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL ORDER BY priority DESC, createdAt ASC"
+        "SELECT * FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL ORDER BY priority DESC, createdAt ASC LIMIT ?2 OFFSET ?3"
     ).map_err(|e| e.to_string())?;
-    let rows = stmt.query_map([&project_id], |row| AgentTask::from_row(row))
+    let rows = stmt.query_map(params![project_id, lim, off], |row| AgentTask::from_row(row))
         .map_err(|e| e.to_string())?;
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
@@ -136,20 +140,24 @@ pub async fn permanently_delete_tasks(
 pub async fn list_archived_tasks(
     state: State<'_, AppState>,
     project_id: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
 ) -> Result<Vec<AgentTask>, String> {
     let db = state.db.lock().await;
+    let lim = limit.unwrap_or(50);
+    let off = offset.unwrap_or(0);
     if let Some(pid) = project_id {
         let mut stmt = db.conn.prepare(
-            "SELECT * FROM agentTask WHERE archivedAt IS NOT NULL AND projectId = ?1 ORDER BY archivedAt DESC"
+            "SELECT * FROM agentTask WHERE archivedAt IS NOT NULL AND projectId = ?1 ORDER BY archivedAt DESC LIMIT ?2 OFFSET ?3"
         ).map_err(|e| e.to_string())?;
-        let rows = stmt.query_map([&pid], |row| AgentTask::from_row(row))
+        let rows = stmt.query_map(params![pid, lim, off], |row| AgentTask::from_row(row))
             .map_err(|e| e.to_string())?;
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
     } else {
         let mut stmt = db.conn.prepare(
-            "SELECT * FROM agentTask WHERE archivedAt IS NOT NULL ORDER BY archivedAt DESC"
+            "SELECT * FROM agentTask WHERE archivedAt IS NOT NULL ORDER BY archivedAt DESC LIMIT ?1 OFFSET ?2"
         ).map_err(|e| e.to_string())?;
-        let rows = stmt.query_map([], |row| AgentTask::from_row(row))
+        let rows = stmt.query_map(params![lim, off], |row| AgentTask::from_row(row))
             .map_err(|e| e.to_string())?;
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
     }

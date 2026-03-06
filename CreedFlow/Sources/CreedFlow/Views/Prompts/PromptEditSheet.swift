@@ -102,7 +102,7 @@ struct PromptEditSheet: View {
                                 .padding(.bottom, 4)
                             }
 
-                            ForEach(versionHistory) { ver in
+                            ForEach(versionHistory, id: \.id) { ver in
                                 HStack {
                                     Toggle(isOn: Binding(
                                         get: { selectedVersionsForDiff.contains(ver.id) },

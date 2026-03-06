@@ -42,7 +42,7 @@ struct ProjectRevisionSheet: View {
                 // Existing features summary
                 if !features.isEmpty {
                     Section("Existing Features") {
-                        ForEach(features) { feature in
+                        ForEach(features, id: \.id) { feature in
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.forgeSuccess)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useReviewStore } from "../../store/reviewStore";
 import { Check, X, ChevronDown, ChevronUp, FileCheck } from "lucide-react";
 import { SearchBar } from "../shared/SearchBar";
@@ -14,16 +14,16 @@ function scoreColor(score: number): string {
   return "text-red-400";
 }
 
-function verdictBadge(verdict: Review["verdict"]) {
+function verdictBadge(verdict: Review["verdict"], t: (key: string) => string) {
   const styles: Record<string, string> = {
     pass: "bg-green-500/20 text-green-400",
     needsRevision: "bg-amber-500/20 text-amber-400",
     fail: "bg-red-500/20 text-red-400",
   };
   const labels: Record<string, string> = {
-    pass: "Pass",
-    needsRevision: "Needs Revision",
-    fail: "Fail",
+    pass: t("reviews.verdict.pass"),
+    needsRevision: t("reviews.verdict.needsRevision"),
+    fail: t("reviews.verdict.fail"),
   };
   return (
     <span
@@ -46,7 +46,7 @@ export function ReviewList() {
     fetchReviews();
   }, [fetchReviews]);
 
-  const filtered = reviews
+  const filtered = useMemo(() => reviews
     .filter((r) => {
       if (filter === "pending") return !r.isApproved;
       if (filter === "approved") return r.isApproved;
@@ -59,7 +59,7 @@ export function ReviewList() {
         r.summary.toLowerCase().includes(q) ||
         r.verdict.toLowerCase().includes(q)
       );
-    });
+    }), [reviews, filter, search]);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -128,7 +128,7 @@ export function ReviewList() {
                       >
                         {review.score.toFixed(1)}
                       </span>
-                      {verdictBadge(review.verdict)}
+                      {verdictBadge(review.verdict, t)}
                       <span className="text-xs text-zinc-400 truncate">
                         {review.summary.slice(0, 80)}
                         {review.summary.length > 80 ? "..." : ""}
@@ -147,7 +147,7 @@ export function ReviewList() {
                               approveReview(review.id);
                             }}
                             className="p-1 text-green-500 hover:bg-green-500/20 rounded"
-                            title="Approve"
+                            title={t("reviews.approve")}
                           >
                             <Check className="w-3.5 h-3.5" />
                           </button>
@@ -157,7 +157,7 @@ export function ReviewList() {
                               rejectReview(review.id);
                             }}
                             className="p-1 text-red-500 hover:bg-red-500/20 rounded"
-                            title="Reject"
+                            title={t("reviews.reject")}
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>

@@ -142,7 +142,7 @@ struct ProjectDetailView: View {
                             Text("Recent Tasks")
                                 .font(.subheadline.bold())
                                 .foregroundStyle(.secondary)
-                            ForEach(tasks.prefix(8)) { task in
+                            ForEach(tasks.prefix(8), id: \.id) { task in
                                 TaskRowCompactView(task: task)
                             }
                             if tasks.count > 8 {

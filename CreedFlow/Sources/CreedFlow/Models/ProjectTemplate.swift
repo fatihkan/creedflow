@@ -108,7 +108,7 @@ extension ProjectTemplate {
         description: "Marketing landing page with responsive design, SEO optimization, and analytics",
         icon: "doc.richtext",
         techStack: "HTML, CSS, JavaScript",
-        projectType: .content,
+        projectType: .software,
         features: [
             TemplateFeature(name: "Design & Layout", description: "Visual design and responsive layout", tasks: [
                 TemplateTask(agentType: .designer, title: "Design landing page layout", description: "Create hero section, features, testimonials, CTA, and footer sections", priority: 9),
@@ -130,7 +130,7 @@ extension ProjectTemplate {
         description: "Content management system with blog, categories, and multi-channel publishing",
         icon: "newspaper",
         techStack: "Next.js, MDX, Tailwind CSS",
-        projectType: .content,
+        projectType: .software,
         features: [
             TemplateFeature(name: "Content System", description: "Blog post management and rendering", tasks: [
                 TemplateTask(agentType: .coder, title: "Build blog engine", description: "Create MDX-based blog with categories, tags, and search", priority: 9),

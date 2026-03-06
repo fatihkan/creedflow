@@ -2,6 +2,42 @@
 
 All notable changes to CreedFlow are documented in this file.
 
+## [v1.6.0] — 2026-03-06
+
+### Fixed
+
+#### Bug Fixes (#176, #177, #178, #180)
+- **Timer memory leak** — Created shared `LiveTimer` component replacing scattered `setInterval` usage in TaskCard and AgentStatus
+- **SwiftUI ForEach stability** — Added `id:` parameter to ForEach loops across 25 SwiftUI views to prevent rendering issues
+- **Mutex panic diagnostics** — Replaced 48 `.unwrap()` with descriptive `.expect()` messages across 9 Rust backend files
+- **React crash recovery** — Added `SectionErrorBoundary` component wrapping major content sections with retry capability
+
+#### Error Handling (#179, #185)
+- **Toast notifications** — Added `showErrorToast()` function routing all store errors through the notification system instead of console.error
+- **Swift try? audit** — Replaced critical `try?` with `do/catch` + `logger.error()` in LocalDeploymentService to surface silent failures
+
+### Added
+
+#### i18n Expansion (#183)
+- **706 translation keys** — Extracted ~400 hardcoded strings to `en.json` and `tr.json`, updated 33+ component files
+- Coverage: status labels, backend names, agent types, time formats, cost dashboard, prompt effectiveness, publishing, shortcuts, templates, settings
+
+#### Testing (#188)
+- **69 Vitest tests** across 7 Zustand store test files: projectStore (9), taskStore (14), notificationStore (13), historyStore (8), reviewStore (6), assetStore (9), promptStore (10)
+- Vitest configured with jsdom environment, Tauri invoke mocking, and `@` path alias
+
+### Changed
+
+#### Performance (#182, #186, #187)
+- **Pagination** — Added `limit`/`offset` parameters to 6 Rust commands and `hasMore`/`fetchMore` to 5 Zustand stores (default 50-100 per page)
+- **Regex optimization** — Converted 9 regex patterns to `once_cell::sync::Lazy` statics across 4 Rust files (content_exporter, ndjson, orchestrator, analyzer)
+- **React memoization** — Added `useMemo`/`useCallback` to TaskBoard, ProjectList, CostDashboard, ReviewList, and DetailPanel
+
+#### Code Structure (#181, #184, #189)
+- **Orchestrator split** — Decomposed 2,515-line `Orchestrator.swift` into 6 files using extensions: AnalyzerCompletionHandler (443), ReviewerCompletionHandler (150), DeploymentCoordinator (327), CoderBranchHandler (51), AssetPipelineHandler (771), core Orchestrator (809)
+- **React view splits** — Split 7 large components into 21 subcomponent files: SettingsDialog, SetupWizard, CostDashboard, MCPSettings, PublishingView, PromptChainList, DeployList
+- **Gitignore** — Added `src-tauri/.gitignore` for Rust build output
+
 ## [v1.5.0] — 2026-03-04
 
 ### Added
@@ -163,6 +199,7 @@ All notable changes to CreedFlow are documented in this file.
 - **Multi-task parallel dispatch** with configurable concurrency
 - **Deploy failure auto-recovery** pipeline
 
+[v1.6.0]: https://github.com/fatihkan/creedflow/compare/v1.5.0...v1.6.0
 [v1.5.0]: https://github.com/fatihkan/creedflow/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/fatihkan/creedflow/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/fatihkan/creedflow/compare/v1.2.0...v1.3.0

@@ -120,7 +120,7 @@ export function ArchivedTasksView() {
                     <StatusBadge status={task.status} />
                     {task.archivedAt && (
                       <span className="text-[10px] text-zinc-600">
-                        Archived {new Date(task.archivedAt).toLocaleDateString()}
+                        {t("tasks.archived.archivedDate", { date: new Date(task.archivedAt).toLocaleDateString() })}
                       </span>
                     )}
                   </div>

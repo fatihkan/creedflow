@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTaskStore } from "../../store/taskStore";
 import { TaskCard } from "./TaskCard";
 import { Archive, RotateCcw, XCircle, MessageCircle, CheckSquare, Square } from "lucide-react";
@@ -13,13 +13,13 @@ interface Props {
   showChatPanel?: boolean;
 }
 
-const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
-  { status: "queued", label: "Queued", color: "border-zinc-600" },
-  { status: "in_progress", label: "In Progress", color: "border-blue-500" },
-  { status: "passed", label: "Passed", color: "border-green-500" },
-  { status: "failed", label: "Failed", color: "border-red-500" },
-  { status: "needs_revision", label: "Needs Revision", color: "border-yellow-500" },
-  { status: "cancelled", label: "Cancelled", color: "border-zinc-500" },
+const COLUMNS: { status: TaskStatus; labelKey: string; color: string }[] = [
+  { status: "queued", labelKey: "tasks.columns.queued", color: "border-zinc-600" },
+  { status: "in_progress", labelKey: "tasks.columns.in_progress", color: "border-blue-500" },
+  { status: "passed", labelKey: "tasks.columns.passed", color: "border-green-500" },
+  { status: "failed", labelKey: "tasks.columns.failed", color: "border-red-500" },
+  { status: "needs_revision", labelKey: "tasks.columns.needs_revision", color: "border-yellow-500" },
+  { status: "cancelled", labelKey: "tasks.columns.cancelled", color: "border-zinc-500" },
 ];
 
 const ARCHIVABLE: TaskStatus[] = ["passed", "failed", "cancelled"];
@@ -58,29 +58,41 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
     fetchTasks(projectId);
   }, [projectId, fetchTasks]);
 
-  const filteredTasks = search.trim()
-    ? tasks.filter((t) => {
-        const q = search.toLowerCase();
-        return (
-          t.title.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          t.agentType.toLowerCase().includes(q) ||
-          (t.backend || "").toLowerCase().includes(q)
-        );
-      })
-    : tasks;
+  const filteredTasks = useMemo(() => {
+    if (!search.trim()) return tasks;
+    const q = search.toLowerCase();
+    return tasks.filter((t) =>
+      t.title.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      t.agentType.toLowerCase().includes(q) ||
+      (t.backend || "").toLowerCase().includes(q)
+    );
+  }, [tasks, search]);
 
-  const handleDragStart = (e: React.DragEvent, task: AgentTask) => {
+  // Pre-compute tasks grouped by column status to avoid re-filtering per column on every render
+  const tasksByStatus = useMemo(() => {
+    const map = new Map<TaskStatus, AgentTask[]>();
+    for (const col of COLUMNS) {
+      map.set(col.status, []);
+    }
+    for (const task of filteredTasks) {
+      const arr = map.get(task.status);
+      if (arr) arr.push(task);
+    }
+    return map;
+  }, [filteredTasks]);
+
+  const handleDragStart = useCallback((e: React.DragEvent, task: AgentTask) => {
     e.dataTransfer.setData("text/plain", task.id);
     e.dataTransfer.effectAllowed = "move";
-  };
+  }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-  };
+  }, []);
 
-  const handleDrop = async (e: React.DragEvent, targetStatus: TaskStatus) => {
+  const handleDrop = useCallback(async (e: React.DragEvent, targetStatus: TaskStatus) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData("text/plain");
     const task = tasks.find((t) => t.id === taskId);
@@ -89,15 +101,19 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
     if (allowed.includes(targetStatus)) {
       await updateTaskStatus(taskId, targetStatus);
     }
-  };
+  }, [tasks, updateTaskStatus]);
 
   // Compute which batch actions are available based on selected tasks
-  const selectedTasks = tasks.filter((t) => selectedIds.has(t.id));
-  const hasRetryable = selectedTasks.some((t) => RETRYABLE.includes(t.status));
-  const hasCancellable = selectedTasks.some((t) => t.status === "queued");
-  const hasArchivable = selectedTasks.some((t) => ARCHIVABLE.includes(t.status));
+  const { hasRetryable, hasCancellable, hasArchivable } = useMemo(() => {
+    const selectedTasks = tasks.filter((t) => selectedIds.has(t.id));
+    return {
+      hasRetryable: selectedTasks.some((t) => RETRYABLE.includes(t.status)),
+      hasCancellable: selectedTasks.some((t) => t.status === "queued"),
+      hasArchivable: selectedTasks.some((t) => ARCHIVABLE.includes(t.status)),
+    };
+  }, [tasks, selectedIds]);
 
-  const selectAllInColumn = (status: TaskStatus) => {
+  const selectAllInColumn = useCallback((status: TaskStatus) => {
     const columnTasks = filteredTasks.filter((t) => t.status === status);
     const allSelected = columnTasks.every((t) => selectedIds.has(t.id));
     columnTasks.forEach((t) => {
@@ -107,7 +123,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
         if (!selectedIds.has(t.id)) toggleSelection(t.id);
       }
     });
-  };
+  }, [filteredTasks, selectedIds, toggleSelection]);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -134,7 +150,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                   ? "bg-amber-500/20 text-amber-400"
                   : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
               }`}
-              title="Toggle project chat"
+              title={t("tasks.toggleChat")}
             >
               <MessageCircle className="w-3.5 h-3.5" />
               {t("tasks.chat")}
@@ -197,8 +213,9 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
 
       <div className="flex-1 overflow-x-auto">
         <div className="flex gap-3 p-4 min-w-max h-full">
-          {COLUMNS.map(({ status, label, color }) => {
-            const columnTasks = filteredTasks.filter((t) => t.status === status);
+          {COLUMNS.map(({ status, labelKey, color }) => {
+            const label = t(labelKey);
+            const columnTasks = tasksByStatus.get(status) ?? [];
             const allColumnSelected = columnTasks.length > 0 && columnTasks.every((t) => selectedIds.has(t.id));
             return (
               <div
@@ -213,7 +230,7 @@ export function TaskBoard({ projectId, onToggleChat, showChatPanel }: Props) {
                       <button
                         onClick={() => selectAllInColumn(status)}
                         className="text-zinc-500 hover:text-zinc-300"
-                        title={allColumnSelected ? "Deselect all" : "Select all"}
+                        title={allColumnSelected ? t("common.deselectAll") : t("common.selectAll")}
                         aria-label={allColumnSelected ? `Deselect all ${label} tasks` : `Select all ${label} tasks`}
                       >
                         {allColumnSelected ? (

@@ -85,7 +85,7 @@ struct ProjectListView: View {
                             .frame(height: 200)
                         }
 
-                        ForEach(filteredProjects) { project in
+                        ForEach(filteredProjects, id: \.id) { project in
                             ProjectRowView(
                                 project: project,
                                 isSelected: selectedProjectId == project.id
@@ -239,6 +239,8 @@ struct ProjectTemplateSelectorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTemplate: ProjectTemplate?
     @State private var projectName: String = ""
+    @State private var projectDescription: String = ""
+    @State private var projectTechStack: String = ""
     @State private var errorMessage: String?
     @State private var isCreating = false
 
@@ -258,37 +260,124 @@ struct ProjectTemplateSelectorSheet: View {
 
             if let template = selectedTemplate {
                 // Configuration step
-                VStack(alignment: .leading, spacing: 12) {
-                    Button {
-                        selectedTemplate = nil
-                    } label: {
-                        Label("Back to Templates", systemImage: "chevron.left")
-                            .font(.footnote)
-                    }
-                    .buttonStyle(.plain)
+                VStack(spacing: 0) {
+                    // Back + template info
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Button {
+                                selectedTemplate = nil
+                            } label: {
+                                Label("Back to Templates", systemImage: "chevron.left")
+                                    .font(.footnote)
+                            }
+                            .buttonStyle(.plain)
 
-                    HStack(spacing: 8) {
-                        Image(systemName: template.icon)
-                            .font(.title2)
-                            .foregroundStyle(.forgeAmber)
-                        VStack(alignment: .leading) {
-                            Text(template.name).font(.headline)
-                            Text(template.description).font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+
+                            Text(template.projectType.displayName)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(template.projectType == .software ? Color.blue : Color.purple)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    (template.projectType == .software ? Color.blue : Color.purple).opacity(0.1),
+                                    in: Capsule()
+                                )
+                        }
+
+                        HStack(spacing: 10) {
+                            Image(systemName: template.icon)
+                                .font(.title2)
+                                .foregroundStyle(.forgeAmber)
+                            Text(template.name)
+                                .font(.headline)
+                        }
+
+                        TextField("Project Name", text: $projectName)
+                            .textFieldStyle(.roundedBorder)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Description")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            TextEditor(text: $projectDescription)
+                                .font(.system(size: 12))
+                                .scrollContentBackground(.hidden)
+                                .padding(6)
+                                .frame(minHeight: 50, maxHeight: 70)
+                                .background(.quaternary.opacity(0.3))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Tech Stack")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            TextField("e.g., React, Node.js", text: $projectTechStack)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12, design: .monospaced))
                         }
                     }
+                    .padding(16)
 
-                    TextField("Project Name", text: $projectName)
-                        .textFieldStyle(.roundedBorder)
+                    Divider()
 
-                    Text("This will create \(template.features.count) features with \(template.features.flatMap(\.tasks).count) tasks.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    // Features & tasks preview
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(template.features.count) features · \(template.features.flatMap(\.tasks).count) tasks")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+
+                            ForEach(Array(template.features.enumerated()), id: \.offset) { _, feature in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text(feature.name)
+                                            .font(.system(.footnote, weight: .semibold))
+                                        Spacer()
+                                        Text("\(feature.tasks.count) tasks")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    Text(feature.description)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        ForEach(Array(feature.tasks.enumerated()), id: \.offset) { _, task in
+                                            HStack(spacing: 4) {
+                                                Circle()
+                                                    .fill(Color.primary.opacity(0.15))
+                                                    .frame(width: 3, height: 3)
+                                                Text(task.title)
+                                                    .font(.system(size: 10))
+                                                    .foregroundStyle(.tertiary)
+                                                    .lineLimit(1)
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(10)
+                                .background(.quaternary.opacity(0.2))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                        }
+                        .padding(16)
+                    }
 
                     if let errorMessage {
                         ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
+                            .padding(.horizontal, 16)
                     }
 
+                    Divider()
+
+                    // Actions
                     HStack {
+                        Button("Cancel") { dismiss() }
                         Spacer()
                         Button {
                             Task { await createFromTemplate(template) }
@@ -303,16 +392,18 @@ struct ProjectTemplateSelectorSheet: View {
                         .tint(.forgeAmber)
                         .disabled(projectName.trimmingCharacters(in: .whitespaces).isEmpty || isCreating)
                     }
+                    .padding(16)
                 }
-                .padding()
             } else {
                 // Template grid
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(ProjectTemplate.builtInTemplates) { template in
+                        ForEach(ProjectTemplate.builtInTemplates, id: \.id) { template in
                             Button {
                                 selectedTemplate = template
                                 projectName = ""
+                                projectDescription = template.description
+                                projectTechStack = template.techStack
                             } label: {
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack {
@@ -320,9 +411,15 @@ struct ProjectTemplateSelectorSheet: View {
                                             .font(.title3)
                                             .foregroundStyle(.forgeAmber)
                                         Spacer()
-                                        Text(template.projectType.rawValue)
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(.tertiary)
+                                        Text(template.projectType.displayName)
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundStyle(template.projectType == .software ? .blue : .purple)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(
+                                                (template.projectType == .software ? Color.blue : Color.purple).opacity(0.1),
+                                                in: Capsule()
+                                            )
                                     }
                                     Text(template.name)
                                         .font(.subheadline.bold())
@@ -351,7 +448,7 @@ struct ProjectTemplateSelectorSheet: View {
                 }
             }
         }
-        .frame(width: 500, height: 420)
+        .frame(width: 540, height: 520)
     }
 
     private func createFromTemplate(_ template: ProjectTemplate) async {
@@ -369,11 +466,13 @@ struct ProjectTemplateSelectorSheet: View {
             try FileManager.default.createDirectory(at: projectsDir, withIntermediateDirectories: true)
 
             try await db.dbQueue.write { dbConn in
+                let desc = projectDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                let stack = projectTechStack.trimmingCharacters(in: .whitespaces)
                 var project = Project(
                     id: projectId,
                     name: name,
-                    description: template.description,
-                    techStack: template.techStack,
+                    description: desc.isEmpty ? template.description : desc,
+                    techStack: stack.isEmpty ? template.techStack : stack,
                     directoryPath: projectsDir.path,
                     projectType: template.projectType
                 )

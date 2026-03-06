@@ -121,6 +121,13 @@
 "assets.title" = "Assets";
 "assets.searchPlaceholder" = "Search assets...";
 
+/* Notifications */
+"notifications.title" = "Notifications";
+"notifications.markAllRead" = "Mark All Read";
+"notifications.clearAll" = "Clear All";
+"notifications.delete" = "Delete notification";
+"notifications.empty" = "No notifications";
+
 /* Common */
 "common.cancel" = "Cancel";
 "common.save" = "Save";

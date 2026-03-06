@@ -476,3 +476,22 @@ struct ForgeDuration {
         }
     }
 }
+
+/// Live timer that counts up from a start date, updating every second.
+struct LiveTimerView: View {
+    let since: Date
+    @State private var elapsed: TimeInterval = 0
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Text(ForgeDuration.format(ms: Int64(elapsed * 1000)))
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(.forgeAmber)
+            .onAppear {
+                elapsed = Date().timeIntervalSince(since)
+            }
+            .onReceive(timer) { _ in
+                elapsed = Date().timeIntervalSince(since)
+            }
+    }
+}

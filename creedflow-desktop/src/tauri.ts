@@ -30,7 +30,8 @@ import type {
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
-export const listProjects = () => invoke<Project[]>("list_projects");
+export const listProjects = (limit?: number, offset?: number) =>
+  invoke<Project[]>("list_projects", { limit: limit ?? null, offset: offset ?? null });
 
 export const getProject = (id: string) =>
   invoke<Project>("get_project", { id });
@@ -68,17 +69,19 @@ export const exportProjectZip = (projectId: string, outputPath: string) =>
 export const listProjectTemplates = () =>
   invoke<ProjectTemplate[]>("list_project_templates");
 
-export const createProjectFromTemplate = (templateId: string, name: string, directoryPath?: string) =>
+export const createProjectFromTemplate = (templateId: string, name: string, description?: string, techStack?: string, directoryPath?: string) =>
   invoke<Project>("create_project_from_template", {
     templateId,
     name,
+    description: description ?? null,
+    techStack: techStack ?? null,
     directoryPath: directoryPath ?? null,
   });
 
 // ─── Tasks ───────────────────────────────────────────────────────────────────
 
-export const listTasks = (projectId: string) =>
-  invoke<AgentTask[]>("list_tasks", { projectId });
+export const listTasks = (projectId: string, limit?: number, offset?: number) =>
+  invoke<AgentTask[]>("list_tasks", { projectId, limit: limit ?? null, offset: offset ?? null });
 
 export const getTask = (id: string) => invoke<AgentTask>("get_task", { id });
 
@@ -109,8 +112,8 @@ export const restoreTasks = (ids: string[]) =>
 export const permanentlyDeleteTasks = (ids: string[]) =>
   invoke<void>("permanently_delete_tasks", { ids });
 
-export const listArchivedTasks = (projectId?: string) =>
-  invoke<AgentTask[]>("list_archived_tasks", { projectId: projectId ?? null });
+export const listArchivedTasks = (projectId?: string, limit?: number, offset?: number) =>
+  invoke<AgentTask[]>("list_archived_tasks", { projectId: projectId ?? null, limit: limit ?? null, offset: offset ?? null });
 
 export const retryTaskWithRevision = (id: string, revisionPrompt?: string) =>
   invoke<void>("retry_task_with_revision", {
@@ -194,7 +197,8 @@ export const getTaskStatistics = () =>
 
 // ─── Reviews ─────────────────────────────────────────────────────────────────
 
-export const listReviews = () => invoke<Review[]>("list_reviews");
+export const listReviews = (limit?: number, offset?: number) =>
+  invoke<Review[]>("list_reviews", { limit: limit ?? null, offset: offset ?? null });
 
 export const approveReview = (id: string) =>
   invoke<void>("approve_review", { id });
@@ -219,8 +223,8 @@ export const getAgentBackendInfo = () =>
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
 
-export const listAssets = (projectId: string) =>
-  invoke<GeneratedAsset[]>("list_assets", { projectId });
+export const listAssets = (projectId: string, limit?: number, offset?: number) =>
+  invoke<GeneratedAsset[]>("list_assets", { projectId, limit: limit ?? null, offset: offset ?? null });
 
 export const getAsset = (id: string) =>
   invoke<GeneratedAsset>("get_asset", { id });
@@ -498,6 +502,12 @@ export const markAllNotificationsRead = () =>
 
 export const dismissNotification = (id: string) =>
   invoke<void>("dismiss_notification", { id });
+
+export const deleteNotification = (id: string) =>
+  invoke<void>("delete_notification", { id });
+
+export const clearAllNotifications = () =>
+  invoke<void>("clear_all_notifications");
 
 export const getBackendHealthStatus = () =>
   invoke<HealthEvent[]>("get_backend_health_status");

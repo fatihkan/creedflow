@@ -396,7 +396,7 @@ struct WizardDependenciesStep: View {
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    ForEach(installer.dependencies) { dep in
+                    ForEach(installer.dependencies, id: \.id) { dep in
                         DependencyRow(dep: dep, brewAvailable: installer.brewDetected) {
                             Task { await installer.install(dep.id) }
                         }
@@ -667,7 +667,7 @@ struct WizardMCPStep: View {
                     GridItem(.flexible(), spacing: 10),
                     GridItem(.flexible(), spacing: 10)
                 ], spacing: 10) {
-                    ForEach(essentialTemplates) { template in
+                    ForEach(essentialTemplates, id: \.id) { template in
                         wizardTemplateCard(template)
                     }
                 }
@@ -680,7 +680,7 @@ struct WizardMCPStep: View {
                     GridItem(.flexible(), spacing: 10),
                     GridItem(.flexible(), spacing: 10)
                 ], spacing: 10) {
-                    ForEach(creativeTemplates) { template in
+                    ForEach(creativeTemplates, id: \.id) { template in
                         wizardTemplateCard(template)
                     }
                 }
@@ -705,7 +705,7 @@ struct WizardMCPStep: View {
                     GridItem(.flexible(), spacing: 10),
                     GridItem(.flexible(), spacing: 10)
                 ], spacing: 10) {
-                    ForEach(otherTemplates) { template in
+                    ForEach(otherTemplates, id: \.id) { template in
                         wizardTemplateCard(template)
                     }
                 }
@@ -714,7 +714,7 @@ struct WizardMCPStep: View {
 
             if !store.configs.isEmpty {
                 Section("Configured (\(store.configs.count))") {
-                    ForEach(store.configs) { config in
+                    ForEach(store.configs, id: \.id) { config in
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.forgeSuccess)
@@ -821,7 +821,7 @@ private struct WizardMCPTemplateSetupSheet: View {
             .padding()
 
             Form {
-                ForEach(template.requiredInputs) { input in
+                ForEach(template.requiredInputs, id: \.id) { input in
                     Section(input.label) {
                         switch input.type {
                         case .path:
@@ -1016,7 +1016,7 @@ struct WizardSummaryStep: View {
                 if mcpConfigs.isEmpty {
                     SummaryRow(label: "MCP Servers", value: "None configured", ok: false)
                 } else {
-                    ForEach(mcpConfigs) { config in
+                    ForEach(mcpConfigs, id: \.id) { config in
                         SummaryRow(label: config.name, value: config.command, ok: true)
                     }
                 }

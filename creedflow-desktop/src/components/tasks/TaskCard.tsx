@@ -2,7 +2,9 @@ import { Copy } from "lucide-react";
 import type { AgentTask } from "../../types/models";
 import { AgentTypeBadge } from "../shared/AgentTypeBadge";
 import { BackendBadge } from "../shared/BackendBadge";
+import { LiveTimer, formatDuration } from "../shared/LiveTimer";
 import { useTaskStore } from "../../store/taskStore";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   task: AgentTask;
@@ -11,6 +13,7 @@ interface Props {
 
 export function TaskCard({ task, onClick }: Props) {
   const duplicateTask = useTaskStore((s) => s.duplicateTask);
+  const { t } = useTranslation();
 
   const handleDuplicate = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -27,7 +30,7 @@ export function TaskCard({ task, onClick }: Props) {
           role="button"
           onClick={handleDuplicate}
           className="p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700 rounded"
-          title="Duplicate task"
+          title={t("tasks.duplicateTask")}
         >
           <Copy className="w-3 h-3" />
         </span>
@@ -38,6 +41,13 @@ export function TaskCard({ task, onClick }: Props) {
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
         <AgentTypeBadge agentType={task.agentType} />
         <BackendBadge backend={task.backend} />
+        {task.status === "in_progress" && task.startedAt ? (
+          <LiveTimer since={task.startedAt} />
+        ) : task.durationMs != null ? (
+          <span className="text-[10px] font-mono text-zinc-500">
+            {formatDuration(task.durationMs)}
+          </span>
+        ) : null}
         {task.costUsd != null && (
           <span className="text-[10px] text-zinc-500">
             ${task.costUsd.toFixed(4)}

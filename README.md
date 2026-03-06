@@ -30,10 +30,10 @@
 
 | Platform | Architecture | Version | Download |
 |----------|-------------|---------|----------|
-| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.5.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow-1.5.0-arm64.dmg) |
-| **macOS** | Intel | v1.5.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow-1.5.0-x86_64.dmg) |
-| **Linux** | x86_64 (AppImage) | v1.5.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow_1.5.0_amd64.AppImage) |
-| **Linux** | x86_64 (Debian/Ubuntu) | v1.5.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.5.0/CreedFlow_1.5.0_amd64.deb) |
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | v1.6.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.6.0/CreedFlow-1.6.0-arm64.dmg) |
+| **macOS** | Intel | v1.6.0 | [Download DMG](https://github.com/fatihkan/creedflow/releases/download/v1.6.0/CreedFlow-1.6.0-x86_64.dmg) |
+| **Linux** | x86_64 (AppImage) | v1.6.0 | [Download AppImage](https://github.com/fatihkan/creedflow/releases/download/v1.6.0/CreedFlow_1.6.0_amd64.AppImage) |
+| **Linux** | x86_64 (Debian/Ubuntu) | v1.6.0 | [Download .deb](https://github.com/fatihkan/creedflow/releases/download/v1.6.0/CreedFlow_1.6.0_amd64.deb) |
 
 > **Requirements:** macOS 14+ or Linux (Ubuntu 22.04+, Debian 12+). At least one AI backend: Claude CLI, Codex CLI, Gemini CLI, OpenCode, OpenClaw, Ollama, LM Studio, llama.cpp, or MLX.
 
@@ -62,26 +62,38 @@ This only needs to be done once.
 
 **AppImage:**
 ```bash
-chmod +x CreedFlow_1.5.0_amd64.AppImage
-./CreedFlow_1.5.0_amd64.AppImage
+chmod +x CreedFlow_1.6.0_amd64.AppImage
+./CreedFlow_1.6.0_amd64.AppImage
 ```
 
 **Debian/Ubuntu:**
 ```bash
-sudo dpkg -i CreedFlow_1.5.0_amd64.deb
+sudo dpkg -i CreedFlow_1.6.0_amd64.deb
 ```
 
 ---
 
-## What's New in v1.5.0
+## What's New in v1.6.0
 
-- **Backend Comparison** — Run the same prompt on multiple AI backends side-by-side, compare performance metrics, and export results as JSON
-- **Webhooks & CLI** — GitHub webhook handler with HMAC validation, REST API for external integration, and `creedflow-cli.sh` script
-- **Localization (i18n)** — Full English and Turkish language support with runtime switching across both macOS (SwiftUI) and Linux (Tauri) platforms
-- **Accessibility** — Focus trap for modals, ARIA labels on all interactive elements, keyboard navigation for task board
-- **Undo/Redo** — `Cmd+Z` / `Cmd+Shift+Z` with toast undo button and 10-second grace period for destructive actions
-- **Font Size Preference** — Small / Normal / Large text size in Settings, applied globally
-- **Database Maintenance** — JSON export, factory reset, vacuum, backup, and log pruning in Settings
+- **Bug Fixes** — Timer memory leak fix, ForEach id parameters (25 SwiftUI views), Mutex `.expect()` (48 instances), React ErrorBoundary
+- **Error Handling** — Toast notifications replace console.error, Swift try? audit with proper error logging
+- **i18n Expansion** — 706 translation keys across English and Turkish (up from ~300)
+- **Pagination** — All list queries now paginated with limit/offset (Rust + Zustand stores)
+- **Performance** — Rust regex compiled once with `once_cell::Lazy`, React `useMemo`/`useCallback` on heavy components
+- **Code Quality** — Orchestrator split (2,515→809 lines + 5 extensions), 7 React views split into 21 subcomponents
+- **Testing** — 69 Vitest tests across 7 Zustand stores
+
+<details>
+<summary><strong>v1.5.0 changes</strong></summary>
+
+- **Backend Comparison** — Side-by-side AI backend comparison with performance metrics and JSON export
+- **Webhooks & CLI** — GitHub webhook handler with HMAC validation, REST API, and CLI script
+- **Localization (i18n)** — English and Turkish language support with runtime switching
+- **Accessibility** — Focus traps, ARIA labels, keyboard navigation
+- **Undo/Redo** — `Cmd+Z` / `Cmd+Shift+Z` with toast undo and grace period
+- **Font Size** — Small / Normal / Large text size in Settings
+- **Database Maintenance** — JSON export, factory reset, vacuum, backup, log pruning
+</details>
 
 <details>
 <summary><strong>v1.4.0 changes</strong></summary>

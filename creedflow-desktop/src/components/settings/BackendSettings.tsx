@@ -1,7 +1,9 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../../store/settingsStore";
 
 export function BackendSettings() {
+  const { t } = useTranslation();
   const { backends, fetchBackends, toggleBackend } = useSettingsStore();
 
   useEffect(() => {
@@ -11,7 +13,7 @@ export function BackendSettings() {
   return (
     <section>
       <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-        AI Backends
+        {t("settings.backends.title")}
       </h3>
       <div className="space-y-2">
         {backends.map((backend) => (
@@ -31,15 +33,15 @@ export function BackendSettings() {
                   </span>
                   {backend.isLocal && (
                     <span className="text-[10px] bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded">
-                      Local
+                      {t("settings.backends.local")}
                     </span>
                   )}
                 </div>
                 <span className="text-[10px] text-zinc-500">
                   {backend.isAvailable ? (
-                    <span className="text-green-500">Available</span>
+                    <span className="text-green-500">{t("settings.backends.available")}</span>
                   ) : (
-                    <span className="text-zinc-600">Not found</span>
+                    <span className="text-zinc-600">{t("settings.backends.notFound")}</span>
                   )}
                   {backend.cliPath && (
                     <span className="ml-2 text-zinc-600">

@@ -67,6 +67,14 @@ final class NotificationViewModel {
         Task { await service.dismiss(id) }
     }
 
+    func deleteOne(_ id: UUID) {
+        Task { await service.deleteOne(id) }
+    }
+
+    func clearAll() {
+        Task { await service.clearAll() }
+    }
+
     // MARK: - Private
 
     private func observeNotifications() async {

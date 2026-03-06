@@ -160,7 +160,7 @@ impl BackendRouter {
     }
 
     pub fn set_enabled(&self, backend_type: &str, enabled: bool) {
-        let mut set = self.enabled.lock().unwrap();
+        let mut set = self.enabled.lock().expect("backend router mutex poisoned");
         if enabled {
             set.insert(backend_type.to_string());
         } else {
@@ -172,7 +172,7 @@ impl BackendRouter {
         &self,
         preferences: &BackendPreferences,
     ) -> Option<&dyn CliBackend> {
-        let enabled = self.enabled.lock().unwrap().clone();
+        let enabled = self.enabled.lock().expect("backend router mutex poisoned").clone();
 
         // If requires Claude features, try Claude first
         if preferences.requires_claude_features() {

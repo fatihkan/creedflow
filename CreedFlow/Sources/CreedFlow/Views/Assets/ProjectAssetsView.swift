@@ -103,7 +103,7 @@ struct ProjectAssetsView: View {
             } else if isGridMode {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(filteredAssets) { asset in
+                        ForEach(filteredAssets, id: \.id) { asset in
                             AssetCardView(
                                 asset: asset,
                                 projectName: projects[asset.projectId],

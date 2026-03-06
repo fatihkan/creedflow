@@ -488,7 +488,7 @@ struct ProjectCreationWizard: View {
         } else {
             ScrollView {
                 VStack(spacing: 14) {
-                    ForEach(caps) { cap in
+                    ForEach(caps, id: \.id) { cap in
                         capabilitySection(cap)
                     }
                 }
@@ -507,7 +507,7 @@ struct ProjectCreationWizard: View {
             capabilitySectionHeader(cap: cap, anyConfigured: anyConfigured)
 
             // MCP server rows for this capability
-            ForEach(servers) { template in
+            ForEach(servers, id: \.id) { template in
                 capabilityServerRow(template)
             }
         }
@@ -673,7 +673,7 @@ struct ProjectCreationWizard: View {
         let caps = detectedCapabilities.filter { $0.id != "orchestration" }
         if !caps.isEmpty {
             Section("Detected Capabilities") {
-                ForEach(caps) { cap in
+                ForEach(caps, id: \.id) { cap in
                     let anyReady = cap.mcpServers.contains { isServerConfigured($0) }
                     HStack(spacing: 6) {
                         Image(systemName: cap.icon)
@@ -865,7 +865,7 @@ private struct MCPInlineSetupSheet: View {
 
     private var mcpSetupForm: some View {
         Form {
-            ForEach(template.requiredInputs) { input in
+            ForEach(template.requiredInputs, id: \.id) { input in
                 Section(input.label) {
                     switch input.type {
                     case .path:

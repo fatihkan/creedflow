@@ -34,7 +34,7 @@ impl CliBackend for OpenCodeBackend {
     }
 
     async fn is_available(&self) -> bool {
-        self.cli_path.lock().unwrap().is_some()
+        self.cli_path.lock().expect("mutex poisoned").is_some()
     }
 
     async fn execute(
@@ -72,7 +72,7 @@ impl CliBackend for OpenCodeBackend {
 
         let pid = child.id().unwrap_or(0);
         PROCESS_TRACKER.track(pid);
-        self.children.lock().unwrap().insert(id, pid);
+        self.children.lock().expect("mutex poisoned").insert(id, pid);
         self.active.fetch_add(1, Ordering::SeqCst);
 
         let active = self.active.clone();
@@ -88,7 +88,7 @@ impl CliBackend for OpenCodeBackend {
 
             let _ = child.wait().await;
             PROCESS_TRACKER.untrack(pid);
-            children.lock().unwrap().remove(&id);
+            children.lock().expect("mutex poisoned").remove(&id);
             active.fetch_sub(1, Ordering::SeqCst);
 
             let _ = tx
@@ -108,7 +108,7 @@ impl CliBackend for OpenCodeBackend {
     }
 
     async fn cancel(&self, id: Uuid) {
-        if let Some(pid) = self.children.lock().unwrap().remove(&id) {
+        if let Some(pid) = self.children.lock().expect("mutex poisoned").remove(&id) {
             crate::services::process_tracker::terminate_process(pid);
             PROCESS_TRACKER.untrack(pid);
             self.active.fetch_sub(1, Ordering::SeqCst);
@@ -116,7 +116,7 @@ impl CliBackend for OpenCodeBackend {
     }
 
     async fn cancel_all(&self) {
-        let children: Vec<(Uuid, u32)> = self.children.lock().unwrap().drain().collect();
+        let children: Vec<(Uuid, u32)> = self.children.lock().expect("mutex poisoned").drain().collect();
         for (_, pid) in children {
             crate::services::process_tracker::terminate_process(pid);
             PROCESS_TRACKER.untrack(pid);

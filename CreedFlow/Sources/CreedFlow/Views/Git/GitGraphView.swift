@@ -110,7 +110,7 @@ struct GitGraphView: View {
 
             Picker("Project", selection: $selectedProjectId) {
                 Text("Select Project").tag(UUID?.none)
-                ForEach(projects) { project in
+                ForEach(projects, id: \.id) { project in
                     Text(project.name).tag(UUID?.some(project.id))
                 }
             }

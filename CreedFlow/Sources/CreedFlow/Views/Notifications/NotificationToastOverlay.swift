@@ -7,7 +7,7 @@ struct NotificationToastOverlay: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            ForEach(viewModel.pendingToasts) { toast in
+            ForEach(viewModel.pendingToasts, id: \.id) { toast in
                 // accessibility: role=status for toast notifications
                 ToastCard(notification: toast) {
                     viewModel.removeToast(toast.id)

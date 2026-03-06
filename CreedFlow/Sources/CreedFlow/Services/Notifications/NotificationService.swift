@@ -77,6 +77,20 @@ actor NotificationService {
         }
     }
 
+    /// Permanently delete a single notification.
+    func deleteOne(_ id: UUID) {
+        try? dbQueue.write { db in
+            _ = try AppNotification.deleteOne(db, id: id)
+        }
+    }
+
+    /// Permanently delete all notifications.
+    func clearAll() {
+        try? dbQueue.write { db in
+            _ = try AppNotification.deleteAll(db)
+        }
+    }
+
     /// Remove notifications older than `pruneAfterDays`.
     func pruneOld() {
         let cutoff = Calendar.current.date(byAdding: .day, value: -pruneAfterDays, to: Date()) ?? Date()

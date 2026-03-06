@@ -8,6 +8,7 @@ import {
   X,
   CheckCheck,
   Bell,
+  Trash2,
 } from "lucide-react";
 import type { AppNotification, NotificationSeverity, NotificationCategory } from "../../types/models";
 import { FocusTrap } from "../shared/FocusTrap";
@@ -27,14 +28,7 @@ const SEVERITY_COLOR: Record<NotificationSeverity, string> = {
   info: "text-blue-400",
 };
 
-const CATEGORY_LABEL: Record<NotificationCategory, string> = {
-  backendHealth: "Backend",
-  mcpHealth: "MCP",
-  rateLimit: "Rate Limit",
-  task: "Task",
-  deploy: "Deploy",
-  system: "System",
-};
+// Category labels are resolved via t() at render time — see NotificationRow.
 
 const CATEGORY_COLOR: Record<NotificationCategory, string> = {
   backendHealth: "bg-purple-500/20 text-purple-400",
@@ -55,7 +49,8 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
   const markRead = useNotificationStore((s) => s.markRead);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
-  const dismiss = useNotificationStore((s) => s.dismiss);
+  const deleteNotification = useNotificationStore((s) => s.deleteNotification);
+  const clearAll = useNotificationStore((s) => s.clearAll);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   useEffect(() => {
@@ -87,6 +82,16 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
               <CheckCheck className="w-4 h-4" />
             </button>
           )}
+          {notifications.length > 0 && (
+            <button
+              onClick={clearAll}
+              className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800"
+              title={t("notifications.clearAll")}
+              aria-label={t("notifications.clearAll")}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
@@ -111,7 +116,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
                 key={notif.id}
                 notification={notif}
                 onRead={() => markRead(notif.id)}
-                onDismiss={() => dismiss(notif.id)}
+                onDelete={() => deleteNotification(notif.id)}
               />
             ))}
           </div>
@@ -125,19 +130,19 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
 function NotificationRow({
   notification,
   onRead,
-  onDismiss,
+  onDelete,
 }: {
   notification: AppNotification;
   onRead: () => void;
-  onDismiss: () => void;
+  onDelete: () => void;
 }) {
   const { t } = useTranslation();
   const Icon = SEVERITY_ICON[notification.severity] || Info;
   const iconColor = SEVERITY_COLOR[notification.severity] || "text-zinc-400";
-  const catLabel = CATEGORY_LABEL[notification.category] || notification.category;
+  const catLabel = t(`notifications.categories.${notification.category}`, notification.category);
   const catColor = CATEGORY_COLOR[notification.category] || "bg-zinc-500/20 text-zinc-400";
 
-  const timeAgo = getTimeAgo(notification.createdAt);
+  const timeAgo = getTimeAgo(notification.createdAt, t);
 
   return (
     <div
@@ -169,11 +174,11 @@ function NotificationRow({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onDismiss();
+          onDelete();
         }}
-        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-600 hover:text-zinc-400 transition-opacity"
-        title={t("notifications.dismiss")}
-        aria-label={t("notifications.dismiss")}
+        className="p-0.5 rounded text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0"
+        title={t("notifications.delete")}
+        aria-label={t("notifications.delete")}
       >
         <X className="w-3.5 h-3.5" />
       </button>
@@ -181,15 +186,15 @@ function NotificationRow({
   );
 }
 
-function getTimeAgo(dateStr: string): string {
+function getTimeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const now = Date.now();
   const then = new Date(dateStr + "Z").getTime();
   const diffMs = now - then;
   const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return t("notifications.timeAgo.justNow");
+  if (diffMin < 60) return t("notifications.timeAgo.minutesAgo", { count: diffMin });
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return t("notifications.timeAgo.hoursAgo", { count: diffHr });
   const diffDay = Math.floor(diffHr / 24);
-  return `${diffDay}d ago`;
+  return t("notifications.timeAgo.daysAgo", { count: diffDay });
 }

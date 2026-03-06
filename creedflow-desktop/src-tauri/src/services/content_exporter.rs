@@ -1,5 +1,15 @@
 /// Content exporter — converts Markdown to HTML/plaintext/PDF/DOCX for publishing.
 
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+// Static regex patterns for inline markdown conversion (compiled once).
+static RE_BOLD: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*\*(.+?)\*\*").unwrap());
+static RE_ITALIC: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*(.+?)\*").unwrap());
+static RE_CODE: Lazy<Regex> = Lazy::new(|| Regex::new(r"`(.+?)`").unwrap());
+static RE_IMAGE: Lazy<Regex> = Lazy::new(|| Regex::new(r"!\[(.+?)\]\((.+?)\)").unwrap());
+static RE_LINK: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[(.+?)\]\((.+?)\)").unwrap());
+
 pub struct ContentExporter;
 
 impl ContentExporter {
@@ -243,25 +253,15 @@ fn escape_html(text: &str) -> String {
 fn inline_markdown(text: &str) -> String {
     let escaped = escape_html(text);
     // Bold
-    let result = regex::Regex::new(r"\*\*(.+?)\*\*")
-        .unwrap()
-        .replace_all(&escaped, "<strong>$1</strong>");
+    let result = RE_BOLD.replace_all(&escaped, "<strong>$1</strong>");
     // Italic
-    let result = regex::Regex::new(r"\*(.+?)\*")
-        .unwrap()
-        .replace_all(&result, "<em>$1</em>");
+    let result = RE_ITALIC.replace_all(&result, "<em>$1</em>");
     // Code
-    let result = regex::Regex::new(r"`(.+?)`")
-        .unwrap()
-        .replace_all(&result, "<code>$1</code>");
+    let result = RE_CODE.replace_all(&result, "<code>$1</code>");
     // Images (before links to avoid conflict)
-    let result = regex::Regex::new(r"!\[(.+?)\]\((.+?)\)")
-        .unwrap()
-        .replace_all(&result, r#"<img src="$2" alt="$1" style="max-width:100%;">"#);
+    let result = RE_IMAGE.replace_all(&result, r#"<img src="$2" alt="$1" style="max-width:100%;">"#);
     // Links
-    let result = regex::Regex::new(r"\[(.+?)\]\((.+?)\)")
-        .unwrap()
-        .replace_all(&result, "<a href=\"$2\">$1</a>");
+    let result = RE_LINK.replace_all(&result, "<a href=\"$2\">$1</a>");
 
     result.to_string()
 }

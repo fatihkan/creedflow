@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { BarChart3, TrendingUp, Award } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { PromptEffectivenessStats } from "../../types/models";
 import * as api from "../../tauri";
+import { showErrorToast } from "../../hooks/useErrorToast";
 
 export function PromptEffectivenessDashboard() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<PromptEffectivenessStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"uses" | "success" | "score">("uses");
@@ -12,7 +15,7 @@ export function PromptEffectivenessDashboard() {
     api
       .getPromptEffectiveness()
       .then(setStats)
-      .catch(console.error)
+      .catch((e) => showErrorToast("Failed to load prompt effectiveness data", e))
       .finally(() => setLoading(false));
   }, []);
 
@@ -36,7 +39,7 @@ export function PromptEffectivenessDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32 text-zinc-500 text-sm">
-        Loading effectiveness data...
+        {t("prompts.effectiveness.loading")}
       </div>
     );
   }
@@ -49,7 +52,7 @@ export function PromptEffectivenessDashboard() {
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
             <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-              Total Uses
+              {t("prompts.effectiveness.totalUses")}
             </span>
           </div>
           <p className="text-xl font-bold text-zinc-100">{totalUses}</p>
@@ -58,7 +61,7 @@ export function PromptEffectivenessDashboard() {
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp className="w-3.5 h-3.5 text-green-400" />
             <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-              Success Rate
+              {t("prompts.effectiveness.successRate")}
             </span>
           </div>
           <p className="text-xl font-bold text-zinc-100">
@@ -69,7 +72,7 @@ export function PromptEffectivenessDashboard() {
           <div className="flex items-center gap-2 mb-1">
             <Award className="w-3.5 h-3.5 text-amber-400" />
             <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-              Tracked Prompts
+              {t("prompts.effectiveness.trackedPrompts")}
             </span>
           </div>
           <p className="text-xl font-bold text-zinc-100">{stats.length}</p>
@@ -79,7 +82,7 @@ export function PromptEffectivenessDashboard() {
       {/* Sort controls */}
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
-          Sort by
+          {t("prompts.effectiveness.sortBy")}
         </span>
         {(["uses", "success", "score"] as const).map((s) => (
           <button
@@ -91,7 +94,7 @@ export function PromptEffectivenessDashboard() {
                 : "text-zinc-500 hover:text-zinc-300 bg-zinc-800/50"
             }`}
           >
-            {s === "uses" ? "Most Used" : s === "success" ? "Success Rate" : "Avg Score"}
+            {s === "uses" ? t("prompts.effectiveness.mostUsed") : s === "success" ? t("prompts.effectiveness.successRate") : t("prompts.effectiveness.avgScore")}
           </button>
         ))}
       </div>
@@ -100,20 +103,20 @@ export function PromptEffectivenessDashboard() {
       {sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-32 text-zinc-500">
           <BarChart3 className="w-8 h-8 mb-2 opacity-40" />
-          <p className="text-sm">No usage data yet</p>
+          <p className="text-sm">{t("prompts.effectiveness.noData")}</p>
           <p className="text-xs mt-1 text-zinc-600">
-            Stats will appear as prompts are used in tasks
+            {t("prompts.effectiveness.noDataDescription")}
           </p>
         </div>
       ) : (
         <div className="space-y-1">
           {/* Header */}
           <div className="grid grid-cols-[1fr_60px_60px_70px_80px] gap-2 px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider">
-            <span>Prompt</span>
-            <span className="text-right">Uses</span>
-            <span className="text-right">Pass</span>
-            <span className="text-right">Rate</span>
-            <span className="text-right">Avg Score</span>
+            <span>{t("prompts.effectiveness.headers.prompt")}</span>
+            <span className="text-right">{t("prompts.effectiveness.headers.uses")}</span>
+            <span className="text-right">{t("prompts.effectiveness.headers.pass")}</span>
+            <span className="text-right">{t("prompts.effectiveness.headers.rate")}</span>
+            <span className="text-right">{t("prompts.effectiveness.headers.avgScore")}</span>
           </div>
           {sorted.map((s) => (
             <div

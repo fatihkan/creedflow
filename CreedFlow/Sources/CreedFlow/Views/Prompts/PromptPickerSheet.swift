@@ -208,7 +208,7 @@ struct PromptPickerSheet: View {
                 Spacer()
             } else {
                 List {
-                    ForEach(filteredPrompts) { prompt in
+                    ForEach(filteredPrompts, id: \.id) { prompt in
                         Button {
                             selectPrompt(prompt)
                         } label: {
@@ -285,7 +285,7 @@ struct PromptPickerSheet: View {
                 Spacer()
             } else {
                 List {
-                    ForEach(chainStore.chains) { chain in
+                    ForEach(chainStore.chains, id: \.id) { chain in
                         Button {
                             selectChain(chain)
                         } label: {

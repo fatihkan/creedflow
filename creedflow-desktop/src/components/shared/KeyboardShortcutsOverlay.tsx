@@ -8,31 +8,31 @@ interface Props {
   onClose: () => void;
 }
 
-const SHORTCUT_GROUPS = [
-  {
-    title: "Navigation",
-    shortcuts: [
-      { keys: ["Cmd", "1"], description: "Projects" },
-      { keys: ["Cmd", "2"], description: "Tasks" },
-      { keys: ["Cmd", "3"], description: "Agents" },
-      { keys: ["Cmd", "4"], description: "Reviews" },
-      { keys: ["Cmd", "5"], description: "Deployments" },
-      { keys: ["Cmd", "6"], description: "Prompts" },
-      { keys: ["Cmd", "7"], description: "Assets" },
-      { keys: ["Cmd", "8"], description: "Git History" },
-    ],
-  },
-  {
-    title: "Actions",
-    shortcuts: [
-      { keys: ["Escape"], description: "Close panel / chat" },
-      { keys: ["Cmd", "?"], description: "Show this overlay" },
-    ],
-  },
-];
-
 export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
   const { t } = useTranslation();
+
+  const SHORTCUT_GROUPS = [
+    {
+      title: t("shortcuts.navigation"),
+      shortcuts: [
+        { keys: ["Cmd", "1"], description: t("shortcuts.projects") },
+        { keys: ["Cmd", "2"], description: t("shortcuts.tasks") },
+        { keys: ["Cmd", "3"], description: t("shortcuts.agents") },
+        { keys: ["Cmd", "4"], description: t("shortcuts.reviews") },
+        { keys: ["Cmd", "5"], description: t("shortcuts.deploy") },
+        { keys: ["Cmd", "6"], description: t("shortcuts.prompts") },
+        { keys: ["Cmd", "7"], description: t("shortcuts.assets") },
+        { keys: ["Cmd", "8"], description: t("shortcuts.gitHistory") },
+      ],
+    },
+    {
+      title: t("shortcuts.actions"),
+      shortcuts: [
+        { keys: ["Escape"], description: t("shortcuts.closePanel") },
+        { keys: ["Cmd", "?"], description: t("shortcuts.showOverlay") },
+      ],
+    },
+  ];
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
