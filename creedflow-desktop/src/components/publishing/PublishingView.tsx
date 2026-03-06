@@ -127,17 +127,17 @@ export function PublishingView() {
 
       {/* Tabs */}
       <div className="flex border-b border-zinc-800">
-        {(["channels", "publications"] as const).map((t) => (
+        {(["channels", "publications"] as const).map((tabKey) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            onClick={() => setTab(tabKey)}
             className={`px-4 py-2 text-xs font-medium capitalize transition-colors ${
-              tab === t
+              tab === tabKey
                 ? "text-brand-400 border-b-2 border-brand-400"
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            {t}
+            {tabKey}
           </button>
         ))}
       </div>

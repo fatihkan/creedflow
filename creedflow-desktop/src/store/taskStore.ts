@@ -257,7 +257,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       return t && retryable.includes(t.status);
     });
     if (ids.length === 0) return;
-    await api.batchRetryTasks(ids);
+    const prevTasks = tasks;
+    // Optimistic update
     set((s) => ({
       tasks: s.tasks.map((t) =>
         ids.includes(t.id) ? { ...t, status: "queued" as const, retryCount: t.retryCount + 1 } : t,
@@ -265,6 +266,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       selectedIds: new Set(),
       selectionMode: false,
     }));
+    try {
+      await api.batchRetryTasks(ids);
+    } catch (e) {
+      set({ tasks: prevTasks });
+      showErrorToast("Failed to retry tasks", e);
+    }
   },
 
   batchCancel: async () => {
@@ -274,7 +281,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       return t && t.status === "queued";
     });
     if (ids.length === 0) return;
-    await api.batchCancelTasks(ids);
+    const prevTasks = tasks;
+    // Optimistic update
     set((s) => ({
       tasks: s.tasks.map((t) =>
         ids.includes(t.id) ? { ...t, status: "cancelled" as const } : t,
@@ -282,5 +290,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       selectedIds: new Set(),
       selectionMode: false,
     }));
+    try {
+      await api.batchCancelTasks(ids);
+    } catch (e) {
+      set({ tasks: prevTasks });
+      showErrorToast("Failed to cancel tasks", e);
+    }
   },
 }));

@@ -66,11 +66,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   deleteProject: async (id) => {
-    await api.deleteProject(id);
+    const prev = get().projects;
+    // Optimistic removal
     set((s) => ({
       projects: s.projects.filter((p) => p.id !== id),
       selectedProjectId:
         s.selectedProjectId === id ? null : s.selectedProjectId,
     }));
+    try {
+      await api.deleteProject(id);
+    } catch (e) {
+      // Revert on failure
+      set({ projects: prev });
+      throw e;
+    }
   },
 }));
