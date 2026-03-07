@@ -128,6 +128,24 @@
 "notifications.delete" = "Delete notification";
 "notifications.empty" = "No notifications";
 
+/* Personas */
+"settings.personas" = "Personas";
+"personas.title" = "Persona";
+"personas.description" = "Manage skill personas that shape how agents approach tasks.";
+"personas.add" = "Add Persona";
+"personas.edit" = "Edit Persona";
+"personas.delete" = "Delete";
+"personas.name" = "Name";
+"personas.systemPrompt" = "System Prompt";
+"personas.agentTypes" = "Agent Types";
+"personas.tags" = "Tags";
+"personas.builtIn" = "Built-in";
+"personas.custom" = "Custom";
+"personas.enabled" = "Enabled";
+"personas.empty" = "No personas yet. Add one or run a migration to seed built-in personas.";
+"personas.confirmDelete" = "Delete Persona?";
+"personas.deleteHint" = "This persona will be permanently removed. Tasks using it will fall back to default behavior.";
+
 /* Common */
 "common.cancel" = "Cancel";
 "common.save" = "Save";

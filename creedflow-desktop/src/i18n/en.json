@@ -898,5 +898,22 @@
       "video": "Video",
       "general": "General"
     }
+  },
+  "personas": {
+    "title": "Personas",
+    "description": "Manage skill personas that shape how agents approach tasks.",
+    "add": "Add Persona",
+    "edit": "Edit Persona",
+    "delete": "Delete",
+    "name": "Name",
+    "systemPrompt": "System Prompt",
+    "agentTypes": "Agent Types",
+    "tags": "Tags",
+    "builtIn": "Built-in",
+    "custom": "Custom",
+    "enabled": "Enabled",
+    "empty": "No personas yet. Add one or they will be seeded on first run.",
+    "confirmDelete": "Delete Persona?",
+    "deleteHint": "This persona will be permanently removed. Tasks using it will fall back to default behavior."
   }
 }

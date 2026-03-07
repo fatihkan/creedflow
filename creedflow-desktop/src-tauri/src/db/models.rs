@@ -1737,3 +1737,81 @@ pub struct BudgetUtilization {
     pub percentage: f64,
     pub alerts: Vec<BudgetAlert>,
 }
+
+// ─── Agent Persona ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentPersona {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub system_prompt: String,
+    pub agent_types: Vec<String>,
+    pub tags: Vec<String>,
+    pub is_built_in: bool,
+    pub is_enabled: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AgentPersona {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        let agent_types_json: String = row.get("agentTypes")?;
+        let tags_json: String = row.get("tags")?;
+        Ok(Self {
+            id: row.get("id")?,
+            name: row.get("name")?,
+            description: row.get("description")?,
+            system_prompt: row.get("systemPrompt")?,
+            agent_types: serde_json::from_str(&agent_types_json).unwrap_or_default(),
+            tags: serde_json::from_str(&tags_json).unwrap_or_default(),
+            is_built_in: row.get::<_, i32>("isBuiltIn")? != 0,
+            is_enabled: row.get::<_, i32>("isEnabled")? != 0,
+            created_at: row.get("createdAt")?,
+            updated_at: row.get("updatedAt")?,
+        })
+    }
+
+    pub fn all(conn: &Connection) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM agentPersona ORDER BY name")?;
+        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn insert(conn: &Connection, persona: &AgentPersona) -> rusqlite::Result<()> {
+        let agent_types_json = serde_json::to_string(&persona.agent_types).unwrap_or_else(|_| "[]".to_string());
+        let tags_json = serde_json::to_string(&persona.tags).unwrap_or_else(|_| "[]".to_string());
+        conn.execute(
+            "INSERT INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                persona.id, persona.name, persona.description, persona.system_prompt,
+                agent_types_json, tags_json,
+                persona.is_built_in as i32, persona.is_enabled as i32,
+                persona.created_at, persona.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn update(conn: &Connection, persona: &AgentPersona) -> rusqlite::Result<()> {
+        let agent_types_json = serde_json::to_string(&persona.agent_types).unwrap_or_else(|_| "[]".to_string());
+        let tags_json = serde_json::to_string(&persona.tags).unwrap_or_else(|_| "[]".to_string());
+        conn.execute(
+            "UPDATE agentPersona SET name = ?2, description = ?3, systemPrompt = ?4,
+             agentTypes = ?5, tags = ?6, isEnabled = ?7, updatedAt = ?8 WHERE id = ?1",
+            params![
+                persona.id, persona.name, persona.description, persona.system_prompt,
+                agent_types_json, tags_json,
+                persona.is_enabled as i32, persona.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute("DELETE FROM agentPersona WHERE id = ?1 AND isBuiltIn = 0", [id])?;
+        Ok(())
+    }
+}
