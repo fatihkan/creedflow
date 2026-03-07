@@ -26,6 +26,7 @@ import type {
   ProjectTemplate,
   TaskComment,
   PromptUsageRecord,
+  AgentPersona,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -648,3 +649,45 @@ export const getPromptRecommendations = (
     category: category ?? null,
     limit: limit ?? null,
   });
+
+// ─── Agent Personas ─────────────────────────────────────────────────────────
+
+export const getAgentPersonas = () =>
+  invoke<AgentPersona[]>("get_agent_personas");
+
+export const createAgentPersona = (
+  name: string,
+  description: string,
+  systemPrompt: string,
+  agentTypes: string[],
+  tags: string[],
+) =>
+  invoke<AgentPersona>("create_agent_persona", {
+    name,
+    description,
+    systemPrompt,
+    agentTypes,
+    tags,
+  });
+
+export const updateAgentPersona = (
+  id: string,
+  name: string,
+  description: string,
+  systemPrompt: string,
+  agentTypes: string[],
+  tags: string[],
+  isEnabled: boolean,
+) =>
+  invoke<void>("update_agent_persona", {
+    id,
+    name,
+    description,
+    systemPrompt,
+    agentTypes,
+    tags,
+    isEnabled,
+  });
+
+export const deleteAgentPersona = (id: string) =>
+  invoke<void>("delete_agent_persona", { id });

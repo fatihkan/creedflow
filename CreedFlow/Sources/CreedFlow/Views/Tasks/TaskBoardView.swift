@@ -444,6 +444,8 @@ private struct NewTaskSheet: View {
     @State private var description = ""
     @State private var agentType: AgentTask.AgentType = .coder
     @State private var priority: Int = 5
+    @State private var selectedPersonaId: UUID?
+    @State private var availablePersonas: [AgentPersona] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -471,7 +473,14 @@ private struct NewTaskSheet: View {
                             Text(type.rawValue.capitalized).tag(type)
                         }
                     }
+                    .onChange(of: agentType) { _, _ in loadPersonas() }
                     Stepper("Priority: \(priority)", value: $priority, in: 1...10)
+                    Picker(L("personas.title"), selection: $selectedPersonaId) {
+                        Text(L("common.none")).tag(nil as UUID?)
+                        ForEach(availablePersonas) { persona in
+                            Text(persona.name).tag(persona.id as UUID?)
+                        }
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -487,18 +496,32 @@ private struct NewTaskSheet: View {
             }
             .padding()
         }
-        .frame(width: 420, height: 340)
+        .frame(width: 420, height: 380)
+        .onAppear { loadPersonas() }
+    }
+
+    private func loadPersonas() {
+        guard let db = appDatabase else { return }
+        availablePersonas = (try? db.dbQueue.read { dbConn in
+            try AgentPersona.forAgentType(agentType).fetchAll(dbConn)
+        }) ?? []
+        // Reset selection if current persona doesn't match new agent type
+        if let id = selectedPersonaId, !availablePersonas.contains(where: { $0.id == id }) {
+            selectedPersonaId = nil
+        }
     }
 
     private func createTask() {
         guard let db = appDatabase else { return }
+        let personaName = availablePersonas.first(where: { $0.id == selectedPersonaId })?.name
         try? db.dbQueue.write { dbConn in
             var task = AgentTask(
                 projectId: projectId,
                 agentType: agentType,
                 title: title,
                 description: description,
-                priority: priority
+                priority: priority,
+                skillPersona: personaName
             )
             try task.insert(dbConn)
         }

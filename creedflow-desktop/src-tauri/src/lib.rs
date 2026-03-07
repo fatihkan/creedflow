@@ -242,6 +242,11 @@ pub fn run() {
             commands::database::prune_old_logs,
             commands::database::export_database_json,
             commands::database::factory_reset_database,
+            // Personas
+            commands::personas::get_agent_personas,
+            commands::personas::create_agent_persona,
+            commands::personas::update_agent_persona,
+            commands::personas::delete_agent_persona,
             // Updates
             commands::updates::check_for_updates,
         ])

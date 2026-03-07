@@ -6,6 +6,7 @@ import {
   Bell,
   Server,
   Database,
+  UserCheck,
 } from "lucide-react";
 import { useSettingsStore } from "../../store/settingsStore";
 import { BackendSettings } from "./BackendSettings";
@@ -15,8 +16,9 @@ import { GeneralSettings } from "./GeneralSettings";
 import { GitSettings } from "./GitSettings";
 import { TelegramSettings } from "./TelegramSettings";
 import { DatabaseSettings } from "./DatabaseSettings";
+import { PersonasSettings } from "./PersonasSettings";
 
-type Tab = "general" | "backends" | "git" | "telegram" | "database" | "mcp";
+type Tab = "general" | "backends" | "git" | "telegram" | "database" | "mcp" | "personas";
 
 const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: "general", label: "General", icon: Settings },
@@ -25,6 +27,7 @@ const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[]
   { id: "telegram", label: "Telegram", icon: Bell },
   { id: "database", label: "Database", icon: Database },
   { id: "mcp", label: "MCP", icon: Server },
+  { id: "personas", label: "Personas", icon: UserCheck },
 ];
 
 export function SettingsDialog() {
@@ -69,6 +72,7 @@ export function SettingsDialog() {
         {tab === "telegram" && <TelegramSettings />}
         {tab === "database" && <DatabaseSettings />}
         {tab === "mcp" && <MCPSettings />}
+        {tab === "personas" && <PersonasSettings />}
       </div>
     </div>
   );

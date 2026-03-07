@@ -128,6 +128,24 @@
 "notifications.delete" = "Bildirimi sil";
 "notifications.empty" = "Bildirim yok";
 
+/* Personas */
+"settings.personas" = "Kişilikler";
+"personas.title" = "Kişilik";
+"personas.description" = "Ajanların görevlere nasıl yaklaşacağını şekillendiren beceri kişiliklerini yönetin.";
+"personas.add" = "Kişilik Ekle";
+"personas.edit" = "Kişiliği Düzenle";
+"personas.delete" = "Sil";
+"personas.name" = "Ad";
+"personas.systemPrompt" = "Sistem İstemi";
+"personas.agentTypes" = "Ajan Türleri";
+"personas.tags" = "Etiketler";
+"personas.builtIn" = "Yerleşik";
+"personas.custom" = "Özel";
+"personas.enabled" = "Etkin";
+"personas.empty" = "Henüz kişilik yok. Ekleyin veya yerleşik kişilikleri yüklemek için geçişi çalıştırın.";
+"personas.confirmDelete" = "Kişilik silinsin mi?";
+"personas.deleteHint" = "Bu kişilik kalıcı olarak kaldırılacak. Bunu kullanan görevler varsayılan davranışa geri dönecek.";
+
 /* Common */
 "common.cancel" = "İptal";
 "common.save" = "Kaydet";
