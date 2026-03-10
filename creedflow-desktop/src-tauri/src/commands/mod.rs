@@ -16,3 +16,4 @@ pub mod notifications;
 pub mod mcp;
 pub mod database;
 pub mod updates;
+pub mod personas;

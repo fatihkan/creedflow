@@ -42,6 +42,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (21, V21_NOTIFICATIONS_AND_HEALTH),
         (22, V22_PROJECT_COMPLETION_AND_COMMENTS),
         (23, V23_BACKEND_SCORING_AND_BUDGETS),
+        (24, V24_AGENT_PERSONAS),
     ];
 
     for (version, sql) in migrations {
@@ -509,4 +510,36 @@ CREATE TABLE IF NOT EXISTS budgetAlert (
 );
 
 CREATE INDEX IF NOT EXISTS idx_budgetAlert_budgetId ON budgetAlert(budgetId);
+"#;
+
+const V24_AGENT_PERSONAS: &str = r#"
+CREATE TABLE IF NOT EXISTS agentPersona (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    systemPrompt TEXT NOT NULL,
+    agentTypes TEXT NOT NULL DEFAULT '[]',
+    tags TEXT NOT NULL DEFAULT '[]',
+    isBuiltIn INTEGER NOT NULL DEFAULT 0,
+    isEnabled INTEGER NOT NULL DEFAULT 1,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agentPersona_name ON agentPersona(name);
+
+INSERT OR IGNORE INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
+VALUES (lower(hex(randomblob(16))), 'Senior Architect', 'Focuses on clean architecture, SOLID principles, and scalability', 'You are a senior software architect with 15+ years of experience. Prioritize clean architecture, SOLID principles, design patterns, and scalability. Always consider maintainability and separation of concerns.', '["analyzer","coder","reviewer"]', '["architecture","design"]', 1, 1, datetime('now'), datetime('now'));
+
+INSERT OR IGNORE INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
+VALUES (lower(hex(randomblob(16))), 'Security Expert', 'Emphasizes security best practices and vulnerability prevention', 'You are a cybersecurity expert. Prioritize OWASP top 10 prevention, input validation, authentication/authorization best practices, and secure coding patterns. Flag any potential vulnerabilities.', '["coder","reviewer","tester"]', '["security","audit"]', 1, 1, datetime('now'), datetime('now'));
+
+INSERT OR IGNORE INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
+VALUES (lower(hex(randomblob(16))), 'Performance Engineer', 'Optimizes for speed, memory efficiency, and scalability', 'You are a performance engineering specialist. Focus on algorithmic efficiency, memory optimization, caching strategies, lazy loading, and profiling. Minimize unnecessary allocations and I/O operations.', '["coder","reviewer","tester"]', '["performance","optimization"]', 1, 1, datetime('now'), datetime('now'));
+
+INSERT OR IGNORE INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
+VALUES (lower(hex(randomblob(16))), 'TDD Practitioner', 'Test-driven development with comprehensive test coverage', 'You are a TDD advocate. Write tests before implementation. Ensure comprehensive unit, integration, and edge-case coverage. Use mocks and stubs appropriately. Aim for >90% coverage.', '["coder","tester"]', '["testing","tdd"]', 1, 1, datetime('now'), datetime('now'));
+
+INSERT OR IGNORE INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
+VALUES (lower(hex(randomblob(16))), 'Technical Writer', 'Clear documentation, API docs, and user guides', 'You are a technical documentation specialist. Write clear, concise documentation with examples. Follow docs-as-code principles. Include API references, usage examples, and troubleshooting guides.', '["contentWriter","analyzer"]', '["documentation","writing"]', 1, 1, datetime('now'), datetime('now'));
 "#;

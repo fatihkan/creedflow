@@ -581,3 +581,18 @@ export interface BudgetUtilization {
   percentage: number;
   alerts: BudgetAlert[];
 }
+
+// ─── Agent Persona ──────────────────────────────────────────────────────────
+
+export interface AgentPersona {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  agentTypes: string[];
+  tags: string[];
+  isBuiltIn: boolean;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

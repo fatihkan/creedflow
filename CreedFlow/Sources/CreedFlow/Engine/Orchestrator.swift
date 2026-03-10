@@ -355,33 +355,47 @@ final class Orchestrator {
                             promptOverride = resolved + "\n\n" + agentPrompt
                         }
 
-                        // Inject skill persona into prompt (enriched from Prompt table if available)
-                        if let persona = task.skillPersona, !persona.isEmpty {
-                            // Look up enriched skill content from Prompt table
-                            let skillPrompt = try? await self.dbQueue.read { db in
-                                try Prompt
-                                    .filter(Column("category") == "skill")
-                                    .filter(Column("content").like("%\(String(persona.prefix(50)))%"))
-                                    .fetchOne(db)
+                        // Inject skill persona into prompt (from AgentPersona table, Prompt table fallback, or raw string)
+                        if let personaName = task.skillPersona, !personaName.isEmpty {
+                            // 1. Try AgentPersona table (structured personas)
+                            let agentPersona = try? await self.dbQueue.read { db in
+                                try AgentPersona.byName(personaName).fetchOne(db)
                             }
 
-                            let skillContent = skillPrompt?.content ?? persona
+                            let skillContent: String
+                            if let agentPersona = agentPersona {
+                                skillContent = agentPersona.systemPrompt
+                            } else {
+                                // 2. Fallback: Prompt table lookup (backward compat)
+                                let skillPrompt = try? await self.dbQueue.read { db in
+                                    try Prompt
+                                        .filter(Column("category") == "skill")
+                                        .filter(Column("content").like("%\(String(personaName.prefix(50)))%"))
+                                        .fetchOne(db)
+                                }
+
+                                if let skillPrompt = skillPrompt {
+                                    skillContent = skillPrompt.content
+
+                                    // Record PromptUsage for skill tracking
+                                    try? await self.dbQueue.write { db in
+                                        let usage = PromptUsage(
+                                            promptId: skillPrompt.id,
+                                            projectId: task.projectId,
+                                            taskId: task.id,
+                                            agentType: task.agentType.rawValue
+                                        )
+                                        try usage.insert(db)
+                                    }
+                                } else {
+                                    // 3. Fallback: use raw string as-is
+                                    skillContent = personaName
+                                }
+                            }
+
                             let personaPrefix = "<skill_persona>\nYou are: \(skillContent)\nApply this expertise throughout the task.\n</skill_persona>\n\n"
                             let base = promptOverride ?? agent.buildPrompt(for: task)
                             promptOverride = personaPrefix + base
-
-                            // Record PromptUsage for skill tracking
-                            if let prompt = skillPrompt {
-                                try? await self.dbQueue.write { db in
-                                    let usage = PromptUsage(
-                                        promptId: prompt.id,
-                                        projectId: task.projectId,
-                                        taskId: task.id,
-                                        agentType: task.agentType.rawValue
-                                    )
-                                    try usage.insert(db)
-                                }
-                            }
                         }
 
                         // Inject revision memory for retry tasks

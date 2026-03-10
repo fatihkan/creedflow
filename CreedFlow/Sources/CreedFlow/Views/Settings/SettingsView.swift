@@ -95,6 +95,9 @@ public struct SettingsView: View {
 
             MCPSettingsView(appDatabase: appDatabase)
                 .tabItem { Label(L("settings.mcp"), systemImage: "server.rack") }
+
+            PersonasSettingsView(appDatabase: appDatabase)
+                .tabItem { Label(L("settings.personas"), systemImage: "person.badge.shield.checkmark") }
         }
         .frame(width: 600, height: 640)
         .task {

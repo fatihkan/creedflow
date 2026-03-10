@@ -898,5 +898,22 @@
       "video": "Video",
       "general": "Genel"
     }
+  },
+  "personas": {
+    "title": "Kişilikler",
+    "description": "Ajanların görevlere nasıl yaklaşacağını şekillendiren beceri kişiliklerini yönetin.",
+    "add": "Kişilik Ekle",
+    "edit": "Kişiliği Düzenle",
+    "delete": "Sil",
+    "name": "Ad",
+    "systemPrompt": "Sistem İstemi",
+    "agentTypes": "Ajan Türleri",
+    "tags": "Etiketler",
+    "builtIn": "Yerleşik",
+    "custom": "Özel",
+    "enabled": "Etkin",
+    "empty": "Henüz kişilik yok. Ekleyin veya ilk çalıştırmada otomatik oluşturulacak.",
+    "confirmDelete": "Kişilik silinsin mi?",
+    "deleteHint": "Bu kişilik kalıcı olarak kaldırılacak. Bunu kullanan görevler varsayılan davranışa geri dönecek."
   }
 }

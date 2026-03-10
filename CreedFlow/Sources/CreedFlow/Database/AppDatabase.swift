@@ -592,6 +592,77 @@ public struct AppDatabase {
             )
         }
 
+        migrator.registerMigration("v23_agent_personas") { db in
+            try db.create(table: "agentPersona") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("name", .text).notNull()
+                t.column("description", .text).notNull().defaults(to: "")
+                t.column("systemPrompt", .text).notNull()
+                t.column("agentTypes", .text).notNull().defaults(to: "[]")
+                t.column("tags", .text).notNull().defaults(to: "[]")
+                t.column("isBuiltIn", .boolean).notNull().defaults(to: false)
+                t.column("isEnabled", .boolean).notNull().defaults(to: true)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+            try db.create(
+                index: "agentPersona_on_name",
+                on: "agentPersona",
+                columns: ["name"],
+                unique: true
+            )
+
+            // Seed 5 built-in personas
+            let now = Date()
+            let builtInPersonas: [(name: String, description: String, systemPrompt: String, agentTypes: String, tags: String)] = [
+                (
+                    "Senior Architect",
+                    "Focuses on clean architecture, SOLID principles, and scalability",
+                    "You are a senior software architect with 15+ years of experience. Prioritize clean architecture, SOLID principles, design patterns, and scalability. Always consider maintainability and separation of concerns.",
+                    "[\"analyzer\",\"coder\",\"reviewer\"]",
+                    "[\"architecture\",\"design\"]"
+                ),
+                (
+                    "Security Expert",
+                    "Emphasizes security best practices and vulnerability prevention",
+                    "You are a cybersecurity expert. Prioritize OWASP top 10 prevention, input validation, authentication/authorization best practices, and secure coding patterns. Flag any potential vulnerabilities.",
+                    "[\"coder\",\"reviewer\",\"tester\"]",
+                    "[\"security\",\"audit\"]"
+                ),
+                (
+                    "Performance Engineer",
+                    "Optimizes for speed, memory efficiency, and scalability",
+                    "You are a performance engineering specialist. Focus on algorithmic efficiency, memory optimization, caching strategies, lazy loading, and profiling. Minimize unnecessary allocations and I/O operations.",
+                    "[\"coder\",\"reviewer\",\"tester\"]",
+                    "[\"performance\",\"optimization\"]"
+                ),
+                (
+                    "TDD Practitioner",
+                    "Test-driven development with comprehensive test coverage",
+                    "You are a TDD advocate. Write tests before implementation. Ensure comprehensive unit, integration, and edge-case coverage. Use mocks and stubs appropriately. Aim for >90% coverage.",
+                    "[\"coder\",\"tester\"]",
+                    "[\"testing\",\"tdd\"]"
+                ),
+                (
+                    "Technical Writer",
+                    "Clear documentation, API docs, and user guides",
+                    "You are a technical documentation specialist. Write clear, concise documentation with examples. Follow docs-as-code principles. Include API references, usage examples, and troubleshooting guides.",
+                    "[\"contentWriter\",\"analyzer\"]",
+                    "[\"documentation\",\"writing\"]"
+                )
+            ]
+
+            for persona in builtInPersonas {
+                try db.execute(
+                    sql: """
+                        INSERT INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
+                        VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?)
+                        """,
+                    arguments: [UUID().uuidString, persona.name, persona.description, persona.systemPrompt, persona.agentTypes, persona.tags, now, now]
+                )
+            }
+        }
+
         return migrator
     }
 }
