@@ -48,6 +48,30 @@ export function NotificationsStep({ settings, onUpdate }: NotificationsStepProps
           className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300 placeholder:text-zinc-600"
         />
       </div>
+
+      <hr className="border-zinc-700" />
+
+      <h4 className="text-sm font-semibold text-zinc-300">Slack</h4>
+      <div>
+        <label className="block text-xs text-zinc-400 mb-1">
+          Slack Webhook URL
+        </label>
+        <input
+          type="text"
+          value={settings.slackWebhookUrl ?? ""}
+          onChange={(e) =>
+            onUpdate({
+              ...settings,
+              slackWebhookUrl: e.target.value || null,
+            })
+          }
+          placeholder="https://hooks.slack.com/services/T.../B.../..."
+          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-sm text-zinc-300 placeholder:text-zinc-600"
+        />
+        <p className="text-[10px] text-zinc-600 mt-1">
+          Create a Slack app → Incoming Webhooks → copy URL
+        </p>
+      </div>
     </div>
   );
 }

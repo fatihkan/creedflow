@@ -9,6 +9,7 @@ public struct SettingsView: View {
     @AppStorage("maxConcurrency") private var maxConcurrency = 3
     @AppStorage("telegramBotToken") private var telegramBotToken = ""
     @AppStorage("telegramChatId") private var telegramChatId = ""
+    @AppStorage("slackWebhookUrl") private var slackWebhookUrl = ""
     @AppStorage("defaultMaxBudgetUSD") private var defaultMaxBudgetUSD = 5.0
     @AppStorage("projectsBaseDir") private var projectsBaseDir = ""
     @AppStorage("hasCompletedSetup") private var hasCompletedSetup = true
@@ -89,6 +90,9 @@ public struct SettingsView: View {
 
             telegramTab
                 .tabItem { Label(L("settings.telegram"), systemImage: "paperplane") }
+
+            slackTab
+                .tabItem { Label("Slack", systemImage: "bubble.left.and.text.bubble.right") }
 
             databaseTab
                 .tabItem { Label(L("settings.database"), systemImage: "cylinder") }
@@ -680,6 +684,19 @@ public struct SettingsView: View {
                 TextField("Default Chat ID", text: $telegramChatId)
                     .textFieldStyle(.roundedBorder)
                 Text("Get a bot token from @BotFather on Telegram")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var slackTab: some View {
+        Form {
+            Section("Slack Incoming Webhook") {
+                SecureField("Webhook URL", text: $slackWebhookUrl)
+                    .textFieldStyle(.roundedBorder)
+                Text("Create a Slack app → Incoming Webhooks → copy URL")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

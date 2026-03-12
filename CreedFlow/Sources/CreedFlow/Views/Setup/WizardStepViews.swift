@@ -538,9 +538,12 @@ struct WizardProjectsStep: View {
 struct WizardIntegrationsStep: View {
     @Binding var telegramBotToken: String
     @Binding var telegramChatId: String
+    @Binding var slackWebhookUrl: String
 
     @State private var isSendingTest = false
     @State private var testResult: TestResult?
+    @State private var isSendingSlackTest = false
+    @State private var slackTestResult: TestResult?
 
     private enum TestResult {
         case success
@@ -549,6 +552,10 @@ struct WizardIntegrationsStep: View {
 
     private var canTest: Bool {
         !telegramBotToken.isEmpty && !telegramChatId.isEmpty
+    }
+
+    private var canTestSlack: Bool {
+        !slackWebhookUrl.isEmpty
     }
 
     var body: some View {
@@ -564,7 +571,7 @@ struct WizardIntegrationsStep: View {
             }
 
             if canTest {
-                Section("Test Connection") {
+                Section("Test Telegram") {
                     HStack(spacing: 10) {
                         Button {
                             Task { await sendTestMessage() }
@@ -601,10 +608,58 @@ struct WizardIntegrationsStep: View {
                     }
                 }
             }
+
+            Section("Slack (Optional)") {
+                SecureField("Webhook URL", text: $slackWebhookUrl)
+                    .textFieldStyle(.roundedBorder)
+                Text("Create a Slack app → Incoming Webhooks → copy URL. Skip if you don't use Slack.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            if canTestSlack {
+                Section("Test Slack") {
+                    HStack(spacing: 10) {
+                        Button {
+                            Task { await sendSlackTestMessage() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if isSendingSlackTest {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
+                                        .frame(width: 14, height: 14)
+                                } else {
+                                    Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                                }
+                                Text("Send Test Message")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.forgeAmber)
+                        .disabled(isSendingSlackTest)
+                        .controlSize(.small)
+
+                        if let slackTestResult {
+                            switch slackTestResult {
+                            case .success:
+                                Label("Sent!", systemImage: "checkmark.circle.fill")
+                                    .font(.footnote.weight(.medium))
+                                    .foregroundStyle(.forgeSuccess)
+                            case .error(let message):
+                                Label(message, systemImage: "xmark.circle.fill")
+                                    .font(.footnote)
+                                    .foregroundStyle(.forgeDanger)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .onChange(of: telegramBotToken) { _, _ in testResult = nil }
         .onChange(of: telegramChatId) { _, _ in testResult = nil }
+        .onChange(of: slackWebhookUrl) { _, _ in slackTestResult = nil }
     }
 
     private func sendTestMessage() async {
@@ -623,6 +678,20 @@ struct WizardIntegrationsStep: View {
             testResult = .success
         } catch {
             testResult = .error(error.localizedDescription)
+        }
+    }
+
+    private func sendSlackTestMessage() async {
+        isSendingSlackTest = true
+        defer { isSendingSlackTest = false }
+
+        let service = SlackNotificationService()
+        service.configure(webhookUrl: slackWebhookUrl)
+        do {
+            try await service.sendMessage("CreedFlow test — connection successful!")
+            slackTestResult = .success
+        } catch {
+            slackTestResult = .error(error.localizedDescription)
         }
     }
 }
@@ -908,6 +977,7 @@ struct WizardSummaryStep: View {
     let maxConcurrency: Int
     let defaultBudget: Double
     let telegramConfigured: Bool
+    let slackConfigured: Bool
     let mcpConfigs: [MCPServerConfig]
     let selectedEditor: String
 
@@ -1010,6 +1080,7 @@ struct WizardSummaryStep: View {
 
             Section("Integrations") {
                 SummaryRow(label: "Telegram", value: telegramConfigured ? "Configured" : "Skipped", ok: telegramConfigured)
+                SummaryRow(label: "Slack", value: slackConfigured ? "Configured" : "Skipped", ok: slackConfigured)
             }
 
             Section("MCP Servers") {

@@ -172,6 +172,7 @@ export interface AppSettings {
   opencodeEnabled: boolean;
   telegramBotToken: string | null;
   telegramChatId: string | null;
+  slackWebhookUrl: string | null;
   hasCompletedSetup: boolean;
   agentBackendOverrides: AgentBackendOverrides | null;
   webhookEnabled: boolean | null;
@@ -332,6 +333,14 @@ export interface PromptChainStep {
   promptId: string;
   stepOrder: number;
   transitionNote: string | null;
+  condition: string | null;
+  onFailStepOrder: number | null;
+}
+
+export interface ChainCondition {
+  field: "reviewScore" | "reviewVerdict" | "outputContains" | "stepSuccess";
+  op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains" | "notContains";
+  value: number | string | boolean;
 }
 
 export interface PromptChainWithSteps extends PromptChain {
