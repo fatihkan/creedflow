@@ -663,6 +663,14 @@ public struct AppDatabase {
             }
         }
 
+        // v24: Chain conditional branching
+        migrator.registerMigration("v24_chain_conditions") { db in
+            try db.alter(table: "promptChainStep") { t in
+                t.add(column: "condition", .text)
+                t.add(column: "onFailStepOrder", .integer)
+            }
+        }
+
         return migrator
     }
 }

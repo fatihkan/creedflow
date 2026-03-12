@@ -4,6 +4,7 @@ import {
   Cpu,
   GitBranch,
   Bell,
+  MessageSquare,
   Server,
   Database,
   UserCheck,
@@ -15,16 +16,18 @@ import { MCPSettings } from "./MCPSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { GitSettings } from "./GitSettings";
 import { TelegramSettings } from "./TelegramSettings";
+import { SlackSettings } from "./SlackSettings";
 import { DatabaseSettings } from "./DatabaseSettings";
 import { PersonasSettings } from "./PersonasSettings";
 
-type Tab = "general" | "backends" | "git" | "telegram" | "database" | "mcp" | "personas";
+type Tab = "general" | "backends" | "git" | "telegram" | "slack" | "database" | "mcp" | "personas";
 
 const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: "general", label: "General", icon: Settings },
   { id: "backends", label: "AI CLIs", icon: Cpu },
   { id: "git", label: "Git & Tools", icon: GitBranch },
   { id: "telegram", label: "Telegram", icon: Bell },
+  { id: "slack", label: "Slack", icon: MessageSquare },
   { id: "database", label: "Database", icon: Database },
   { id: "mcp", label: "MCP", icon: Server },
   { id: "personas", label: "Personas", icon: UserCheck },
@@ -70,6 +73,7 @@ export function SettingsDialog() {
         {tab === "backends" && <BackendsTab />}
         {tab === "git" && <GitSettings />}
         {tab === "telegram" && <TelegramSettings />}
+        {tab === "slack" && <SlackSettings />}
         {tab === "database" && <DatabaseSettings />}
         {tab === "mcp" && <MCPSettings />}
         {tab === "personas" && <PersonasSettings />}

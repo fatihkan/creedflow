@@ -29,6 +29,7 @@ public struct SetupWizardView: View {
     @AppStorage("defaultMaxBudgetUSD") private var storedDefaultBudget = 5.0
     @AppStorage("telegramBotToken") private var storedTelegramToken = ""
     @AppStorage("telegramChatId") private var storedTelegramChatId = ""
+    @AppStorage("slackWebhookUrl") private var storedSlackWebhookUrl = ""
     @AppStorage("preferredEditor") private var storedPreferredEditor = ""
 
     @Environment(\.appDatabase) private var appDatabase
@@ -54,6 +55,7 @@ public struct SetupWizardView: View {
     @State private var defaultBudget = 5.0
     @State private var telegramBotToken = ""
     @State private var telegramChatId = ""
+    @State private var slackWebhookUrl = ""
     @State private var selectedEditor = ""
     @State private var gitUserNameInput = ""
     @State private var gitUserEmailInput = ""
@@ -130,7 +132,8 @@ public struct SetupWizardView: View {
                 case 3:
                     WizardIntegrationsStep(
                         telegramBotToken: $telegramBotToken,
-                        telegramChatId: $telegramChatId
+                        telegramChatId: $telegramChatId,
+                        slackWebhookUrl: $slackWebhookUrl
                     )
                 case 4:
                     WizardMCPStep(
@@ -154,6 +157,7 @@ public struct SetupWizardView: View {
                         maxConcurrency: maxConcurrency,
                         defaultBudget: defaultBudget,
                         telegramConfigured: !telegramBotToken.isEmpty,
+                        slackConfigured: !slackWebhookUrl.isEmpty,
                         mcpConfigs: mcpStore.configs,
                         selectedEditor: selectedEditor
                     )
@@ -290,6 +294,9 @@ public struct SetupWizardView: View {
         // Write telegram settings
         storedTelegramToken = telegramBotToken
         storedTelegramChatId = telegramChatId
+
+        // Write slack settings
+        storedSlackWebhookUrl = slackWebhookUrl
 
         // Create projects directory if specified
         let dirPath = projectsBaseDir.isEmpty

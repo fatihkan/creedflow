@@ -40,6 +40,7 @@ final class Orchestrator {
     let projectDirService: ProjectDirectoryService
     private let retryPolicy: RetryPolicy
     private let telegramService: TelegramBotService?
+    private let slackService: SlackNotificationService?
     let localDeployService: LocalDeploymentService
     let assetService: AssetStorageService
     let thumbnailService: ThumbnailGeneratorService
@@ -67,7 +68,8 @@ final class Orchestrator {
         dbQueue: DatabaseQueue,
         maxConcurrency: Int? = nil,
         claudePath: String? = nil,
-        telegramService: TelegramBotService? = nil
+        telegramService: TelegramBotService? = nil,
+        slackService: SlackNotificationService? = nil
     ) {
         self.dbQueue = dbQueue
         self.taskQueue = TaskQueue(dbQueue: dbQueue)
@@ -92,6 +94,7 @@ final class Orchestrator {
         self.projectDirService = ProjectDirectoryService()
         self.retryPolicy = .default
         self.telegramService = telegramService
+        self.slackService = slackService
         self.localDeployService = LocalDeploymentService(dbQueue: dbQueue)
         self.assetService = AssetStorageService(dbQueue: dbQueue)
         self.thumbnailService = ThumbnailGeneratorService()
@@ -442,6 +445,10 @@ final class Orchestrator {
                     await self.sendTelegramNotification(for: task) { telegram, project in
                         await telegram.notifyTaskCompleted(task: task, project: project)
                     }
+                    // Slack notification: task completed
+                    await self.sendSlackNotification(for: task) { slack, project in
+                        await slack.notifyTaskCompleted(task: task, project: project)
+                    }
                 } catch {
                     // Rate-limit path: longer backoff + notification
                     if self.retryPolicy.isRateLimited(error: error) {
@@ -484,6 +491,10 @@ final class Orchestrator {
                         // Telegram notification: task failed (no more retries)
                         await self.sendTelegramNotification(for: task) { telegram, project in
                             await telegram.notifyTaskFailed(task: task, project: project)
+                        }
+                        // Slack notification: task failed (no more retries)
+                        await self.sendSlackNotification(for: task) { slack, project in
+                            await slack.notifyTaskFailed(task: task, project: project)
                         }
                     }
                 }
@@ -853,5 +864,18 @@ final class Orchestrator {
         // Only send if project has a telegram chat configured
         guard project.telegramChatId != nil else { return }
         await action(telegram, project)
+    }
+
+    // MARK: - Slack Notifications
+
+    func sendSlackNotification(
+        for task: AgentTask,
+        action: @escaping (SlackNotificationService, Project) async -> Void
+    ) async {
+        guard let slack = slackService else { return }
+        guard let project = try? await dbQueue.read({ db in
+            try Project.fetchOne(db, id: task.projectId)
+        }) else { return }
+        await action(slack, project)
     }
 }

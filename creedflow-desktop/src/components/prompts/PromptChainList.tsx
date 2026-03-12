@@ -77,6 +77,22 @@ export function PromptChainList() {
     await api.updateChainStep(stepId, value || null);
   };
 
+  const handleConditionChange = async (
+    stepId: string,
+    condition: string | null,
+    onFailStepOrder: number | null,
+  ) => {
+    const chain = chains.find((c) => c.steps.some((s) => s.id === stepId));
+    const step = chain?.steps.find((s) => s.id === stepId);
+    await api.updateChainStep(
+      stepId,
+      step?.transitionNote ?? null,
+      condition,
+      onFailStepOrder,
+    );
+    fetchChains();
+  };
+
   const getPromptTitle = (promptId: string) => {
     return prompts.find((p) => p.id === promptId)?.title ?? "Unknown prompt";
   };
@@ -172,6 +188,7 @@ export function PromptChainList() {
                       step={step}
                       index={i}
                       promptTitle={getPromptTitle(step.promptId)}
+                      allStepOrders={chain.steps.map((s) => s.stepOrder)}
                       onRemove={() => handleRemoveStep(step.id)}
                       onDragStart={() => setDragStepId(step.id)}
                       onDragOver={(e) => e.preventDefault()}
@@ -179,6 +196,9 @@ export function PromptChainList() {
                       isDragging={dragStepId === step.id}
                       onTransitionNoteBlur={(val) =>
                         handleTransitionNoteBlur(step.id, val)
+                      }
+                      onConditionChange={(cond, fail) =>
+                        handleConditionChange(step.id, cond, fail)
                       }
                     />
                   ))}

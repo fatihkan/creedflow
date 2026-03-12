@@ -43,6 +43,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (22, V22_PROJECT_COMPLETION_AND_COMMENTS),
         (23, V23_BACKEND_SCORING_AND_BUDGETS),
         (24, V24_AGENT_PERSONAS),
+        (25, V25_CHAIN_CONDITIONS),
     ];
 
     for (version, sql) in migrations {
@@ -542,4 +543,9 @@ VALUES (lower(hex(randomblob(16))), 'TDD Practitioner', 'Test-driven development
 
 INSERT OR IGNORE INTO agentPersona (id, name, description, systemPrompt, agentTypes, tags, isBuiltIn, isEnabled, createdAt, updatedAt)
 VALUES (lower(hex(randomblob(16))), 'Technical Writer', 'Clear documentation, API docs, and user guides', 'You are a technical documentation specialist. Write clear, concise documentation with examples. Follow docs-as-code principles. Include API references, usage examples, and troubleshooting guides.', '["contentWriter","analyzer"]', '["documentation","writing"]', 1, 1, datetime('now'), datetime('now'));
+"#;
+
+const V25_CHAIN_CONDITIONS: &str = r#"
+ALTER TABLE promptChainStep ADD COLUMN condition TEXT;
+ALTER TABLE promptChainStep ADD COLUMN onFailStepOrder INTEGER;
 "#;

@@ -388,8 +388,22 @@ export const createPromptChain = (name: string, description: string, category: s
 export const deletePromptChain = (id: string) =>
   invoke<void>("delete_prompt_chain", { id });
 
-export const addChainStep = (chainId: string, promptId: string, stepOrder: number, transitionNote?: string) =>
-  invoke<PromptChainStep>("add_chain_step", { chainId, promptId, stepOrder, transitionNote: transitionNote ?? null });
+export const addChainStep = (
+  chainId: string,
+  promptId: string,
+  stepOrder: number,
+  transitionNote?: string,
+  condition?: string | null,
+  onFailStepOrder?: number | null,
+) =>
+  invoke<PromptChainStep>("add_chain_step", {
+    chainId,
+    promptId,
+    stepOrder,
+    transitionNote: transitionNote ?? null,
+    condition: condition ?? null,
+    onFailStepOrder: onFailStepOrder ?? null,
+  });
 
 export const removeChainStep = (id: string) =>
   invoke<void>("remove_chain_step", { id });
@@ -397,8 +411,18 @@ export const removeChainStep = (id: string) =>
 export const reorderChainSteps = (steps: [string, number][]) =>
   invoke<void>("reorder_chain_steps", { steps });
 
-export const updateChainStep = (id: string, transitionNote: string | null) =>
-  invoke<void>("update_chain_step", { id, transitionNote });
+export const updateChainStep = (
+  id: string,
+  transitionNote: string | null,
+  condition?: string | null,
+  onFailStepOrder?: number | null,
+) =>
+  invoke<void>("update_chain_step", {
+    id,
+    transitionNote,
+    condition: condition ?? null,
+    onFailStepOrder: onFailStepOrder ?? null,
+  });
 
 export const updatePromptChain = (
   id: string,
