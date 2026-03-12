@@ -112,6 +112,8 @@ impl PromptChainStep {
             prompt_id: row.get("promptId")?,
             step_order: row.get("stepOrder")?,
             transition_note: row.get("transitionNote")?,
+            condition: row.get("condition")?,
+            on_fail_step_order: row.get("onFailStepOrder")?,
         })
     }
 }
@@ -207,12 +209,14 @@ pub async fn add_chain_step(
     prompt_id: String,
     step_order: i32,
     transition_note: Option<String>,
+    condition: Option<String>,
+    on_fail_step_order: Option<i32>,
 ) -> Result<PromptChainStep, String> {
     let id = Uuid::new_v4().to_string();
     let db = state.db.lock().await;
     db.conn.execute(
-        "INSERT INTO promptChainStep (id, chainId, promptId, stepOrder, transitionNote) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, chain_id, prompt_id, step_order, transition_note],
+        "INSERT INTO promptChainStep (id, chainId, promptId, stepOrder, transitionNote, condition, onFailStepOrder) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![id, chain_id, prompt_id, step_order, transition_note, condition, on_fail_step_order],
     ).map_err(|e| e.to_string())?;
     db.conn.execute(
         "UPDATE promptChain SET updatedAt = datetime('now') WHERE id = ?1",
@@ -253,11 +257,13 @@ pub async fn update_chain_step(
     state: State<'_, AppState>,
     id: String,
     transition_note: Option<String>,
+    condition: Option<String>,
+    on_fail_step_order: Option<i32>,
 ) -> Result<(), String> {
     let db = state.db.lock().await;
     db.conn.execute(
-        "UPDATE promptChainStep SET transitionNote = ?1 WHERE id = ?2",
-        params![transition_note, id],
+        "UPDATE promptChainStep SET transitionNote = ?1, condition = ?2, onFailStepOrder = ?3 WHERE id = ?4",
+        params![transition_note, condition, on_fail_step_order, id],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }

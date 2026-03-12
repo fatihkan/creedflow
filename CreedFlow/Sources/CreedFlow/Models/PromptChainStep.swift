@@ -7,19 +7,25 @@ struct PromptChainStep: Codable, Identifiable, Equatable {
     var promptId: UUID
     var stepOrder: Int
     var transitionNote: String?
+    var condition: String?
+    var onFailStepOrder: Int?
 
     init(
         id: UUID = UUID(),
         chainId: UUID,
         promptId: UUID,
         stepOrder: Int,
-        transitionNote: String? = nil
+        transitionNote: String? = nil,
+        condition: String? = nil,
+        onFailStepOrder: Int? = nil
     ) {
         self.id = id
         self.chainId = chainId
         self.promptId = promptId
         self.stepOrder = stepOrder
         self.transitionNote = transitionNote
+        self.condition = condition
+        self.onFailStepOrder = onFailStepOrder
     }
 }
 

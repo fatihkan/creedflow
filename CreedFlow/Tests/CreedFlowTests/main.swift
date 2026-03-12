@@ -17,6 +17,7 @@ PromptRecommenderTests.runAll()
 AgentTypeTests.runAll()
 MigrationV11V13Tests.runAll()
 LocalStorageBackendTests.runAll()
+ChainConditionTests.runAll()
 
 print()
 print("All tests passed.")
