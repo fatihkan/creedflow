@@ -16,6 +16,7 @@ use crate::engine::task_queue::TaskQueue;
 use crate::engine::retry::RetryPolicy;
 use crate::services::git_branch_manager::GitBranchManager;
 use crate::services::telegram::TelegramService;
+use crate::services::slack::SlackService;
 use crate::services::notifications::NotificationService;
 use crate::services::health::{BackendHealthMonitor, MCPHealthMonitor};
 use crate::util::ndjson::extract_json;
@@ -40,6 +41,7 @@ pub struct Orchestrator {
     polling_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
     app_handle: Option<tauri::AppHandle>,
     telegram: Option<Arc<TelegramService>>,
+    slack: Option<Arc<SlackService>>,
     pub notification_service: Arc<NotificationService>,
     backend_health_monitor: Arc<BackendHealthMonitor>,
     mcp_health_monitor: Arc<MCPHealthMonitor>,
@@ -80,6 +82,7 @@ impl Orchestrator {
             polling_handle: Mutex::new(None),
             app_handle,
             telegram: None,
+            slack: None,
             notification_service,
             backend_health_monitor,
             mcp_health_monitor,
@@ -89,6 +92,11 @@ impl Orchestrator {
     /// Configure Telegram notifications.
     pub fn set_telegram(&mut self, bot_token: String, chat_id: String) {
         self.telegram = Some(Arc::new(TelegramService::new(bot_token, chat_id)));
+    }
+
+    /// Configure Slack notifications.
+    pub fn set_slack(&mut self, webhook_url: String) {
+        self.slack = Some(Arc::new(SlackService::new(webhook_url)));
     }
 
     /// Start the orchestrator polling loop.
@@ -117,6 +125,7 @@ impl Orchestrator {
         let router = self.router.clone();
         let retry_policy = RetryPolicy::default();
         let telegram = self.telegram.clone();
+        let slack = self.slack.clone();
         let notification_service = self.notification_service.clone();
 
         let handle = tokio::spawn(async move {
@@ -181,6 +190,7 @@ impl Orchestrator {
                             let router_c = router.clone();
                             let app_handle_c = app_handle.clone();
                             let telegram_c = telegram.clone();
+                            let slack_c = slack.clone();
                             let notif_c = notification_service.clone();
 
                             tokio::spawn(async move {
@@ -228,6 +238,13 @@ impl Orchestrator {
                                         );
                                         let _ = tg.send_message(&msg).await;
                                     }
+                                    if let Some(ref sl) = slack_c {
+                                        let msg = format!(
+                                            "✅ Task completed: {} ({})\nBackend: {}",
+                                            task.title, task.agent_type, result.backend_type
+                                        );
+                                        let _ = sl.send_message(&msg).await;
+                                    }
                                 } else {
                                     let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
                                     log::error!("Task {} failed: {}", task.id, error_msg);
@@ -267,6 +284,13 @@ impl Orchestrator {
                                                 task.title, task.agent_type, error_msg
                                             );
                                             let _ = tg.send_message(&msg).await;
+                                        }
+                                        if let Some(ref sl) = slack_c {
+                                            let msg = format!(
+                                                "❌ Task failed: {} ({})\nError: {}",
+                                                task.title, task.agent_type, error_msg
+                                            );
+                                            let _ = sl.send_message(&msg).await;
                                         }
                                     }
 

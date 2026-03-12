@@ -799,6 +799,8 @@ pub struct PromptChainStep {
     pub prompt_id: String,
     pub step_order: i32,
     pub transition_note: Option<String>,
+    pub condition: Option<String>,
+    pub on_fail_step_order: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1244,6 +1246,8 @@ pub struct AppSettings {
     pub opencode_enabled: bool,
     pub telegram_bot_token: Option<String>,
     pub telegram_chat_id: Option<String>,
+    #[serde(default)]
+    pub slack_webhook_url: Option<String>,
     pub has_completed_setup: bool,
     pub agent_backend_overrides: Option<AgentBackendOverrides>,
     #[serde(default)]
@@ -1297,6 +1301,7 @@ impl Default for AppSettings {
             opencode_enabled: false,
             telegram_bot_token: None,
             telegram_chat_id: None,
+            slack_webhook_url: None,
             has_completed_setup: false,
             agent_backend_overrides: None,
             webhook_enabled: None,

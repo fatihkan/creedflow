@@ -12,6 +12,7 @@ public struct ContentView: View {
     @State private var orchestrator: Orchestrator?
     @State private var chatServices: [UUID: ProjectChatService] = [:]
     @State private var telegramService = TelegramBotService()
+    @State private var slackService = SlackNotificationService()
     @State private var keyboardMonitor: Any?
     @State private var notificationViewModel: NotificationViewModel?
     @State private var showShortcutsOverlay = false
@@ -103,7 +104,7 @@ public struct ContentView: View {
         }
         .task {
             if let db = appDatabase {
-                let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService)
+                let orch = Orchestrator(dbQueue: db.dbQueue, telegramService: telegramService, slackService: slackService)
                 orchestrator = orch
 
                 // Set up notification view model
@@ -121,6 +122,12 @@ public struct ContentView: View {
                     telegramService.startPolling { command in
                         await handleTelegramCommand(command)
                     }
+                }
+
+                // Configure Slack if webhook URL is set (#228)
+                let slackUrl = UserDefaults.standard.string(forKey: "slackWebhookUrl") ?? ""
+                if !slackUrl.isEmpty {
+                    slackService.configure(webhookUrl: slackUrl)
                 }
             }
         }
