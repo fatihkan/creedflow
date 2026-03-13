@@ -96,8 +96,11 @@ pub fn run() {
             commands::projects::export_project_docs,
             commands::projects::get_project_time_stats,
             commands::projects::export_project_zip,
+            commands::projects::export_project_bundle,
+            commands::projects::import_project_bundle,
             commands::projects::list_project_templates,
             commands::projects::create_project_from_template,
+            commands::projects::get_project_health,
             // Tasks
             commands::tasks::list_tasks,
             commands::tasks::get_task,
@@ -247,6 +250,13 @@ pub fn run() {
             commands::personas::create_agent_persona,
             commands::personas::update_agent_persona,
             commands::personas::delete_agent_persona,
+            // Issue Tracking
+            commands::issue_tracking::list_issue_configs,
+            commands::issue_tracking::create_issue_config,
+            commands::issue_tracking::update_issue_config,
+            commands::issue_tracking::delete_issue_config,
+            commands::issue_tracking::import_issues,
+            commands::issue_tracking::list_issue_mappings,
             // Updates
             commands::updates::check_for_updates,
         ])

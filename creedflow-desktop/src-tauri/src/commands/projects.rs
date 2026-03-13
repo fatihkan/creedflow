@@ -1,6 +1,7 @@
-use crate::db::models::{AgentTask, AgentTimeStat, Feature, Project, ProjectTemplate, ProjectTimeStats, Review, TemplateFeature, TemplateTask};
+use crate::db::models::{AgentTask, AgentTimeStat, Feature, Project, ProjectHealthScore, ProjectTemplate, ProjectTimeStats, Review, TemplateFeature, TemplateTask};
 use crate::state::AppState;
 use rusqlite::params;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 use uuid::Uuid;
 
@@ -140,6 +141,95 @@ pub async fn get_project_time_stats(
         total_work_ms,
         idle_ms,
         agent_breakdown: breakdown,
+    })
+}
+
+#[tauri::command]
+pub async fn get_project_health(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> Result<ProjectHealthScore, String> {
+    let db = state.db.lock().await;
+
+    // 1. Task pass rate
+    let (total_tasks, passed, failed): (i64, i64, i64) = db.conn.query_row(
+        "SELECT COUNT(*), \
+         SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), \
+         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) \
+         FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL",
+        [&project_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    ).map_err(|e| e.to_string())?;
+
+    if total_tasks == 0 {
+        return Ok(ProjectHealthScore {
+            overall: 0,
+            pass_rate: 0.0,
+            quality_score: 0.0,
+            deploy_rate: 0.0,
+            recency: 0.0,
+            task_count: 0,
+        });
+    }
+
+    let resolved = passed + failed;
+    let pass_rate = if resolved > 0 { passed as f64 / resolved as f64 } else { 0.0 };
+
+    // 2. Avg review score / 10
+    let avg_score: f64 = db.conn.query_row(
+        "SELECT COALESCE(AVG(r.score), 0) FROM review r \
+         JOIN agentTask t ON r.taskId = t.id \
+         WHERE t.projectId = ?1 AND t.archivedAt IS NULL",
+        [&project_id],
+        |row| row.get(0),
+    ).unwrap_or(0.0);
+    let quality_score = (avg_score / 10.0).min(1.0);
+
+    // 3. Deploy success rate
+    let (total_deploys, succeeded_deploys): (i64, i64) = db.conn.query_row(
+        "SELECT COUNT(*), SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) \
+         FROM deployment WHERE projectId = ?1",
+        [&project_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    ).unwrap_or((0, 0));
+    let deploy_rate = if total_deploys > 0 { succeeded_deploys as f64 / total_deploys as f64 } else { 0.0 };
+
+    // 4. Recency
+    let last_activity: Option<String> = db.conn.query_row(
+        "SELECT MAX(updatedAt) FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL",
+        [&project_id],
+        |row| row.get(0),
+    ).unwrap_or(None);
+
+    let recency = if let Some(ref ts) = last_activity {
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(ts, "%Y-%m-%d %H:%M:%S%.f")
+            .or_else(|_| chrono::NaiveDateTime::parse_from_str(ts, "%Y-%m-%d %H:%M:%S"))
+        {
+            let hours_ago = (chrono::Utc::now().naive_utc() - dt).num_seconds() as f64 / 3600.0;
+            if hours_ago <= 24.0 {
+                1.0
+            } else if hours_ago < 168.0 {
+                (1.0 - (hours_ago - 24.0) / (168.0 - 24.0)).max(0.0)
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        }
+    } else {
+        0.0
+    };
+
+    let score = (0.35 * pass_rate + 0.25 * quality_score + 0.20 * deploy_rate + 0.20 * recency) * 100.0;
+    let overall = score.round().min(100.0).max(0.0) as i32;
+
+    Ok(ProjectHealthScore {
+        overall,
+        pass_rate,
+        quality_score,
+        deploy_rate,
+        recency,
+        task_count: total_tasks,
     })
 }
 
@@ -309,6 +399,343 @@ pub async fn export_project_zip(
     }
 
     Ok(output_path)
+}
+
+/// Bundle manifest for .creedflow portable bundles.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BundleManifest {
+    bundle_version: i32,
+    app_version: String,
+    exported_at: String,
+    project_name: String,
+}
+
+/// Export a project as a portable .creedflow bundle (ZIP with metadata).
+#[tauri::command]
+pub async fn export_project_bundle(
+    state: State<'_, AppState>,
+    project_id: String,
+    output_path: String,
+) -> Result<String, String> {
+    validate_path_no_traversal(&output_path)?;
+
+    let db = state.db.lock().await;
+    let project = Project::get(&db.conn, &project_id).map_err(|e| e.to_string())?;
+
+    // Fetch features, tasks, dependencies, reviews
+    let tasks = AgentTask::all_for_project(&db.conn, &project_id).map_err(|e| e.to_string())?;
+    let task_ids: Vec<&str> = tasks.iter().map(|t| t.id.as_str()).collect();
+
+    let mut feat_stmt = db.conn.prepare(
+        "SELECT * FROM feature WHERE projectId = ?1 ORDER BY priority DESC, name ASC"
+    ).map_err(|e| e.to_string())?;
+    let features: Vec<Feature> = feat_stmt.query_map(params![project_id], |row| Feature::from_row(row))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    let all_reviews = Review::all(&db.conn).map_err(|e| e.to_string())?;
+    let project_reviews: Vec<&Review> = all_reviews.iter()
+        .filter(|r| task_ids.contains(&r.task_id.as_str()))
+        .collect();
+
+    // Collect dependencies for project tasks
+    let mut deps: Vec<crate::db::models::TaskDependency> = Vec::new();
+    for tid in &task_ids {
+        let task_deps = crate::db::models::TaskDependency::for_task(&db.conn, tid)
+            .map_err(|e| e.to_string())?;
+        deps.extend(task_deps);
+    }
+
+    // Create temp directory
+    let temp_dir = std::env::temp_dir().join(format!("creedflow-bundle-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
+    let bundle_dir = temp_dir.join(&project.name);
+    std::fs::create_dir_all(&bundle_dir).map_err(|e| e.to_string())?;
+
+    // Write manifest.json
+    let manifest = BundleManifest {
+        bundle_version: 1,
+        app_version: "1.0.0".to_string(),
+        exported_at: chrono::Utc::now().to_rfc3339(),
+        project_name: project.name.clone(),
+    };
+    std::fs::write(
+        bundle_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest).unwrap_or_default(),
+    ).map_err(|e| e.to_string())?;
+
+    // Write project.json
+    std::fs::write(
+        bundle_dir.join("project.json"),
+        serde_json::to_string_pretty(&project).unwrap_or_default(),
+    ).map_err(|e| e.to_string())?;
+
+    // Write features.json
+    std::fs::write(
+        bundle_dir.join("features.json"),
+        serde_json::to_string_pretty(&features).unwrap_or_default(),
+    ).map_err(|e| e.to_string())?;
+
+    // Write tasks.json
+    std::fs::write(
+        bundle_dir.join("tasks.json"),
+        serde_json::to_string_pretty(&tasks).unwrap_or_default(),
+    ).map_err(|e| e.to_string())?;
+
+    // Write dependencies.json
+    std::fs::write(
+        bundle_dir.join("dependencies.json"),
+        serde_json::to_string_pretty(&deps).unwrap_or_default(),
+    ).map_err(|e| e.to_string())?;
+
+    // Write reviews.json
+    std::fs::write(
+        bundle_dir.join("reviews.json"),
+        serde_json::to_string_pretty(&project_reviews).unwrap_or_default(),
+    ).map_err(|e| e.to_string())?;
+
+    // Copy project directory files into files/ subdirectory (skip hidden files)
+    let files_dir = bundle_dir.join("files");
+    std::fs::create_dir_all(&files_dir).map_err(|e| e.to_string())?;
+    let project_dir = std::path::Path::new(&project.directory_path);
+    if project_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(project_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                if name.to_string_lossy().starts_with('.') { continue; }
+                let dest = files_dir.join(&name);
+                if entry.path().is_dir() {
+                    let _ = copy_dir_recursive(&entry.path(), &dest);
+                } else {
+                    let _ = std::fs::copy(entry.path(), dest);
+                }
+            }
+        }
+    }
+
+    // Create ZIP
+    let status = std::process::Command::new("zip")
+        .args(["-r", &output_path, &project.name])
+        .current_dir(&temp_dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map_err(|e| format!("Failed to run zip: {}", e))?;
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&temp_dir);
+
+    if !status.success() {
+        return Err("ZIP creation failed".to_string());
+    }
+
+    Ok(output_path)
+}
+
+/// Import a project from a .creedflow bundle (ZIP with metadata).
+#[tauri::command]
+pub async fn import_project_bundle(
+    state: State<'_, AppState>,
+    input_path: String,
+) -> Result<Project, String> {
+    validate_path_no_traversal(&input_path)?;
+
+    // Unzip to temp directory
+    let temp_dir = std::env::temp_dir().join(format!("creedflow-import-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
+
+    let status = std::process::Command::new("unzip")
+        .args(["-o", &input_path, "-d", &temp_dir.to_string_lossy()])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map_err(|e| format!("Failed to run unzip: {}", e))?;
+
+    if !status.success() {
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        return Err("Failed to unzip bundle".to_string());
+    }
+
+    // Find the bundle root directory
+    let entries: Vec<_> = std::fs::read_dir(&temp_dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .collect();
+
+    let bundle_dir = entries.first()
+        .map(|e| e.path())
+        .ok_or_else(|| "No directory found in bundle".to_string())?;
+
+    // Read manifest.json
+    let manifest_path = bundle_dir.join("manifest.json");
+    if !manifest_path.exists() {
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        return Err("Invalid bundle: missing manifest.json".to_string());
+    }
+    let manifest_str = std::fs::read_to_string(&manifest_path).map_err(|e| e.to_string())?;
+    let manifest: BundleManifest = serde_json::from_str(&manifest_str).map_err(|e| e.to_string())?;
+    if manifest.bundle_version != 1 {
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        return Err(format!("Unsupported bundle version: {}", manifest.bundle_version));
+    }
+
+    // Read project.json
+    let project_path = bundle_dir.join("project.json");
+    if !project_path.exists() {
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        return Err("Invalid bundle: missing project.json".to_string());
+    }
+    let project_str = std::fs::read_to_string(&project_path).map_err(|e| e.to_string())?;
+    let orig_project: Project = serde_json::from_str(&project_str).map_err(|e| e.to_string())?;
+
+    // Read optional JSON files
+    let features: Vec<Feature> = read_bundle_json(&bundle_dir, "features.json")?;
+    let tasks: Vec<AgentTask> = read_bundle_json(&bundle_dir, "tasks.json")?;
+    let deps: Vec<crate::db::models::TaskDependency> = read_bundle_json(&bundle_dir, "dependencies.json")?;
+    let reviews: Vec<Review> = read_bundle_json(&bundle_dir, "reviews.json")?;
+
+    // Build old → new UUID mapping
+    let new_project_id = Uuid::new_v4().to_string();
+    let mut id_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    id_map.insert(orig_project.id.clone(), new_project_id.clone());
+
+    for f in &features {
+        id_map.insert(f.id.clone(), Uuid::new_v4().to_string());
+    }
+    for t in &tasks {
+        id_map.insert(t.id.clone(), Uuid::new_v4().to_string());
+    }
+    for r in &reviews {
+        id_map.insert(r.id.clone(), Uuid::new_v4().to_string());
+    }
+
+    // Create project directory
+    let projects_dir = dirs::home_dir()
+        .unwrap_or_default()
+        .join("CreedFlow")
+        .join("projects")
+        .join(&orig_project.name);
+    std::fs::create_dir_all(&projects_dir)
+        .map_err(|e| format!("Failed to create project dir: {}", e))?;
+
+    // Copy files/ contents into new project directory
+    let files_dir = bundle_dir.join("files");
+    if files_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&files_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let dest = projects_dir.join(&name);
+                if entry.path().is_dir() {
+                    let _ = copy_dir_recursive(&entry.path(), &dest);
+                } else {
+                    let _ = std::fs::copy(entry.path(), dest);
+                }
+            }
+        }
+    }
+
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let new_project = Project {
+        id: new_project_id.clone(),
+        name: orig_project.name.clone(),
+        description: orig_project.description.clone(),
+        tech_stack: orig_project.tech_stack.clone(),
+        status: orig_project.status.clone(),
+        directory_path: projects_dir.to_string_lossy().to_string(),
+        project_type: orig_project.project_type.clone(),
+        telegram_chat_id: None,
+        staging_pr_number: None,
+        completed_at: orig_project.completed_at.clone(),
+        created_at: now.clone(),
+        updated_at: now.clone(),
+    };
+
+    // Insert all records in a single transaction
+    let db = state.db.lock().await;
+    db.conn.execute_batch("BEGIN").map_err(|e| e.to_string())?;
+
+    let result = (|| -> Result<(), String> {
+        Project::insert(&db.conn, &new_project).map_err(|e| e.to_string())?;
+
+        for f in &features {
+            let new_id = id_map.get(&f.id).unwrap();
+            db.conn.execute(
+                "INSERT INTO feature (id, projectId, name, description, priority, status, createdAt, updatedAt)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![new_id, new_project_id, f.name, f.description, f.priority, f.status, f.created_at, f.updated_at],
+            ).map_err(|e| e.to_string())?;
+        }
+
+        for t in &tasks {
+            let new_id = id_map.get(&t.id).unwrap();
+            let new_feature_id = t.feature_id.as_ref().and_then(|fid| id_map.get(fid));
+            db.conn.execute(
+                "INSERT INTO agentTask (id, projectId, featureId, agentType, title, description, priority, status, retryCount, maxRetries, createdAt, updatedAt, result, errorMessage, backend)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                params![
+                    new_id, new_project_id, new_feature_id, t.agent_type, t.title, t.description,
+                    t.priority, t.status, t.retry_count, t.max_retries, t.created_at, t.updated_at,
+                    t.result, t.error_message, t.backend
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+
+        for d in &deps {
+            let new_task_id = id_map.get(&d.task_id);
+            let new_dep_id = id_map.get(&d.depends_on_task_id);
+            if let (Some(tid), Some(did)) = (new_task_id, new_dep_id) {
+                db.conn.execute(
+                    "INSERT INTO taskDependency (taskId, dependsOnTaskId) VALUES (?1, ?2)",
+                    params![tid, did],
+                ).map_err(|e| e.to_string())?;
+            }
+        }
+
+        for r in &reviews {
+            let new_id = id_map.get(&r.id).unwrap();
+            let new_task_id = id_map.get(&r.task_id).unwrap();
+            db.conn.execute(
+                "INSERT INTO review (id, taskId, score, verdict, summary, issues, suggestions, securityNotes, costUSD, isApproved, createdAt)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                params![
+                    new_id, new_task_id, r.score, r.verdict, r.summary, r.issues, r.suggestions,
+                    r.security_notes, r.cost_usd, r.is_approved as i32, r.created_at
+                ],
+            ).map_err(|e| e.to_string())?;
+        }
+
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            db.conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+        }
+        Err(e) => {
+            let _ = db.conn.execute_batch("ROLLBACK");
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            return Err(e);
+        }
+    }
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    Ok(new_project)
+}
+
+/// Helper to read an optional JSON file from a bundle directory.
+fn read_bundle_json<T: serde::de::DeserializeOwned>(
+    bundle_dir: &std::path::Path,
+    filename: &str,
+) -> Result<Vec<T>, String> {
+    let path = bundle_dir.join(filename);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&content).map_err(|e| format!("Failed to parse {}: {}", filename, e))
 }
 
 #[tauri::command]

@@ -10,9 +10,11 @@ struct ProjectDetailView: View {
     @State private var project: Project?
     @State private var tasks: [AgentTask] = []
     @State private var features: [Feature] = []
+    @State private var healthScore: ProjectHealthScore = .empty
     @State private var showAnalyze = false
     @State private var showRevisionSheet = false
     @State private var showExportZip = false
+    @State private var showExportBundle = false
     @State private var errorMessage: String?
     @AppStorage("preferredEditor") private var preferredEditor = ""
 
@@ -42,6 +44,9 @@ struct ProjectDetailView: View {
                         Text(project.status.displayName)
                             .forgeBadge(color: project.status.themeColor)
                     }
+
+                    // Health score
+                    HealthScoreBadge(score: healthScore)
 
                     // Stats row
                     HStack(spacing: 12) {
@@ -134,6 +139,13 @@ struct ProjectDetailView: View {
                             Label("Export ZIP", systemImage: "arrow.down.doc")
                         }
                         .buttonStyle(.bordered)
+
+                        Button {
+                            showExportBundle = true
+                        } label: {
+                            Label("Export Bundle", systemImage: "archivebox")
+                        }
+                        .buttonStyle(.bordered)
                     }
 
                     // Recent tasks
@@ -199,6 +211,23 @@ struct ProjectDetailView: View {
                 errorMessage = "Export failed: \(error.localizedDescription)"
             }
         }
+        .onChange(of: showExportBundle) { _, show in
+            guard show, let project, let db = appDatabase else { return }
+            showExportBundle = false
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = "\(project.name).creedflow"
+            panel.allowedContentTypes = [.data]
+            panel.canCreateDirectories = true
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            Task {
+                do {
+                    let service = ProjectBundleService()
+                    try await service.exportBundle(project: project, dbQueue: db.dbQueue, to: url)
+                } catch {
+                    await MainActor.run { errorMessage = "Bundle export failed: \(error.localizedDescription)" }
+                }
+            }
+        }
     }
 
     private var analyzerRunning: Bool {
@@ -207,8 +236,8 @@ struct ProjectDetailView: View {
 
     private func observeData() async {
         guard let db = appDatabase else { return }
-        // Observe project + tasks + features together
-        let observation = ValueObservation.tracking { db -> (Project?, [AgentTask], [Feature]) in
+        // Observe project + tasks + features + health score together
+        let observation = ValueObservation.tracking { db -> (Project?, [AgentTask], [Feature], ProjectHealthScore) in
             let project = try Project.fetchOne(db, id: projectId)
             let tasks = try AgentTask
                 .filter(Column("projectId") == projectId)
@@ -218,13 +247,15 @@ struct ProjectDetailView: View {
                 .filter(Column("projectId") == projectId)
                 .order(Column("priority").desc, Column("name").asc)
                 .fetchAll(db)
-            return (project, tasks, features)
+            let health = try ProjectHealthScore.compute(db: db, projectId: projectId)
+            return (project, tasks, features, health)
         }
         do {
-            for try await (proj, taskList, featureList) in observation.values(in: db.dbQueue) {
+            for try await (proj, taskList, featureList, health) in observation.values(in: db.dbQueue) {
                 project = proj
                 tasks = taskList
                 features = featureList
+                healthScore = health
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -402,6 +433,64 @@ struct ProjectTimeStatsView: View {
             let days = Int(totalSeconds) / 86400
             let hours = (Int(totalSeconds) % 86400) / 3600
             return "\(days)d \(hours)h"
+        }
+    }
+}
+
+// MARK: - Health Score Badge
+
+struct HealthScoreBadge: View {
+    let score: ProjectHealthScore
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Score ring
+            ZStack {
+                Circle()
+                    .stroke(.quaternary, lineWidth: 4)
+                    .frame(width: 44, height: 44)
+                Circle()
+                    .trim(from: 0, to: score.taskCount > 0 ? CGFloat(score.overall) / 100.0 : 0)
+                    .stroke(score.color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 44, height: 44)
+                    .rotationEffect(.degrees(-90))
+                Text(score.label)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(score.color)
+            }
+
+            // Breakdown
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Health Score")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                if score.taskCount > 0 {
+                    HStack(spacing: 8) {
+                        metricPill("Pass", value: score.passRate)
+                        metricPill("Quality", value: score.qualityScore)
+                        metricPill("Deploy", value: score.deployRate)
+                        metricPill("Recent", value: score.recency)
+                    }
+                } else {
+                    Text("No tasks yet")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func metricPill(_ label: String, value: Double) -> some View {
+        VStack(spacing: 1) {
+            Text("\(Int((value * 100).rounded()))%")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            Text(label)
+                .font(.system(size: 8))
+                .foregroundStyle(.tertiary)
         }
     }
 }

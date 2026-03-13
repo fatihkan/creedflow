@@ -8,8 +8,10 @@ struct ProjectListView: View {
     var onViewProjectTasks: ((UUID) -> Void)?
 
     @State private var projects: [Project] = []
+    @State private var healthScores: [UUID: ProjectHealthScore] = [:]
     @State private var showNewProject = false
     @State private var showTemplateSelector = false
+    @State private var showImportBundle = false
     @State private var errorMessage: String?
     @State private var searchText = ""
     @State private var projectToDelete: Project?
@@ -50,6 +52,12 @@ struct ProjectListView: View {
                         } label: {
                             Label("New from Template", systemImage: "doc.on.doc")
                         }
+                        Divider()
+                        Button {
+                            showImportBundle = true
+                        } label: {
+                            Label("Import Bundle", systemImage: "square.and.arrow.down")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -88,7 +96,8 @@ struct ProjectListView: View {
                         ForEach(filteredProjects, id: \.id) { project in
                             ProjectRowView(
                                 project: project,
-                                isSelected: selectedProjectId == project.id
+                                isSelected: selectedProjectId == project.id,
+                                healthScore: healthScores[project.id]
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -163,16 +172,45 @@ struct ProjectListView: View {
         .task {
             await observeProjects()
         }
+        .onChange(of: showImportBundle) { _, show in
+            guard show, let db = appDatabase else { return }
+            showImportBundle = false
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [.data]
+            panel.allowsMultipleSelection = false
+            panel.canChooseDirectories = false
+            panel.message = "Select a .creedflow bundle to import"
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            Task {
+                do {
+                    let service = ProjectBundleService()
+                    let project = try await service.importBundle(from: url, dbQueue: db.dbQueue)
+                    await MainActor.run {
+                        selectedProjectId = project.id
+                    }
+                } catch {
+                    await MainActor.run {
+                        errorMessage = "Import failed: \(error.localizedDescription)"
+                    }
+                }
+            }
+        }
     }
 
     private func observeProjects() async {
         guard let db = appDatabase else { return }
-        let observation = ValueObservation.tracking { db in
-            try Project.order(Column("updatedAt").desc).fetchAll(db)
+        let observation = ValueObservation.tracking { db -> ([Project], [UUID: ProjectHealthScore]) in
+            let projects = try Project.order(Column("updatedAt").desc).fetchAll(db)
+            var scores: [UUID: ProjectHealthScore] = [:]
+            for project in projects {
+                scores[project.id] = try ProjectHealthScore.compute(db: db, projectId: project.id)
+            }
+            return (projects, scores)
         }
         do {
-            for try await value in observation.values(in: db.dbQueue) {
-                projects = value
+            for try await (projectList, scores) in observation.values(in: db.dbQueue) {
+                projects = projectList
+                healthScores = scores
                 errorMessage = nil
             }
         } catch {
@@ -513,6 +551,7 @@ struct ProjectTemplateSelectorSheet: View {
 struct ProjectRowView: View {
     let project: Project
     var isSelected: Bool = false
+    var healthScore: ProjectHealthScore?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -525,6 +564,14 @@ struct ProjectRowView: View {
                 HStack {
                     Text(project.name)
                         .font(.system(.body, design: .default, weight: .semibold))
+                    if let hs = healthScore {
+                        Text(hs.label)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(hs.color, in: Capsule())
+                    }
                     Spacer()
                     Text(project.status.displayName)
                         .forgeBadge(color: project.status.themeColor)

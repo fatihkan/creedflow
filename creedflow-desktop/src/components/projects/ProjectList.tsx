@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Terminal, FolderOpen, Code2, FileText } from "lucide-react";
+import { Plus, Trash2, Terminal, FolderOpen, Code2, FileText, Upload } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectTemplateSelector } from "./ProjectTemplateSelector";
 import { SearchBar } from "../shared/SearchBar";
 import { FocusTrap } from "../shared/FocusTrap";
 import { useTranslation } from "react-i18next";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   openTerminal,
   openInFileManager,
   openInEditor,
   detectEditors,
   getPreferredEditor,
+  getProjectHealth,
+  importProjectBundle,
 } from "../../tauri";
-import type { DetectedEditor } from "../../types/models";
+import type { DetectedEditor, ProjectHealthScore } from "../../types/models";
 import { showErrorToast } from "../../hooks/useErrorToast";
 
 export function ProjectList() {
@@ -25,12 +28,26 @@ export function ProjectList() {
   const [search, setSearch] = useState("");
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
+  const [healthScores, setHealthScores] = useState<Record<string, ProjectHealthScore>>({});
 
   useEffect(() => {
     fetchProjects();
     detectEditors().then(setEditors).catch(() => {});
     getPreferredEditor().then(setPreferredEditor).catch(() => {});
   }, [fetchProjects]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const scores: Record<string, ProjectHealthScore> = {};
+    Promise.all(
+      projects.map((p) =>
+        getProjectHealth(p.id)
+          .then((h) => { scores[p.id] = h; })
+          .catch(() => {})
+      )
+    ).then(() => { if (!cancelled) setHealthScores(scores); });
+    return () => { cancelled = true; };
+  }, [projects]);
 
   const editorCommand = useMemo((): string | null => {
     if (preferredEditor) return preferredEditor;
@@ -84,6 +101,28 @@ export function ProjectList() {
             placeholder={t("projects.searchPlaceholder")}
           />
           <button
+            onClick={async () => {
+              const path = await open({
+                multiple: false,
+                directory: false,
+                filters: [{ name: "CreedFlow Bundle", extensions: ["creedflow"] }],
+              });
+              if (path) {
+                try {
+                  const project = await importProjectBundle(path as string);
+                  selectProject(project.id);
+                  fetchProjects();
+                } catch (e) {
+                  showErrorToast("Failed to import bundle", e);
+                }
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-md transition-colors"
+            title="Import Bundle"
+          >
+            <Upload className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={() => setShowTemplate(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-md transition-colors"
             title={t("projects.newFromTemplate", "New from Template")}
@@ -120,9 +159,12 @@ export function ProjectList() {
               >
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-medium text-zinc-200 truncate">
-                      {project.name}
-                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-medium text-zinc-200 truncate">
+                        {project.name}
+                      </h3>
+                      <HealthPill score={healthScores[project.id]} />
+                    </div>
                     <p className="text-xs text-zinc-500 truncate mt-0.5">
                       {project.description}
                     </p>
@@ -210,5 +252,26 @@ export function ProjectList() {
         </div>
       )}
     </div>
+  );
+}
+
+function HealthPill({ score }: { score?: ProjectHealthScore }) {
+  if (!score) return null;
+  if (score.taskCount === 0) {
+    return (
+      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-zinc-700/50 text-zinc-500 flex-shrink-0">
+        N/A
+      </span>
+    );
+  }
+  const bg = score.overall >= 70
+    ? "bg-green-500/20 text-green-400"
+    : score.overall >= 40
+      ? "bg-amber-500/20 text-amber-400"
+      : "bg-red-500/20 text-red-400";
+  return (
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${bg}`}>
+      {score.overall}
+    </span>
   );
 }

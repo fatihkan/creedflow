@@ -11,11 +11,12 @@ import {
   Play,
   GitBranch,
   Download,
+  Archive,
 } from "lucide-react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useProjectStore } from "../../store/projectStore";
 import * as api from "../../tauri";
-import type { AgentTask, DetectedEditor } from "../../types/models";
+import type { AgentTask, DetectedEditor, ProjectHealthScore } from "../../types/models";
 import { ProjectTimeStats } from "./ProjectTimeStats";
 import { useTranslation } from "react-i18next";
 import { showErrorToast } from "../../hooks/useErrorToast";
@@ -34,6 +35,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
   const [currentBranch, setCurrentBranch] = useState<string | null>(null);
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
+  const [healthScore, setHealthScore] = useState<ProjectHealthScore | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +47,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
       .catch((e) => { if (!cancelled) showErrorToast("Failed to load tasks", e); })
       .finally(() => { if (!cancelled) setLoadingTasks(false); });
 
+    api.getProjectHealth(projectId).then((h) => { if (!cancelled) setHealthScore(h); }).catch(() => {});
     api.gitCurrentBranch(projectId).then((b) => { if (!cancelled) setCurrentBranch(b); }).catch(() => {});
     api.detectEditors().then((e) => { if (!cancelled) setEditors(e); }).catch(() => {});
     api.getPreferredEditor().then((e) => { if (!cancelled) setPreferredEditor(e); }).catch(() => {});
@@ -112,6 +115,9 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
           )}
         </div>
 
+        {/* Health score */}
+        {healthScore && <HealthScoreBadge score={healthScore} />}
+
         {/* Stats cards */}
         <div className="grid grid-cols-2 gap-2">
           <StatCard label={t("projectDetail.total")} value={totalTasks} icon={BarChart3} color="text-zinc-400" />
@@ -158,6 +164,21 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
             >
               <Download className="w-3.5 h-3.5" />
               ZIP
+            </button>
+            <button
+              onClick={async () => {
+                const path = await save({
+                  defaultPath: `${project.name}.creedflow`,
+                  filters: [{ name: "CreedFlow Bundle", extensions: ["creedflow"] }],
+                });
+                if (path) {
+                  api.exportProjectBundle(projectId, path).catch((e) => showErrorToast("Failed to export bundle", e));
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs bg-zinc-800 text-zinc-300 rounded-md hover:bg-zinc-700 transition-colors"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              Bundle
             </button>
           </div>
           {project.directoryPath && (
@@ -251,5 +272,59 @@ function StatusDot({ status }: { status: string }) {
   };
   return (
     <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors[status] || "bg-zinc-600"}`} />
+  );
+}
+
+function HealthScoreBadge({ score }: { score: ProjectHealthScore }) {
+  const getColor = () => {
+    if (score.taskCount === 0) return { ring: "text-zinc-600", bg: "bg-zinc-600", text: "text-zinc-400" };
+    if (score.overall >= 70) return { ring: "text-green-500", bg: "bg-green-500", text: "text-green-400" };
+    if (score.overall >= 40) return { ring: "text-amber-500", bg: "bg-amber-500", text: "text-amber-400" };
+    return { ring: "text-red-500", bg: "bg-red-500", text: "text-red-400" };
+  };
+  const c = getColor();
+  const pct = score.taskCount > 0 ? score.overall : 0;
+  const label = score.taskCount > 0 ? `${score.overall}` : "N/A";
+
+  return (
+    <div className="flex items-center gap-3 p-3 bg-zinc-800/40 rounded-lg border border-zinc-800/50">
+      {/* SVG ring */}
+      <div className="relative w-11 h-11 flex-shrink-0">
+        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+          <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="3" className="text-zinc-800" />
+          <circle
+            cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={`${pct} ${100 - pct}`}
+            className={c.ring}
+          />
+        </svg>
+        <span className={`absolute inset-0 flex items-center justify-center text-xs font-bold ${c.text}`}>
+          {label}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-medium text-zinc-500 uppercase">Health Score</p>
+        {score.taskCount > 0 ? (
+          <div className="flex gap-2 mt-1">
+            <MetricPill label="Pass" value={score.passRate} />
+            <MetricPill label="Quality" value={score.qualityScore} />
+            <MetricPill label="Deploy" value={score.deployRate} />
+            <MetricPill label="Recent" value={score.recency} />
+          </div>
+        ) : (
+          <p className="text-[10px] text-zinc-600 mt-0.5">No tasks yet</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MetricPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="text-center">
+      <p className="text-[10px] font-semibold text-zinc-300 font-mono">{Math.round(value * 100)}%</p>
+      <p className="text-[8px] text-zinc-600">{label}</p>
+    </div>
   );
 }

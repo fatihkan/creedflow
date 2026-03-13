@@ -24,6 +24,7 @@ import type {
   PromptVersion,
   ProjectTimeStats,
   ProjectTemplate,
+  ProjectHealthScore,
   TaskComment,
   PromptUsageRecord,
   AgentPersona,
@@ -67,8 +68,17 @@ export const getProjectTimeStats = (projectId: string) =>
 export const exportProjectZip = (projectId: string, outputPath: string) =>
   invoke<string>("export_project_zip", { projectId, outputPath });
 
+export const exportProjectBundle = (projectId: string, outputPath: string) =>
+  invoke<string>("export_project_bundle", { projectId, outputPath });
+
+export const importProjectBundle = (inputPath: string) =>
+  invoke<Project>("import_project_bundle", { inputPath });
+
 export const listProjectTemplates = () =>
   invoke<ProjectTemplate[]>("list_project_templates");
+
+export const getProjectHealth = (projectId: string) =>
+  invoke<ProjectHealthScore>("get_project_health", { projectId });
 
 export const createProjectFromTemplate = (templateId: string, name: string, description?: string, techStack?: string, directoryPath?: string) =>
   invoke<Project>("create_project_from_template", {
@@ -715,3 +725,57 @@ export const updateAgentPersona = (
 
 export const deleteAgentPersona = (id: string) =>
   invoke<void>("delete_agent_persona", { id });
+
+// ─── Issue Tracking ──────────────────────────────────────────────────────────
+
+import type { IssueTrackingConfig, IssueMapping } from "./types/models";
+
+export const listIssueConfigs = (projectId?: string) =>
+  invoke<IssueTrackingConfig[]>("list_issue_configs", { projectId: projectId ?? null });
+
+export const createIssueConfig = (
+  projectId: string,
+  provider: string,
+  name: string,
+  credentialsJson: string,
+  configJson: string,
+  syncBackEnabled: boolean,
+) =>
+  invoke<IssueTrackingConfig>("create_issue_config", {
+    projectId,
+    provider,
+    name,
+    credentialsJson,
+    configJson,
+    syncBackEnabled,
+  });
+
+export const updateIssueConfig = (
+  id: string,
+  projectId: string,
+  provider: string,
+  name: string,
+  credentialsJson: string,
+  configJson: string,
+  isEnabled: boolean,
+  syncBackEnabled: boolean,
+) =>
+  invoke<void>("update_issue_config", {
+    id,
+    projectId,
+    provider,
+    name,
+    credentialsJson,
+    configJson,
+    isEnabled,
+    syncBackEnabled,
+  });
+
+export const deleteIssueConfig = (id: string) =>
+  invoke<void>("delete_issue_config", { id });
+
+export const importIssues = (configId: string) =>
+  invoke<IssueMapping[]>("import_issues", { configId });
+
+export const listIssueMappings = (configId: string) =>
+  invoke<IssueMapping[]>("list_issue_mappings", { configId });
