@@ -14,6 +14,7 @@ import { PromptsLibrary } from "../prompts/PromptsLibrary";
 import { ProjectAssetsView } from "../assets/ProjectAssetsView";
 import { PublishingView } from "../publishing/PublishingView";
 import { BackendComparisonView } from "../agents/BackendComparisonView";
+import { AutomationFlowsPanel } from "../automation/AutomationFlowsPanel";
 
 interface ContentAreaProps {
   section: SidebarSection;
@@ -72,6 +73,8 @@ export function ContentArea({
         return <PublishingView />;
       case "compare":
         return <BackendComparisonView />;
+      case "automation":
+        return <AutomationFlowsPanel />;
       default:
         return <EmptyState message={t("content.selectSection")} />;
     }

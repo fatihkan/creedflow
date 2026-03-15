@@ -169,6 +169,16 @@ extension Orchestrator {
             try? await logInfo(taskId: task.id, agent: .devops,
                              message: "Local deployment completed on port \(port)")
 
+            // Automation flows: evaluate deploy_success trigger
+            await automationEngine.evaluateTrigger(
+                type: "deploy_success",
+                context: [
+                    "projectId": task.projectId.uuidString,
+                    "environment": deployment.environment.rawValue,
+                    "deploymentId": deployment.id.uuidString,
+                ]
+            )
+
             // After successful staging deploy, promote staging → main
             if deployment.environment == .staging {
                 _ = await branchManager.promoteStagingToMain(
@@ -184,6 +194,16 @@ extension Orchestrator {
             // Just log and spawn the fix task.
             try? await logError(taskId: task.id, agent: .devops,
                               message: "Failed to deploy: \(error.localizedDescription)")
+
+            // Automation flows: evaluate deploy_failed trigger
+            await automationEngine.evaluateTrigger(
+                type: "deploy_failed",
+                context: [
+                    "projectId": task.projectId.uuidString,
+                    "error": error.localizedDescription,
+                ]
+            )
+
             await handleLocalDeployFailure(task: task, error: error)
         }
     }

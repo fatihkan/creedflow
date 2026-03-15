@@ -54,6 +54,7 @@ final class Orchestrator {
     let backendScoringService: BackendScoringService
     let budgetMonitorService: BudgetMonitorService
     let issueSyncCoordinator: IssueSyncCoordinator
+    let automationEngine: AutomationEngine
 
     /// Agent types that require at least one creative MCP service to be configured
     private static let creativeAgentTypes: Set<AgentTask.AgentType> = [
@@ -112,6 +113,7 @@ final class Orchestrator {
         self.backendScoringService = BackendScoringService(dbQueue: dbQueue)
         self.budgetMonitorService = BudgetMonitorService(dbQueue: dbQueue, notificationService: self.notificationService)
         self.issueSyncCoordinator = IssueSyncCoordinator(dbQueue: dbQueue)
+        self.automationEngine = AutomationEngine(dbQueue: dbQueue)
 
         // Register backends (done after init to avoid capturing self before init completes)
         // All three are registered; BackendRouter checks isEnabled + isAvailable before selection.

@@ -13,11 +13,15 @@ public struct ContentView: View {
     @State private var chatServices: [UUID: ProjectChatService] = [:]
     @State private var telegramService = TelegramBotService()
     @State private var slackService = SlackNotificationService()
+    @State private var localWebServer: LocalWebServer?
     @State private var keyboardMonitor: Any?
     @State private var notificationViewModel: NotificationViewModel?
     @State private var showShortcutsOverlay = false
     @State private var updateInfo: UpdateInfo?
     @AppStorage("fontSizePreference") private var fontSizePreference = "normal"
+    @AppStorage("webhookServerEnabled") private var webhookEnabled = false
+    @AppStorage("webhookPort") private var webhookPort = "8080"
+    @AppStorage("webhookApiKey") private var webhookApiKey = ""
 
     public init() {}
 
@@ -129,6 +133,15 @@ public struct ContentView: View {
                 if !slackUrl.isEmpty {
                     slackService.configure(webhookUrl: slackUrl)
                 }
+
+                // Start local web dashboard if webhook server is enabled (#234)
+                if webhookEnabled {
+                    let port = UInt16(webhookPort) ?? 8080
+                    let key = webhookApiKey.isEmpty ? nil : webhookApiKey
+                    let server = LocalWebServer(port: port, apiKey: key, dbQueue: db.dbQueue)
+                    localWebServer = server
+                    await server.start()
+                }
             }
         }
         .task {
@@ -196,6 +209,7 @@ public struct ContentView: View {
             notificationViewModel?.stopObserving()
             Task {
                 await orchestrator?.stop()
+                await localWebServer?.stop()
             }
         }
     }
@@ -281,7 +295,8 @@ public struct ContentView: View {
             GitGraphView(appDatabase: appDatabase)
         case .compareBackends:
             CompareBackendsView(orchestrator: orchestrator)
-        //     AutomationFlowsView(appDatabase: appDatabase)
+        case .automation:
+            AutomationFlowsView(appDatabase: appDatabase)
         case .projectTasks(let projectId):
             TaskBoardView(
                 projectId: projectId,
@@ -386,5 +401,6 @@ enum SidebarSection: Hashable {
     case assets
     case gitGraph
     case compareBackends
+    case automation
     case projectTasks(UUID)
 }

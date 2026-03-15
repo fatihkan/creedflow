@@ -18,6 +18,7 @@ import {
   Circle,
   Bell,
   Radio,
+  Workflow,
 } from "lucide-react";
 import { useProjectStore } from "../../store/projectStore";
 import { useTaskStore } from "../../store/taskStore";
@@ -39,6 +40,7 @@ export type SidebarSection =
   | "gitHistory"
   | "assets"
   | "publishing"
+  | "automation"
   | "compare";
 
 interface SidebarProps {
@@ -179,6 +181,7 @@ export function Sidebar({ selected, onSelect }: SidebarProps) {
             <NavItem id="gitHistory" label={t("sidebar.gitHistory")} icon={GitBranch} selected={selected} onSelect={onSelect} />
             <NavItem id="deploys" label={t("sidebar.deployments")} icon={Rocket} selected={selected} onSelect={onSelect} />
             <NavItem id="publishing" label={t("sidebar.publishing")} icon={Radio} selected={selected} onSelect={onSelect} />
+            <NavItem id="automation" label="Automation" icon={Workflow} selected={selected} onSelect={onSelect} />
           </div>
         )}
 

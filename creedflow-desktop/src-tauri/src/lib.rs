@@ -261,6 +261,12 @@ pub fn run() {
             commands::issue_tracking::delete_issue_config,
             commands::issue_tracking::import_issues,
             commands::issue_tracking::list_issue_mappings,
+            // Automation
+            commands::automation::list_automation_flows,
+            commands::automation::create_automation_flow,
+            commands::automation::update_automation_flow,
+            commands::automation::delete_automation_flow,
+            commands::automation::toggle_automation_flow,
             // Updates
             commands::updates::check_for_updates,
         ])

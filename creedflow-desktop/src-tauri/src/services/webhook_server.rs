@@ -3,8 +3,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
-/// Simple HTTP server for webhook triggers.
-/// Routes: GET /api/status, POST /api/tasks, POST /api/webhooks/github
+/// Simple HTTP server for webhook triggers and local dashboard.
+/// Routes: GET /, GET /api/status, GET /api/projects, GET /api/projects/:id/tasks,
+///         GET /api/costs/summary, GET /api/health,
+///         POST /api/tasks, POST /api/webhooks/github
 pub struct WebhookServer {
     port: u16,
     api_key: Option<String>,
@@ -106,6 +108,20 @@ fn get_header<'a>(lines: &'a [&str], name: &str) -> Option<&'a str> {
         .map(|l| l[name.len() + 1..].trim())
 }
 
+/// Extract API key from query string (?key=...)
+fn get_query_param<'a>(path: &'a str, name: &str) -> Option<&'a str> {
+    let query = path.split('?').nth(1)?;
+    for pair in query.split('&') {
+        let mut kv = pair.splitn(2, '=');
+        if let (Some(k), Some(v)) = (kv.next(), kv.next()) {
+            if k == name {
+                return Some(v);
+            }
+        }
+    }
+    None
+}
+
 fn verify_github_signature(secret: &str, body: &str, signature: &str) -> bool {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
@@ -149,26 +165,54 @@ async fn handle_request(
     }
 
     let method = parts[0];
-    let path = parts[1];
+    let full_path = parts[1];
+    // Strip query string for route matching
+    let path = full_path.split('?').next().unwrap_or(full_path);
 
     // GitHub webhook path has its own auth (HMAC signature)
     let is_github_webhook = method == "POST" && path == "/api/webhooks/github";
 
-    // Check API key for non-GitHub routes
+    // Check API key for non-GitHub routes (header or query param)
     if !is_github_webhook {
         if let Some(key) = api_key {
             if !key.is_empty() {
                 let header_key = get_header(&lines, "x-api-key");
-                if header_key != Some(key.as_str()) {
+                let query_key = get_query_param(full_path, "key");
+                let authed = header_key == Some(key.as_str()) || query_key == Some(key.as_str());
+                if !authed {
                     return http_response(401, r#"{"error":"Unauthorized"}"#);
                 }
             }
         }
     }
 
+    // Dashboard route
+    if method == "GET" && (path == "/" || path == "/dashboard") {
+        return html_response(200, DASHBOARD_HTML);
+    }
+
+    // Project tasks route: /api/projects/:id/tasks
+    if method == "GET" && path.starts_with("/api/projects/") && path.ends_with("/tasks") {
+        let segments: Vec<&str> = path.split('/').collect();
+        // /api/projects/{id}/tasks -> ["", "api", "projects", "{id}", "tasks"]
+        if segments.len() == 5 {
+            let project_id = segments[3];
+            return handle_project_tasks(db, project_id).await;
+        }
+    }
+
     match (method, path) {
         ("GET", "/api/status") => {
             http_response(200, r#"{"status":"ok","version":"1.5.0"}"#)
+        }
+        ("GET", "/api/projects") => {
+            handle_list_projects(db).await
+        }
+        ("GET", "/api/costs/summary") => {
+            handle_cost_summary(db).await
+        }
+        ("GET", "/api/health") => {
+            handle_health(db).await
         }
         ("POST", "/api/tasks") => {
             let body = raw.split("\r\n\r\n").nth(1).unwrap_or("");
@@ -330,6 +374,148 @@ async fn handle_request(
     }
 }
 
+// MARK: - Dashboard API Handlers
+
+async fn handle_list_projects(db: &Arc<Mutex<crate::db::Database>>) -> String {
+    let db_guard = db.lock().await;
+    let mut stmt = match db_guard.conn.prepare(
+        "SELECT id, name, status, createdAt FROM project ORDER BY name"
+    ) {
+        Ok(s) => s,
+        Err(e) => return http_response(500, &format!(r#"{{"error":"{}"}}"#, e)),
+    };
+
+    let rows_result = stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let status: String = row.get(2)?;
+        let created_at: String = row.get(3)?;
+        Ok(format!(
+            r#"{{"id":"{}","name":"{}","status":"{}","createdAt":"{}"}}"#,
+            escape_json(&id),
+            escape_json(&name),
+            escape_json(&status),
+            escape_json(&created_at)
+        ))
+    });
+
+    let rows: Vec<String> = match rows_result {
+        Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+        Err(e) => return http_response(500, &format!(r#"{{"error":"{}"}}"#, e)),
+    };
+
+    let body = format!("[{}]", rows.join(","));
+    http_response(200, &body)
+}
+
+async fn handle_project_tasks(db: &Arc<Mutex<crate::db::Database>>, project_id: &str) -> String {
+    let db_guard = db.lock().await;
+    let mut stmt = match db_guard.conn.prepare(
+        "SELECT id, title, agentType, status, backend, durationMs, costUsd FROM agentTask WHERE projectId = ?1 ORDER BY createdAt DESC"
+    ) {
+        Ok(s) => s,
+        Err(e) => return http_response(500, &format!(r#"{{"error":"{}"}}"#, e)),
+    };
+
+    let rows_result = stmt.query_map(rusqlite::params![project_id], |row| {
+        let id: String = row.get(0)?;
+        let title: String = row.get(1)?;
+        let agent_type: String = row.get(2)?;
+        let status: String = row.get(3)?;
+        let backend: Option<String> = row.get(4)?;
+        let duration_ms: Option<i64> = row.get(5)?;
+        let cost_usd: Option<f64> = row.get(6)?;
+        Ok(format!(
+            r#"{{"id":"{}","title":"{}","agentType":"{}","status":"{}","backend":{},"durationMs":{},"costUsd":{}}}"#,
+            escape_json(&id),
+            escape_json(&title),
+            escape_json(&agent_type),
+            escape_json(&status),
+            backend.map(|b| format!("\"{}\"", escape_json(&b))).unwrap_or_else(|| "null".to_string()),
+            duration_ms.map(|d| d.to_string()).unwrap_or_else(|| "null".to_string()),
+            cost_usd.map(|c| format!("{:.4}", c)).unwrap_or_else(|| "null".to_string()),
+        ))
+    });
+
+    let rows: Vec<String> = match rows_result {
+        Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+        Err(e) => return http_response(500, &format!(r#"{{"error":"{}"}}"#, e)),
+    };
+
+    let body = format!("[{}]", rows.join(","));
+    http_response(200, &body)
+}
+
+async fn handle_cost_summary(db: &Arc<Mutex<crate::db::Database>>) -> String {
+    let db_guard = db.lock().await;
+    let result = db_guard.conn.query_row(
+        "SELECT COALESCE(SUM(costUsd), 0), COUNT(*), COALESCE(SUM(inputTokens + outputTokens), 0) FROM costTracking",
+        [],
+        |row| {
+            let total_cost: f64 = row.get(0)?;
+            let total_tasks: i64 = row.get(1)?;
+            let total_tokens: i64 = row.get(2)?;
+            Ok(format!(
+                r#"{{"totalCost":{:.4},"totalTasks":{},"totalTokens":{}}}"#,
+                total_cost, total_tasks, total_tokens
+            ))
+        },
+    );
+
+    match result {
+        Ok(body) => http_response(200, &body),
+        Err(_) => http_response(200, r#"{"totalCost":0,"totalTasks":0,"totalTokens":0}"#),
+    }
+}
+
+async fn handle_health(db: &Arc<Mutex<crate::db::Database>>) -> String {
+    let db_guard = db.lock().await;
+    let mut stmt = match db_guard.conn.prepare(
+        "SELECT targetName, status, errorMessage, checkedAt FROM healthEvent WHERE targetType = 'backend' ORDER BY checkedAt DESC"
+    ) {
+        Ok(s) => s,
+        Err(_) => return http_response(200, r#"{"backends":[]}"#),
+    };
+
+    // Collect latest status per backend
+    let mut seen = std::collections::HashSet::new();
+    let mut rows: Vec<String> = Vec::new();
+
+    let mapped = stmt.query_map([], |row| {
+        let name: String = row.get(0)?;
+        let status: String = row.get(1)?;
+        let error: Option<String> = row.get(2)?;
+        let checked_at: String = row.get(3)?;
+        Ok((name, status, error, checked_at))
+    });
+
+    if let Ok(iter) = mapped {
+        for r in iter.flatten() {
+            if seen.insert(r.0.clone()) {
+                rows.push(format!(
+                    r#"{{"name":"{}","status":"{}","error":{},"checkedAt":"{}"}}"#,
+                    escape_json(&r.0),
+                    escape_json(&r.1),
+                    r.2.map(|e| format!("\"{}\"", escape_json(&e))).unwrap_or_else(|| "null".to_string()),
+                    escape_json(&r.3),
+                ));
+            }
+        }
+    }
+
+    let body = format!(r#"{{"backends":[{}]}}"#, rows.join(","));
+    http_response(200, &body)
+}
+
+/// Escape special characters for JSON string values
+fn escape_json(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
+}
+
 fn http_response(status: u16, body: &str) -> String {
     let status_text = match status {
         200 => "OK",
@@ -337,6 +523,7 @@ fn http_response(status: u16, body: &str) -> String {
         400 => "Bad Request",
         401 => "Unauthorized",
         404 => "Not Found",
+        413 => "Payload Too Large",
         500 => "Internal Server Error",
         _ => "Unknown",
     };
@@ -345,3 +532,249 @@ fn http_response(status: u16, body: &str) -> String {
         status, status_text, body.len(), body
     )
 }
+
+fn html_response(status: u16, body: &str) -> String {
+    let status_text = match status {
+        200 => "OK",
+        404 => "Not Found",
+        _ => "Unknown",
+    };
+    format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        status, status_text, body.len(), body
+    )
+}
+
+// MARK: - Embedded Dashboard HTML
+
+const DASHBOARD_HTML: &str = r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CreedFlow Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#18181b;color:#e4e4e7;min-height:100vh}
+a{color:#a78bfa;text-decoration:none}
+.header{background:#27272a;border-bottom:1px solid #3f3f46;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:20px;font-weight:700;color:#f4f4f5}
+.header .subtitle{font-size:13px;color:#71717a;margin-left:12px}
+.header .refresh{font-size:12px;color:#71717a}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px}
+.card{background:#27272a;border:1px solid #3f3f46;border-radius:8px;padding:16px}
+.card h3{font-size:13px;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.card .value{font-size:28px;font-weight:700;color:#f4f4f5}
+.card .unit{font-size:14px;color:#71717a;margin-left:4px}
+.projects{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.project-card{background:#27272a;border:1px solid #3f3f46;border-radius:8px;padding:16px;cursor:pointer;transition:border-color 0.15s}
+.project-card:hover{border-color:#a78bfa}
+.project-card.selected{border-color:#a78bfa;background:#2e1065}
+.project-card .name{font-size:15px;font-weight:600;color:#f4f4f5;margin-bottom:4px}
+.project-card .meta{font-size:12px;color:#71717a}
+.badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;text-transform:uppercase}
+.badge-planning{background:#3b0764;color:#c084fc}
+.badge-active{background:#064e3b;color:#6ee7b7}
+.badge-in_progress,.badge-inProgress{background:#1e3a5f;color:#7dd3fc}
+.badge-completed{background:#065f46;color:#6ee7b7}
+.badge-queued{background:#422006;color:#fdba74}
+.badge-passed{background:#065f46;color:#6ee7b7}
+.badge-failed{background:#7f1d1d;color:#fca5a5}
+.badge-needs_revision,.badge-needsRevision{background:#78350f;color:#fcd34d}
+.badge-cancelled{background:#3f3f46;color:#a1a1aa}
+.badge-healthy{background:#065f46;color:#6ee7b7}
+.badge-unhealthy{background:#7f1d1d;color:#fca5a5}
+.badge-unknown{background:#3f3f46;color:#a1a1aa}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 12px;font-size:12px;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #3f3f46}
+td{padding:8px 12px;font-size:13px;border-bottom:1px solid #27272a}
+.task-table{background:#27272a;border:1px solid #3f3f46;border-radius:8px;overflow:hidden}
+.task-table .header-row{font-size:15px;font-weight:600;padding:12px 16px;border-bottom:1px solid #3f3f46;color:#f4f4f5;display:flex;align-items:center;justify-content:space-between}
+.health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:16px}
+.health-item{background:#27272a;border:1px solid #3f3f46;border-radius:6px;padding:10px 12px;display:flex;align-items:center;gap:8px}
+.health-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.health-dot.healthy{background:#6ee7b7}
+.health-dot.unhealthy{background:#fca5a5}
+.health-dot.unknown{background:#71717a}
+.empty{text-align:center;padding:32px;color:#71717a;font-size:14px}
+.section-title{font-size:16px;font-weight:600;color:#f4f4f5;margin-bottom:12px}
+@media(max-width:768px){.grid{grid-template-columns:1fr}.projects{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:baseline">
+    <h1>CreedFlow Dashboard</h1>
+    <span class="subtitle">Local Web Dashboard</span>
+  </div>
+  <span class="refresh" id="refresh-status">Auto-refresh: 30s</span>
+</div>
+<div class="container">
+  <!-- Cost Summary -->
+  <div class="grid" id="cost-grid">
+    <div class="card"><h3>Total Cost</h3><div class="value" id="total-cost">-</div></div>
+    <div class="card"><h3>Total Tasks</h3><div class="value" id="total-tasks">-</div></div>
+    <div class="card"><h3>Total Tokens</h3><div class="value" id="total-tokens">-</div></div>
+  </div>
+
+  <!-- Projects -->
+  <div class="section-title">Projects</div>
+  <div class="projects" id="project-list"></div>
+
+  <!-- Tasks Table -->
+  <div id="task-section" style="display:none">
+    <div class="task-table">
+      <div class="header-row">
+        <span id="task-title">Tasks</span>
+        <span style="font-size:12px;color:#71717a;font-weight:400" id="task-count"></span>
+      </div>
+      <table>
+        <thead><tr><th>Title</th><th>Agent</th><th>Status</th><th>Backend</th><th>Duration</th><th>Cost</th></tr></thead>
+        <tbody id="task-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="task-empty" style="display:none" class="empty">Select a project to view its tasks</div>
+
+  <!-- Health -->
+  <div style="margin-top:24px">
+    <div class="section-title">Backend Health</div>
+    <div class="health-grid" id="health-grid"></div>
+  </div>
+</div>
+<script>
+(function(){
+  const API_KEY = new URLSearchParams(window.location.search).get('key') || '';
+  const headers = API_KEY ? {'X-API-Key': API_KEY} : {};
+  let selectedProject = null;
+
+  function apiFetch(path) {
+    const sep = path.includes('?') ? '&' : '?';
+    const url = API_KEY ? path + sep + 'key=' + encodeURIComponent(API_KEY) : path;
+    return fetch(url, {headers}).then(r => r.json()).catch(() => null);
+  }
+
+  function formatCost(v) {
+    if (v == null) return '-';
+    return '$' + Number(v).toFixed(2);
+  }
+
+  function formatTokens(v) {
+    if (v == null || v === 0) return '0';
+    if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+    if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+    return String(v);
+  }
+
+  function formatDuration(ms) {
+    if (ms == null) return '-';
+    if (ms < 1000) return ms + 'ms';
+    var s = ms / 1000;
+    if (s < 60) return s.toFixed(1) + 's';
+    return (s / 60).toFixed(1) + 'm';
+  }
+
+  function badgeClass(status) {
+    return 'badge badge-' + (status || 'unknown').replace(/_/g, '');
+  }
+
+  async function loadCosts() {
+    var data = await apiFetch('/api/costs/summary');
+    if (!data) return;
+    document.getElementById('total-cost').textContent = formatCost(data.totalCost);
+    document.getElementById('total-tasks').textContent = String(data.totalTasks);
+    document.getElementById('total-tokens').textContent = formatTokens(data.totalTokens);
+  }
+
+  async function loadProjects() {
+    var data = await apiFetch('/api/projects');
+    if (!data) return;
+    var container = document.getElementById('project-list');
+    if (data.length === 0) {
+      container.innerHTML = '<div class="empty" style="grid-column:1/-1">No projects yet</div>';
+      return;
+    }
+    container.innerHTML = data.map(function(p) {
+      var sel = selectedProject === p.id ? ' selected' : '';
+      return '<div class="project-card' + sel + '" data-id="' + p.id + '" onclick="window._selectProject(\'' + p.id + '\',\'' + p.name.replace(/'/g, "\\'") + '\')">' +
+        '<div class="name">' + escapeHtml(p.name) + '</div>' +
+        '<div class="meta"><span class="' + badgeClass(p.status) + '">' + p.status + '</span> &middot; ' + p.createdAt + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  async function loadTasks(projectId, projectName) {
+    var section = document.getElementById('task-section');
+    var empty = document.getElementById('task-empty');
+    if (!projectId) {
+      section.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+    var data = await apiFetch('/api/projects/' + projectId + '/tasks');
+    if (!data) return;
+    section.style.display = 'block';
+    empty.style.display = 'none';
+    document.getElementById('task-title').textContent = (projectName || 'Project') + ' Tasks';
+    document.getElementById('task-count').textContent = data.length + ' tasks';
+    var tbody = document.getElementById('task-body');
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#71717a;padding:24px">No tasks</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(function(t) {
+      return '<tr>' +
+        '<td>' + escapeHtml(t.title) + '</td>' +
+        '<td>' + (t.agentType || '-') + '</td>' +
+        '<td><span class="' + badgeClass(t.status) + '">' + (t.status || '-') + '</span></td>' +
+        '<td>' + (t.backend || '-') + '</td>' +
+        '<td>' + formatDuration(t.durationMs) + '</td>' +
+        '<td>' + formatCost(t.costUsd) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  async function loadHealth() {
+    var data = await apiFetch('/api/health');
+    if (!data || !data.backends) return;
+    var grid = document.getElementById('health-grid');
+    if (data.backends.length === 0) {
+      grid.innerHTML = '<div class="empty">No health data</div>';
+      return;
+    }
+    grid.innerHTML = data.backends.map(function(b) {
+      return '<div class="health-item">' +
+        '<div class="health-dot ' + (b.status || 'unknown') + '"></div>' +
+        '<div><div style="font-size:13px;font-weight:600">' + escapeHtml(b.name) + '</div>' +
+        '<div style="font-size:11px;color:#71717a">' + (b.status || 'unknown') + '</div></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function escapeHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window._selectProject = function(id, name) {
+    selectedProject = id;
+    loadProjects();
+    loadTasks(id, name);
+  };
+
+  async function refresh() {
+    await Promise.all([loadCosts(), loadProjects(), loadHealth()]);
+    if (selectedProject) {
+      var card = document.querySelector('.project-card[data-id="' + selectedProject + '"]');
+      var name = card ? card.querySelector('.name').textContent : '';
+      await loadTasks(selectedProject, name);
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 30000);
+})();
+</script>
+</body>
+</html>"##;

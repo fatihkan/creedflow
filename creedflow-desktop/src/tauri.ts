@@ -742,7 +742,7 @@ export const deleteAgentPersona = (id: string) =>
 
 // ─── Issue Tracking ──────────────────────────────────────────────────────────
 
-import type { IssueTrackingConfig, IssueMapping } from "./types/models";
+import type { IssueTrackingConfig, IssueMapping, AutomationFlow } from "./types/models";
 
 export const listIssueConfigs = (projectId?: string) =>
   invoke<IssueTrackingConfig[]>("list_issue_configs", { projectId: projectId ?? null });
@@ -793,3 +793,23 @@ export const importIssues = (configId: string) =>
 
 export const listIssueMappings = (configId: string) =>
   invoke<IssueMapping[]>("list_issue_mappings", { configId });
+
+// ─── Automation Flows ────────────────────────────────────────────────────────
+
+export const listAutomationFlows = (projectId?: string) =>
+  invoke<AutomationFlow[]>("list_automation_flows", { projectId: projectId ?? null });
+
+export const createAutomationFlow = (flow: Omit<AutomationFlow, "id" | "createdAt" | "updatedAt" | "lastTriggeredAt">) =>
+  invoke<AutomationFlow>("create_automation_flow", { ...flow });
+
+export const updateAutomationFlow = (
+  id: string,
+  updates: Omit<AutomationFlow, "id" | "createdAt" | "updatedAt" | "lastTriggeredAt">,
+) =>
+  invoke<AutomationFlow>("update_automation_flow", { id, ...updates });
+
+export const deleteAutomationFlow = (id: string) =>
+  invoke<void>("delete_automation_flow", { id });
+
+export const toggleAutomationFlow = (id: string) =>
+  invoke<void>("toggle_automation_flow", { id });

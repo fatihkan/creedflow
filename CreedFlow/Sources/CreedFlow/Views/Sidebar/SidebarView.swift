@@ -74,6 +74,9 @@ struct SidebarView: View {
                     }
                     .badge(pendingDeployCount > 0 ? pendingDeployCount : 0)
                     .tag(SidebarSection.deploys)
+
+                    Label("Automation", systemImage: "bolt.horizontal.circle")
+                        .tag(SidebarSection.automation)
                 }
 
                 Section(L("sidebar.monitor")) {

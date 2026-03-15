@@ -45,6 +45,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (24, V24_AGENT_PERSONAS),
         (25, V25_CHAIN_CONDITIONS),
         (26, V26_ISSUE_TRACKING),
+        (27, V27_AUTOMATION_FLOWS),
     ];
 
     for (version, sql) in migrations {
@@ -583,4 +584,22 @@ CREATE TABLE IF NOT EXISTS issueMapping (
 CREATE INDEX IF NOT EXISTS idx_issueMapping_configId ON issueMapping(configId);
 CREATE INDEX IF NOT EXISTS idx_issueMapping_taskId ON issueMapping(taskId);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_issueMapping_config_issue ON issueMapping(configId, externalIssueId);
+"#;
+
+const V27_AUTOMATION_FLOWS: &str = r#"
+CREATE TABLE IF NOT EXISTS automationFlow (
+    id TEXT PRIMARY KEY NOT NULL,
+    projectId TEXT REFERENCES project(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    triggerType TEXT NOT NULL,
+    triggerConfig TEXT NOT NULL DEFAULT '{}',
+    actionType TEXT NOT NULL,
+    actionConfig TEXT NOT NULL DEFAULT '{}',
+    isEnabled INTEGER NOT NULL DEFAULT 1,
+    lastTriggeredAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_automationFlow_projectId ON automationFlow(projectId);
+CREATE INDEX IF NOT EXISTS idx_automationFlow_triggerType ON automationFlow(triggerType);
 "#;

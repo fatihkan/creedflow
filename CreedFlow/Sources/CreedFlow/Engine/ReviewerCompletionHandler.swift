@@ -102,6 +102,18 @@ extension Orchestrator {
             try? await logInfo(taskId: task.id, agent: .reviewer,
                              message: "Review completed: score=\(parsed.score), verdict=\(verdict.rawValue)")
 
+            // Automation flows: evaluate review triggers
+            let reviewTriggerType = verdict == .pass ? "review_passed" : "review_failed"
+            await automationEngine.evaluateTrigger(
+                type: reviewTriggerType,
+                context: [
+                    "projectId": task.projectId.uuidString,
+                    "taskId": task.id.uuidString,
+                    "score": String(parsed.score),
+                    "verdict": verdict.rawValue,
+                ]
+            )
+
             // Telegram notification: review completed
             let reviewForNotification = Review(
                 taskId: task.id, score: parsed.score, verdict: verdict,

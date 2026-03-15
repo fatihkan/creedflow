@@ -215,7 +215,11 @@ public struct SettingsView: View {
                     }
                     SecureField("API Key (optional)", text: $webhookApiKey)
                         .textFieldStyle(.roundedBorder)
-                    Text("Endpoints: GET /api/status, POST /api/tasks")
+                    Text("Dashboard: http://localhost:\(webhookPort)/")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    Text("API: /api/status, /api/projects, /api/projects/:id/tasks, /api/costs/summary, /api/health")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

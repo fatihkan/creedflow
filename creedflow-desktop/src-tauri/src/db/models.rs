@@ -1981,3 +1981,105 @@ impl IssueMapping {
         Ok(())
     }
 }
+
+// ─── Automation Flow ────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationFlow {
+    pub id: String,
+    pub project_id: Option<String>,
+    pub name: String,
+    pub trigger_type: String,
+    pub trigger_config: String,
+    pub action_type: String,
+    pub action_config: String,
+    pub is_enabled: bool,
+    pub last_triggered_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AutomationFlow {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            project_id: row.get("projectId")?,
+            name: row.get("name")?,
+            trigger_type: row.get("triggerType")?,
+            trigger_config: row.get("triggerConfig")?,
+            action_type: row.get("actionType")?,
+            action_config: row.get("actionConfig")?,
+            is_enabled: row.get::<_, i32>("isEnabled")? != 0,
+            last_triggered_at: row.get("lastTriggeredAt")?,
+            created_at: row.get("createdAt")?,
+            updated_at: row.get("updatedAt")?,
+        })
+    }
+
+    pub fn all(conn: &Connection) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM automationFlow ORDER BY name")?;
+        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn all_for_project(conn: &Connection, project_id: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM automationFlow WHERE projectId = ?1 OR projectId IS NULL ORDER BY name"
+        )?;
+        let rows = stmt.query_map([project_id], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn get(conn: &Connection, id: &str) -> rusqlite::Result<Option<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM automationFlow WHERE id = ?1")?;
+        let mut rows = stmt.query_map([id], |row| Self::from_row(row))?;
+        match rows.next() {
+            Some(Ok(flow)) => Ok(Some(flow)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
+        }
+    }
+
+    pub fn insert(conn: &Connection, flow: &AutomationFlow) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO automationFlow (id, projectId, name, triggerType, triggerConfig, actionType, actionConfig, isEnabled, lastTriggeredAt, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                flow.id, flow.project_id, flow.name, flow.trigger_type,
+                flow.trigger_config, flow.action_type, flow.action_config,
+                flow.is_enabled as i32, flow.last_triggered_at,
+                flow.created_at, flow.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn update(conn: &Connection, flow: &AutomationFlow) -> rusqlite::Result<()> {
+        conn.execute(
+            "UPDATE automationFlow SET projectId = ?2, name = ?3, triggerType = ?4,
+             triggerConfig = ?5, actionType = ?6, actionConfig = ?7,
+             isEnabled = ?8, lastTriggeredAt = ?9, updatedAt = ?10
+             WHERE id = ?1",
+            params![
+                flow.id, flow.project_id, flow.name, flow.trigger_type,
+                flow.trigger_config, flow.action_type, flow.action_config,
+                flow.is_enabled as i32, flow.last_triggered_at, flow.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute("DELETE FROM automationFlow WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn toggle(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute(
+            "UPDATE automationFlow SET isEnabled = CASE WHEN isEnabled = 1 THEN 0 ELSE 1 END, updatedAt = datetime('now') WHERE id = ?1",
+            [id],
+        )?;
+        Ok(())
+    }
+}

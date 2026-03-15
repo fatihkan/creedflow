@@ -18,3 +18,4 @@ pub mod database;
 pub mod updates;
 pub mod personas;
 pub mod issue_tracking;
+pub mod automation;

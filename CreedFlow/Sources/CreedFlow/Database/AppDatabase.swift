@@ -726,6 +726,25 @@ public struct AppDatabase {
             )
         }
 
+        // v27: Automation flows
+        migrator.registerMigration("v27_automation_flows") { db in
+            try db.create(table: "automationFlow") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("projectId", .text).references("project", onDelete: .cascade)
+                t.column("name", .text).notNull()
+                t.column("triggerType", .text).notNull()
+                t.column("triggerConfig", .text).notNull().defaults(to: "{}")
+                t.column("actionType", .text).notNull()
+                t.column("actionConfig", .text).notNull().defaults(to: "{}")
+                t.column("isEnabled", .boolean).notNull().defaults(to: true)
+                t.column("lastTriggeredAt", .datetime)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+            try db.create(index: "automationFlow_on_projectId", on: "automationFlow", columns: ["projectId"])
+            try db.create(index: "automationFlow_on_triggerType", on: "automationFlow", columns: ["triggerType"])
+        }
+
         return migrator
     }
 }

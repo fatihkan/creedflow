@@ -654,6 +654,37 @@ export interface IssueMapping {
   createdAt: string;
 }
 
+// ─── Automation Flows ────────────────────────────────────────────────────────
+
+export type AutomationTrigger =
+  | "task_completed"
+  | "task_failed"
+  | "deploy_success"
+  | "deploy_failed"
+  | "review_passed"
+  | "review_failed"
+  | "schedule";
+
+export type AutomationAction =
+  | "create_task"
+  | "send_notification"
+  | "run_command"
+  | "deploy";
+
+export interface AutomationFlow {
+  id: string;
+  projectId: string | null;
+  name: string;
+  triggerType: AutomationTrigger;
+  triggerConfig: string;
+  actionType: AutomationAction;
+  actionConfig: string;
+  isEnabled: boolean;
+  lastTriggeredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Agent Persona ──────────────────────────────────────────────────────────
 
 export interface AgentPersona {
