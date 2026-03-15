@@ -102,6 +102,8 @@ pub fn run() {
             commands::projects::create_project_from_template,
             commands::projects::get_project_health,
             commands::projects::get_project_forecast,
+            commands::projects::list_project_diagrams,
+            commands::projects::get_diagram_content,
             // Tasks
             commands::tasks::list_tasks,
             commands::tasks::get_task,

@@ -85,6 +85,12 @@ export const getProjectHealth = (projectId: string) =>
 export const getProjectForecast = (projectId: string) =>
   invoke<ProjectForecast>("get_project_forecast", { projectId });
 
+export const listProjectDiagrams = (projectId: string) =>
+  invoke<{ name: string; path: string }[]>("list_project_diagrams", { projectId });
+
+export const getDiagramContent = (path: string) =>
+  invoke<string>("get_diagram_content", { path });
+
 export const createProjectFromTemplate = (templateId: string, name: string, description?: string, techStack?: string, directoryPath?: string) =>
   invoke<Project>("create_project_from_template", {
     templateId,

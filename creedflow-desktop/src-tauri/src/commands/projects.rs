@@ -1012,6 +1012,54 @@ pub async fn get_project_forecast(
     })
 }
 
+// ─── Diagram Commands ────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagramInfo {
+    pub name: String,
+    pub path: String,
+}
+
+#[tauri::command]
+pub async fn list_project_diagrams(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> Result<Vec<DiagramInfo>, String> {
+    let db = state.db.lock().await;
+    let project = Project::get(&db.conn, &project_id).map_err(|e| e.to_string())?;
+    let diagrams_dir = std::path::PathBuf::from(&project.directory_path).join("docs").join("diagrams");
+
+    if !diagrams_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut result = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&diagrams_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("mmd") {
+                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                    result.push(DiagramInfo {
+                        name: name.replace('-', " ").replace('_', " "),
+                        path: path.to_string_lossy().to_string(),
+                    });
+                }
+            }
+        }
+    }
+    result.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn get_diagram_content(
+    path: String,
+) -> Result<String, String> {
+    validate_path_no_traversal(&path)?;
+    std::fs::read_to_string(&path).map_err(|e| format!("Failed to read diagram: {}", e))
+}
+
 fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {

@@ -17,6 +17,7 @@ import { BackendBadge } from "../shared/BackendBadge";
 import { AgentTypeBadge } from "../shared/AgentTypeBadge";
 import { RevisionPromptSection } from "../tasks/RevisionPromptSection";
 import { TerminalOutput } from "../shared/TerminalOutput";
+import { CodeDiffViewer, containsUnifiedDiff } from "../shared/CodeDiffViewer";
 import { TaskComments } from "../tasks/TaskComments";
 import { TaskPromptHistory } from "../tasks/TaskPromptHistory";
 import * as api from "../../tauri";
@@ -189,19 +190,7 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
         )}
 
         {tab === "output" && (
-          <div>
-            {(task.result || isRunning) ? (
-              <TerminalOutput
-                taskId={task.id}
-                initialContent={task.result ?? undefined}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
-                <Terminal className="w-8 h-8 mb-2 opacity-50" />
-                <p className="text-xs">{t("tasks.detail.noOutput")}</p>
-              </div>
-            )}
-          </div>
+          <OutputTab task={task} isRunning={isRunning} />
         )}
 
         {tab === "reviews" && (
@@ -225,6 +214,51 @@ export function DetailPanel({ onClose }: DetailPanelProps) {
 
         {tab === "prompts" && <TaskPromptHistory taskId={task.id} />}
       </div>
+    </div>
+  );
+}
+
+/* ─── Output Tab (diff detection) ─── */
+
+function OutputTab({ task, isRunning }: { task: { id: string; result?: string | null; agentType: string }; isRunning: boolean }) {
+  const { t } = useTranslation();
+  const hasDiff = task.result ? containsUnifiedDiff(task.result) : false;
+  const [showDiff, setShowDiff] = useState(hasDiff);
+
+  useEffect(() => {
+    setShowDiff(task.result ? containsUnifiedDiff(task.result) : false);
+  }, [task.id, task.result]);
+
+  if (!task.result && !isRunning) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
+        <Terminal className="w-8 h-8 mb-2 opacity-50" />
+        <p className="text-xs">{t("tasks.detail.noOutput")}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {hasDiff && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDiff(!showDiff)}
+            className={`text-[10px] px-2 py-1 rounded font-medium transition-colors ${
+              showDiff
+                ? "bg-blue-500/20 text-blue-400"
+                : "bg-zinc-800 text-zinc-400 hover:text-zinc-300"
+            }`}
+          >
+            {showDiff ? "Diff View" : "Raw Output"}
+          </button>
+        </div>
+      )}
+      {showDiff && task.result ? (
+        <CodeDiffViewer content={task.result} />
+      ) : (
+        <TerminalOutput taskId={task.id} initialContent={task.result ?? undefined} />
+      )}
     </div>
   );
 }

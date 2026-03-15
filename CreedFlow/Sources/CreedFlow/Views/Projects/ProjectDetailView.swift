@@ -85,6 +85,10 @@ struct ProjectDetailView: View {
                     ProjectForecastView(projectId: projectId, appDatabase: appDatabase)
                         .loadForecast()
 
+                    // Mermaid diagrams
+                    ProjectDiagramsView(projectDirectoryPath: project.directoryPath)
+                        .loadDiagrams()
+
                     if let errorMessage {
                         ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                     }

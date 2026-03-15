@@ -18,6 +18,7 @@ import { useProjectStore } from "../../store/projectStore";
 import * as api from "../../tauri";
 import type { AgentTask, DetectedEditor, ProjectHealthScore, ProjectForecast } from "../../types/models";
 import { ProjectTimeStats } from "./ProjectTimeStats";
+import { ProjectDiagramsPanel } from "../shared/MermaidViewer";
 import { useTranslation } from "react-i18next";
 import { showErrorToast } from "../../hooks/useErrorToast";
 
@@ -135,6 +136,9 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
         {forecast && forecast.totalTasks > 0 && (
           <ForecastWidget forecast={forecast} />
         )}
+
+        {/* Diagrams */}
+        <ProjectDiagramsPanel projectId={projectId} />
 
         {/* Branch info */}
         {currentBranch && (

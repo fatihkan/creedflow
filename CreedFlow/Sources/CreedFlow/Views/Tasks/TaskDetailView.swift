@@ -126,6 +126,15 @@ struct TaskDetailView: View {
                         .font(.subheadline.bold())
                     }
 
+                    // Inline diff viewer (auto-detected in log output)
+                    if let diffText = extractDiffFromLogs(), CodeDiffView.containsUnifiedDiff(diffText) {
+                        DisclosureGroup("Code Diff") {
+                            CodeDiffView(text: diffText)
+                                .textSelection(.enabled)
+                        }
+                        .font(.subheadline.bold())
+                    }
+
                     // Error display
                     if let error = task.errorMessage {
                         VStack(alignment: .leading, spacing: 4) {
@@ -372,6 +381,12 @@ struct TaskDetailView: View {
         .padding(6)
         .background(Color.gray.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    /// Concatenates all log messages and returns text if it contains a unified diff.
+    private func extractDiffFromLogs() -> String? {
+        let combined = logs.map(\.message).joined(separator: "\n")
+        return combined.isEmpty ? nil : combined
     }
 
     // MARK: - Data Observation

@@ -619,7 +619,8 @@ struct KanbanColumnView: View {
                                     isSelected: selectedTaskId == task.id,
                                     isRunning: orchestrator?.runner(for: task.id) != nil,
                                     onMoveTask: onMoveTask,
-                                    onDuplicateTask: onDuplicateTask
+                                    onDuplicateTask: onDuplicateTask,
+                                    runner: orchestrator?.runner(for: task.id)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
@@ -665,8 +666,10 @@ struct TaskCardView: View {
     var isRunning: Bool = false
     let onMoveTask: (UUID, AgentTask.Status) -> Void
     var onDuplicateTask: ((UUID) -> Void)?
+    var runner: MultiBackendRunner?
 
     @State private var isHovered = false
+    @State private var showPeek = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -693,6 +696,27 @@ struct TaskCardView: View {
                 Spacer()
 
                 if isRunning {
+                    Button {
+                        showPeek.toggle()
+                    } label: {
+                        Image(systemName: "eye")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Peek at live output")
+                    .popover(isPresented: $showPeek) {
+                        if let runner {
+                            TerminalOutputView(runner: runner)
+                                .frame(width: 400, height: 250)
+                        } else {
+                            Text("No output available")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                        }
+                    }
+
                     ProgressView()
                         .scaleEffect(0.5)
                         .frame(width: 14, height: 14)
