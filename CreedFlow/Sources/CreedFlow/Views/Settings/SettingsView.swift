@@ -102,6 +102,9 @@ public struct SettingsView: View {
 
             PersonasSettingsView(appDatabase: appDatabase)
                 .tabItem { Label(L("settings.personas"), systemImage: "person.badge.shield.checkmark") }
+
+            IntegrationsSettingsView(appDatabase: appDatabase)
+                .tabItem { Label("Integrations", systemImage: "link") }
         }
         .frame(width: 600, height: 640)
         .task {

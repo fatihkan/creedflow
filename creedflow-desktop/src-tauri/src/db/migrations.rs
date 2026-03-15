@@ -44,6 +44,7 @@ pub fn run_all(conn: &Connection) -> Result<(), rusqlite::Error> {
         (23, V23_BACKEND_SCORING_AND_BUDGETS),
         (24, V24_AGENT_PERSONAS),
         (25, V25_CHAIN_CONDITIONS),
+        (26, V26_ISSUE_TRACKING),
     ];
 
     for (version, sql) in migrations {
@@ -548,4 +549,38 @@ VALUES (lower(hex(randomblob(16))), 'Technical Writer', 'Clear documentation, AP
 const V25_CHAIN_CONDITIONS: &str = r#"
 ALTER TABLE promptChainStep ADD COLUMN condition TEXT;
 ALTER TABLE promptChainStep ADD COLUMN onFailStepOrder INTEGER;
+"#;
+
+const V26_ISSUE_TRACKING: &str = r#"
+CREATE TABLE IF NOT EXISTS issueTrackingConfig (
+    id TEXT PRIMARY KEY NOT NULL,
+    projectId TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    name TEXT NOT NULL,
+    credentialsJSON TEXT NOT NULL DEFAULT '{}',
+    configJSON TEXT NOT NULL DEFAULT '{}',
+    isEnabled INTEGER NOT NULL DEFAULT 1,
+    syncBackEnabled INTEGER NOT NULL DEFAULT 0,
+    lastSyncAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_issueTrackingConfig_projectId ON issueTrackingConfig(projectId);
+
+CREATE TABLE IF NOT EXISTS issueMapping (
+    id TEXT PRIMARY KEY NOT NULL,
+    configId TEXT NOT NULL REFERENCES issueTrackingConfig(id) ON DELETE CASCADE,
+    taskId TEXT NOT NULL REFERENCES agentTask(id) ON DELETE CASCADE,
+    externalIssueId TEXT NOT NULL,
+    externalIdentifier TEXT NOT NULL,
+    externalUrl TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'imported',
+    lastSyncedAt TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_issueMapping_configId ON issueMapping(configId);
+CREATE INDEX IF NOT EXISTS idx_issueMapping_taskId ON issueMapping(taskId);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_issueMapping_config_issue ON issueMapping(configId, externalIssueId);
 "#;

@@ -53,6 +53,7 @@ final class Orchestrator {
     let mcpHealthMonitor: MCPHealthMonitor
     let backendScoringService: BackendScoringService
     let budgetMonitorService: BudgetMonitorService
+    let issueSyncCoordinator: IssueSyncCoordinator
 
     /// Agent types that require at least one creative MCP service to be configured
     private static let creativeAgentTypes: Set<AgentTask.AgentType> = [
@@ -110,6 +111,7 @@ final class Orchestrator {
         self.mcpHealthMonitor = MCPHealthMonitor(dbQueue: dbQueue, notificationService: self.notificationService)
         self.backendScoringService = BackendScoringService(dbQueue: dbQueue)
         self.budgetMonitorService = BudgetMonitorService(dbQueue: dbQueue, notificationService: self.notificationService)
+        self.issueSyncCoordinator = IssueSyncCoordinator(dbQueue: dbQueue)
 
         // Register backends (done after init to avoid capturing self before init completes)
         // All three are registered; BackendRouter checks isEnabled + isAvailable before selection.
@@ -582,6 +584,9 @@ final class Orchestrator {
         default:
             break
         }
+
+        // Sync task status back to external issue trackers (best-effort)
+        try? await issueSyncCoordinator.syncBack(taskId: task.id)
 
         // Universal auto-commit for non-coder tasks (coder has its own flow)
         if task.agentType != .coder {

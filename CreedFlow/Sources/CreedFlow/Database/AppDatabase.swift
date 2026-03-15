@@ -671,6 +671,61 @@ public struct AppDatabase {
             }
         }
 
+        // v25: Issue tracking integration (Linear, Jira)
+        migrator.registerMigration("v25_issue_tracking") { db in
+            try db.create(table: "issueTrackingConfig") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("projectId", .text).notNull()
+                    .references("project", onDelete: .cascade)
+                t.column("provider", .text).notNull()
+                t.column("name", .text).notNull()
+                t.column("credentialsJSON", .text).notNull().defaults(to: "{}")
+                t.column("configJSON", .text).notNull().defaults(to: "{}")
+                t.column("isEnabled", .boolean).notNull().defaults(to: true)
+                t.column("syncBackEnabled", .boolean).notNull().defaults(to: false)
+                t.column("lastSyncAt", .datetime)
+                t.column("createdAt", .datetime).notNull()
+                t.column("updatedAt", .datetime).notNull()
+            }
+
+            try db.create(
+                index: "issueTrackingConfig_on_projectId",
+                on: "issueTrackingConfig",
+                columns: ["projectId"]
+            )
+
+            try db.create(table: "issueMapping") { t in
+                t.primaryKey("id", .text).notNull()
+                t.column("configId", .text).notNull()
+                    .references("issueTrackingConfig", onDelete: .cascade)
+                t.column("taskId", .text).notNull()
+                    .references("agentTask", onDelete: .cascade)
+                t.column("externalIssueId", .text).notNull()
+                t.column("externalIdentifier", .text).notNull()
+                t.column("externalUrl", .text)
+                t.column("syncStatus", .text).notNull().defaults(to: "imported")
+                t.column("lastSyncedAt", .datetime)
+                t.column("createdAt", .datetime).notNull()
+            }
+
+            try db.create(
+                index: "issueMapping_on_configId",
+                on: "issueMapping",
+                columns: ["configId"]
+            )
+            try db.create(
+                index: "issueMapping_on_taskId",
+                on: "issueMapping",
+                columns: ["taskId"]
+            )
+            try db.create(
+                index: "issueMapping_unique_config_issue",
+                on: "issueMapping",
+                columns: ["configId", "externalIssueId"],
+                unique: true
+            )
+        }
+
         return migrator
     }
 }

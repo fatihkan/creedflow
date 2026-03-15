@@ -1502,6 +1502,19 @@ pub struct AgentTimeStat {
     pub task_count: i64,
 }
 
+// ─── Project Health Score ────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectHealthScore {
+    pub overall: i32,
+    pub pass_rate: f64,
+    pub quality_score: f64,
+    pub deploy_rate: f64,
+    pub recency: f64,
+    pub task_count: i64,
+}
+
 // ─── Project Template ───────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1817,6 +1830,154 @@ impl AgentPersona {
 
     pub fn delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
         conn.execute("DELETE FROM agentPersona WHERE id = ?1 AND isBuiltIn = 0", [id])?;
+        Ok(())
+    }
+}
+
+// ─── Issue Tracking Config ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueTrackingConfig {
+    pub id: String,
+    pub project_id: String,
+    pub provider: String,
+    pub name: String,
+    pub credentials_json: String,
+    pub config_json: String,
+    pub is_enabled: bool,
+    pub sync_back_enabled: bool,
+    pub last_sync_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl IssueTrackingConfig {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            project_id: row.get("projectId")?,
+            provider: row.get("provider")?,
+            name: row.get("name")?,
+            credentials_json: row.get("credentialsJSON")?,
+            config_json: row.get("configJSON")?,
+            is_enabled: row.get::<_, i32>("isEnabled")? != 0,
+            sync_back_enabled: row.get::<_, i32>("syncBackEnabled")? != 0,
+            last_sync_at: row.get("lastSyncAt")?,
+            created_at: row.get("createdAt")?,
+            updated_at: row.get("updatedAt")?,
+        })
+    }
+
+    pub fn all_for_project(conn: &Connection, project_id: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM issueTrackingConfig WHERE projectId = ?1 ORDER BY createdAt DESC"
+        )?;
+        let rows = stmt.query_map([project_id], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn all(conn: &Connection) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM issueTrackingConfig ORDER BY createdAt DESC")?;
+        let rows = stmt.query_map([], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn get(conn: &Connection, id: &str) -> rusqlite::Result<Option<Self>> {
+        let mut stmt = conn.prepare("SELECT * FROM issueTrackingConfig WHERE id = ?1")?;
+        let mut rows = stmt.query_map([id], |row| Self::from_row(row))?;
+        match rows.next() {
+            Some(Ok(config)) => Ok(Some(config)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
+        }
+    }
+
+    pub fn insert(conn: &Connection, config: &IssueTrackingConfig) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO issueTrackingConfig (id, projectId, provider, name, credentialsJSON, configJSON, isEnabled, syncBackEnabled, lastSyncAt, createdAt, updatedAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                config.id, config.project_id, config.provider, config.name,
+                config.credentials_json, config.config_json,
+                config.is_enabled as i32, config.sync_back_enabled as i32,
+                config.last_sync_at, config.created_at, config.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn update(conn: &Connection, config: &IssueTrackingConfig) -> rusqlite::Result<()> {
+        conn.execute(
+            "UPDATE issueTrackingConfig SET projectId = ?2, provider = ?3, name = ?4,
+             credentialsJSON = ?5, configJSON = ?6, isEnabled = ?7, syncBackEnabled = ?8,
+             lastSyncAt = ?9, updatedAt = ?10 WHERE id = ?1",
+            params![
+                config.id, config.project_id, config.provider, config.name,
+                config.credentials_json, config.config_json,
+                config.is_enabled as i32, config.sync_back_enabled as i32,
+                config.last_sync_at, config.updated_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+        conn.execute("DELETE FROM issueTrackingConfig WHERE id = ?1", [id])?;
+        Ok(())
+    }
+}
+
+// ─── Issue Mapping ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueMapping {
+    pub id: String,
+    pub config_id: String,
+    pub task_id: String,
+    pub external_issue_id: String,
+    pub external_identifier: String,
+    pub external_url: Option<String>,
+    pub sync_status: String,
+    pub last_synced_at: Option<String>,
+    pub created_at: String,
+}
+
+impl IssueMapping {
+    pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            config_id: row.get("configId")?,
+            task_id: row.get("taskId")?,
+            external_issue_id: row.get("externalIssueId")?,
+            external_identifier: row.get("externalIdentifier")?,
+            external_url: row.get("externalUrl")?,
+            sync_status: row.get("syncStatus")?,
+            last_synced_at: row.get("lastSyncedAt")?,
+            created_at: row.get("createdAt")?,
+        })
+    }
+
+    pub fn all_for_config(conn: &Connection, config_id: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut stmt = conn.prepare(
+            "SELECT * FROM issueMapping WHERE configId = ?1 ORDER BY createdAt DESC"
+        )?;
+        let rows = stmt.query_map([config_id], |row| Self::from_row(row))?;
+        rows.collect()
+    }
+
+    pub fn insert(conn: &Connection, mapping: &IssueMapping) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO issueMapping (id, configId, taskId, externalIssueId, externalIdentifier, externalUrl, syncStatus, lastSyncedAt, createdAt)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                mapping.id, mapping.config_id, mapping.task_id,
+                mapping.external_issue_id, mapping.external_identifier,
+                mapping.external_url, mapping.sync_status,
+                mapping.last_synced_at, mapping.created_at
+            ],
+        )?;
         Ok(())
     }
 }

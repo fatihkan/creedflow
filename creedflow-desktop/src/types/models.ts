@@ -462,6 +462,17 @@ export interface TaskComment {
   createdAt: string;
 }
 
+// ─── Project Health Score ────────────────────────────────────────────────────
+
+export interface ProjectHealthScore {
+  overall: number;
+  passRate: number;
+  qualityScore: number;
+  deployRate: number;
+  recency: number;
+  taskCount: number;
+}
+
 // ─── Project Time Stats ─────────────────────────────────────────────────────
 
 export interface ProjectTimeStats {
@@ -589,6 +600,37 @@ export interface BudgetUtilization {
   currentSpend: number;
   percentage: number;
   alerts: BudgetAlert[];
+}
+
+// ─── Issue Tracking ─────────────────────────────────────────────────────────
+
+export type IssueProvider = "linear" | "jira";
+export type IssueSyncStatus = "imported" | "synced" | "sync_failed";
+
+export interface IssueTrackingConfig {
+  id: string;
+  projectId: string;
+  provider: IssueProvider;
+  name: string;
+  credentialsJson: string;
+  configJson: string;
+  isEnabled: boolean;
+  syncBackEnabled: boolean;
+  lastSyncAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IssueMapping {
+  id: string;
+  configId: string;
+  taskId: string;
+  externalIssueId: string;
+  externalIdentifier: string;
+  externalUrl: string | null;
+  syncStatus: IssueSyncStatus;
+  lastSyncedAt: string | null;
+  createdAt: string;
 }
 
 // ─── Agent Persona ──────────────────────────────────────────────────────────

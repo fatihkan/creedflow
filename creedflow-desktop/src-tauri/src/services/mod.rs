@@ -14,3 +14,4 @@ pub mod thumbnail;
 pub mod notifications;
 pub mod health;
 pub mod webhook_server;
+pub mod issue_tracking;
