@@ -28,6 +28,8 @@ import type {
   TaskComment,
   PromptUsageRecord,
   AgentPersona,
+  ProjectForecast,
+  TaskGraphData,
 } from "./types/models";
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -80,6 +82,9 @@ export const listProjectTemplates = () =>
 export const getProjectHealth = (projectId: string) =>
   invoke<ProjectHealthScore>("get_project_health", { projectId });
 
+export const getProjectForecast = (projectId: string) =>
+  invoke<ProjectForecast>("get_project_forecast", { projectId });
+
 export const createProjectFromTemplate = (templateId: string, name: string, description?: string, techStack?: string, directoryPath?: string) =>
   invoke<Project>("create_project_from_template", {
     templateId,
@@ -113,6 +118,9 @@ export const createTask = (
 
 export const updateTaskStatus = (id: string, status: string) =>
   invoke<void>("update_task_status", { id, status });
+
+export const getTaskGraph = (projectId: string) =>
+  invoke<TaskGraphData>("get_task_graph", { projectId });
 
 export const archiveTasks = (ids: string[]) =>
   invoke<void>("archive_tasks", { ids });

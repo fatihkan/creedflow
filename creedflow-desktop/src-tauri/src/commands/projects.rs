@@ -942,6 +942,76 @@ fn built_in_templates() -> Vec<ProjectTemplate> {
     ]
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectForecast {
+    pub total_tasks: i64,
+    pub completed_tasks: i64,
+    pub remaining_tasks: i64,
+    pub velocity_7day: f64,
+    pub velocity_30day: f64,
+    pub estimated_days_low: Option<f64>,
+    pub estimated_days_high: Option<f64>,
+    pub completion_pct: f64,
+}
+
+#[tauri::command]
+pub async fn get_project_forecast(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> Result<ProjectForecast, String> {
+    let db = state.db.lock().await;
+
+    let total_tasks: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL",
+        params![project_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    let completed_tasks: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL AND status = 'passed'",
+        params![project_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    let remaining_tasks = total_tasks - completed_tasks;
+
+    let now = chrono::Utc::now();
+    let seven_days_ago = (now - chrono::Duration::days(7)).format("%Y-%m-%d %H:%M:%S").to_string();
+    let thirty_days_ago = (now - chrono::Duration::days(30)).format("%Y-%m-%d %H:%M:%S").to_string();
+
+    let completed_7: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL AND status = 'passed' AND completedAt >= ?2",
+        params![project_id, seven_days_ago],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    let completed_30: i64 = db.conn.query_row(
+        "SELECT COUNT(*) FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL AND status = 'passed' AND completedAt >= ?2",
+        params![project_id, thirty_days_ago],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    let velocity_7day = completed_7 as f64 / 7.0;
+    let velocity_30day = completed_30 as f64 / 30.0;
+
+    let estimated_days_low = if velocity_7day > 0.0 { Some(remaining_tasks as f64 / velocity_7day) } else { None };
+    let estimated_days_high = if velocity_30day > 0.0 { Some(remaining_tasks as f64 / velocity_30day) } else { None };
+
+    let completion_pct = if total_tasks > 0 { completed_tasks as f64 / total_tasks as f64 } else { 0.0 };
+
+    Ok(ProjectForecast {
+        total_tasks,
+        completed_tasks,
+        remaining_tasks,
+        velocity_7day,
+        velocity_30day,
+        estimated_days_low,
+        estimated_days_high,
+        completion_pct,
+    })
+}
+
 fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {

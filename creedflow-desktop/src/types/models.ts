@@ -473,6 +473,27 @@ export interface ProjectHealthScore {
   taskCount: number;
 }
 
+export interface ProjectForecast {
+  totalTasks: number;
+  completedTasks: number;
+  remainingTasks: number;
+  velocity7day: number;
+  velocity30day: number;
+  estimatedDaysLow: number | null;
+  estimatedDaysHigh: number | null;
+  completionPct: number;
+}
+
+export interface TaskDependency {
+  taskId: string;
+  dependsOnTaskId: string;
+}
+
+export interface TaskGraphData {
+  tasks: AgentTask[];
+  dependencies: TaskDependency[];
+}
+
 // ─── Project Time Stats ─────────────────────────────────────────────────────
 
 export interface ProjectTimeStats {

@@ -81,6 +81,10 @@ struct ProjectDetailView: View {
                         ProjectTimeStatsView(project: project, tasks: tasks)
                     }
 
+                    // Forecast widget
+                    ProjectForecastView(projectId: projectId, appDatabase: appDatabase)
+                        .loadForecast()
+
                     if let errorMessage {
                         ForgeErrorBanner(message: errorMessage, onDismiss: { self.errorMessage = nil })
                     }

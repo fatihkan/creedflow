@@ -101,6 +101,7 @@ pub fn run() {
             commands::projects::list_project_templates,
             commands::projects::create_project_from_template,
             commands::projects::get_project_health,
+            commands::projects::get_project_forecast,
             // Tasks
             commands::tasks::list_tasks,
             commands::tasks::get_task,
@@ -117,6 +118,7 @@ pub fn run() {
             commands::tasks::batch_cancel_tasks,
             commands::tasks::add_task_comment,
             commands::tasks::list_task_comments,
+            commands::tasks::get_task_graph,
             commands::tasks::get_task_prompt_history,
             // Backends
             commands::backends::list_backends,

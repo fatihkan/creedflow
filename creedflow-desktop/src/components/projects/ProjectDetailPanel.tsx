@@ -16,7 +16,7 @@ import {
 import { save } from "@tauri-apps/plugin-dialog";
 import { useProjectStore } from "../../store/projectStore";
 import * as api from "../../tauri";
-import type { AgentTask, DetectedEditor, ProjectHealthScore } from "../../types/models";
+import type { AgentTask, DetectedEditor, ProjectHealthScore, ProjectForecast } from "../../types/models";
 import { ProjectTimeStats } from "./ProjectTimeStats";
 import { useTranslation } from "react-i18next";
 import { showErrorToast } from "../../hooks/useErrorToast";
@@ -36,6 +36,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
   const [editors, setEditors] = useState<DetectedEditor[]>([]);
   const [preferredEditor, setPreferredEditor] = useState<string | null>(null);
   const [healthScore, setHealthScore] = useState<ProjectHealthScore | null>(null);
+  const [forecast, setForecast] = useState<ProjectForecast | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +49,7 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
       .finally(() => { if (!cancelled) setLoadingTasks(false); });
 
     api.getProjectHealth(projectId).then((h) => { if (!cancelled) setHealthScore(h); }).catch(() => {});
+    api.getProjectForecast(projectId).then((f) => { if (!cancelled) setForecast(f); }).catch(() => {});
     api.gitCurrentBranch(projectId).then((b) => { if (!cancelled) setCurrentBranch(b); }).catch(() => {});
     api.detectEditors().then((e) => { if (!cancelled) setEditors(e); }).catch(() => {});
     api.getPreferredEditor().then((e) => { if (!cancelled) setPreferredEditor(e); }).catch(() => {});
@@ -128,6 +130,11 @@ export function ProjectDetailPanel({ projectId, onClose, onViewTasks }: ProjectD
 
         {/* Time stats */}
         {totalTasks > 0 && <ProjectTimeStats projectId={projectId} />}
+
+        {/* Forecast widget */}
+        {forecast && forecast.totalTasks > 0 && (
+          <ForecastWidget forecast={forecast} />
+        )}
 
         {/* Branch info */}
         {currentBranch && (
@@ -325,6 +332,75 @@ function MetricPill({ label, value }: { label: string; value: number }) {
     <div className="text-center">
       <p className="text-[10px] font-semibold text-zinc-300 font-mono">{Math.round(value * 100)}%</p>
       <p className="text-[8px] text-zinc-600">{label}</p>
+    </div>
+  );
+}
+
+function formatDays(days: number): string {
+  if (days < 1) return "< 1 day";
+  if (days < 2) return "1 day";
+  if (days < 7) return `${Math.round(days)} days`;
+  const weeks = days / 7;
+  if (weeks < 2) return "1 week";
+  return `${weeks.toFixed(1)} weeks`;
+}
+
+function ForecastWidget({ forecast }: { forecast: ProjectForecast }) {
+  const pct = Math.round(forecast.completionPct * 100);
+
+  return (
+    <div className="p-3 bg-zinc-800/40 rounded-lg border border-zinc-800/50 space-y-2">
+      <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Projected Completion</p>
+
+      {/* Progress bar */}
+      <div>
+        <div className="flex justify-between text-[10px] mb-1">
+          <span className="text-zinc-400">{forecast.completedTasks}/{forecast.totalTasks} tasks</span>
+          <span className="font-bold font-mono text-amber-400">{pct}%</span>
+        </div>
+        <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+          <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      {/* Velocity stats */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="text-center p-1.5 bg-zinc-800/60 rounded">
+          <p className="text-[9px] text-zinc-500">7-day</p>
+          <p className={`text-xs font-semibold font-mono ${forecast.velocity7day > 0 ? "text-green-400" : "text-zinc-500"}`}>
+            {forecast.velocity7day.toFixed(1)}/day
+          </p>
+        </div>
+        <div className="text-center p-1.5 bg-zinc-800/60 rounded">
+          <p className="text-[9px] text-zinc-500">30-day</p>
+          <p className={`text-xs font-semibold font-mono ${forecast.velocity30day > 0 ? "text-green-400" : "text-zinc-500"}`}>
+            {forecast.velocity30day.toFixed(1)}/day
+          </p>
+        </div>
+      </div>
+
+      {/* Estimated completion */}
+      {forecast.remainingTasks > 0 ? (
+        <div className="flex items-center gap-2 p-2 bg-zinc-800/60 rounded text-xs">
+          <span className="text-blue-400">&#128197;</span>
+          {forecast.estimatedDaysLow != null && forecast.estimatedDaysHigh != null ? (
+            Math.abs(forecast.estimatedDaysLow - forecast.estimatedDaysHigh) < 1 ? (
+              <span className="text-zinc-300">~{formatDays(forecast.estimatedDaysLow)}</span>
+            ) : (
+              <span className="text-zinc-300">{formatDays(forecast.estimatedDaysLow)} &ndash; {formatDays(forecast.estimatedDaysHigh)}</span>
+            )
+          ) : forecast.estimatedDaysLow != null ? (
+            <span className="text-zinc-300">~{formatDays(forecast.estimatedDaysLow)}</span>
+          ) : (
+            <span className="text-zinc-600">Insufficient data</span>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 text-xs text-green-400">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          All tasks complete
+        </div>
+      )}
     </div>
   );
 }

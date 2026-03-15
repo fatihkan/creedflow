@@ -287,6 +287,38 @@ pub async fn list_task_comments(
     TaskComment::all_for_task(&db.conn, &task_id).map_err(|e| e.to_string())
 }
 
+// ─── Task Graph ────────────────────────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskGraphData {
+    pub tasks: Vec<AgentTask>,
+    pub dependencies: Vec<TaskDependency>,
+}
+
+#[tauri::command]
+pub async fn get_task_graph(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> Result<TaskGraphData, String> {
+    let db = state.db.lock().await;
+    let mut stmt = db.conn.prepare(
+        "SELECT * FROM agentTask WHERE projectId = ?1 AND archivedAt IS NULL ORDER BY priority DESC"
+    ).map_err(|e| e.to_string())?;
+    let tasks: Vec<AgentTask> = stmt.query_map(params![project_id], |row| AgentTask::from_row(row))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    let task_ids: Vec<&str> = tasks.iter().map(|t| t.id.as_str()).collect();
+    let mut all_deps: Vec<TaskDependency> = Vec::new();
+    for tid in &task_ids {
+        let deps = TaskDependency::for_task(&db.conn, tid).map_err(|e| e.to_string())?;
+        all_deps.extend(deps);
+    }
+
+    Ok(TaskGraphData { tasks, dependencies: all_deps })
+}
+
 // ─── Task Prompt History ────────────────────────────────────────────────────
 
 #[tauri::command]

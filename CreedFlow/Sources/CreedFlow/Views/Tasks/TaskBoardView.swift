@@ -22,6 +22,7 @@ struct TaskBoardView: View {
     @State private var archiveSelection: Set<UUID> = []
     @State private var isArchiveSelectionMode = false
     @State private var searchText: String = ""
+    @State private var showDependencyGraph = false
 
     init(projectId: UUID?, selectedTaskId: Binding<UUID?>, appDatabase: AppDatabase?, orchestrator: Orchestrator?, onNavigateToSettings: (() -> Void)? = nil, showChatPanel: Binding<Bool> = .constant(false), onChatProjectChanged: ((UUID?) -> Void)? = nil) {
         self.projectId = projectId
@@ -191,6 +192,13 @@ struct TaskBoardView: View {
 
                     if filterProjectId != nil {
                         Button {
+                            showDependencyGraph = true
+                        } label: {
+                            Label("Graph", systemImage: "point.3.connected.trianglepath.dotted")
+                        }
+                        .help("View task dependency graph")
+
+                        Button {
                             showNewTask = true
                         } label: {
                             Label("New Task", systemImage: "plus")
@@ -260,6 +268,11 @@ struct TaskBoardView: View {
         .sheet(isPresented: $showNewTask) {
             if let pid = filterProjectId {
                 NewTaskSheet(projectId: pid, appDatabase: appDatabase)
+            }
+        }
+        .sheet(isPresented: $showDependencyGraph) {
+            if let pid = filterProjectId {
+                TaskDependencyGraphView(projectId: pid, appDatabase: appDatabase)
             }
         }
         .confirmationDialog(
